@@ -1,6 +1,8 @@
 {
-  "name": "hello-world",
+  "name": "friendly-wires",
   "version": "0.1.0",
+  "main": "src/index.js",
+  "author": "Benjamin Lewis benjamin.lewis.1000@gmail.com",
   "private": true,
   "dependencies": {
     "@testing-library/jest-dom": "^4.2.4",

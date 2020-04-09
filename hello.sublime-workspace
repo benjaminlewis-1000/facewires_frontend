@@ -1,0 +1,527 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"mat",
+				"matched_serials_only"
+			],
+			[
+				"THRE",
+				"THRESH_OTSU\tinstance"
+			],
+			[
+				"AD",
+				"ADAPTIVE_THRESH_MEAN_C\tinstance"
+			],
+			[
+				"get",
+				"Get_XMP_Faces"
+			],
+			[
+				"TAGGE",
+				"TAGGER_DB_DIR"
+			],
+			[
+				"cnn",
+				"cnnMatchedSet"
+			],
+			[
+				"m",
+				"matchedCnnFaces"
+			],
+			[
+				"ma",
+				"matchFace"
+			],
+			[
+				"rec",
+				"rectangle"
+			],
+			[
+				"in",
+				"intersectOverUnion"
+			],
+			[
+				"ind",
+				"indices"
+			],
+			[
+				"r",
+				"right"
+			],
+			[
+				"oth",
+				"otherRectangle"
+			],
+			[
+				"ot",
+				"otherRectangle"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "Dockerfile",
+			"settings":
+			{
+				"buffer_size": 386,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"inst",
+				"Package Control: Install Package"
+			],
+			[
+				"packa",
+				"Package Control: Install Package"
+			],
+			[
+				"instal",
+				"Install Package Control"
+			]
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/home/benjamin/gitRepos/friendly-wires"
+	],
+	"file_history":
+	[
+		"/home/benjamin/gitRepos/sample2/demo_codes/dataset_stats.py",
+		"/home/benjamin/gitRepos/sample2/demo_codes/target_report.py",
+		"/home/benjamin/gitRepos/sample2/demo_codes/interp.py",
+		"/home/benjamin/gitRepos/sample2/image_generator/image_formation/make_imform_struct.py",
+		"/home/benjamin/gitRepos/sample2/demo_codes/split_large_mat_files.py",
+		"/home/benjamin/gitRepos/sample2/config_validator.py",
+		"/home/benjamin/gitRepos/sample2/phase_interpolator/input_validator.py",
+		"/home/benjamin/gitRepos/sample2/phase_interpolator/phinterp_base.py",
+		"/home/benjamin/gitRepos/sample2/phase_interpolator/phInterp3.py",
+		"/home/benjamin/gitRepos/sample2/image_generator/image_align.py",
+		"/home/benjamin/gitRepos/sample2/chip_reader/readChipFile.py",
+		"/home/benjamin/gitRepos/sample2/phase_interpolator/phInterp_SAMPLE_2.py",
+		"/home/benjamin/gitRepos/sample2/image_generator/image_formation/normalize_img.py",
+		"/home/benjamin/gitRepos/sample2/.matlab_code/investigation/mat_to_numpy.py",
+		"/home/benjamin/gitRepos/sample2/tests/test_phInterp.py",
+		"/home/benjamin/gitRepos/sample2/image_generator/__init__.py",
+		"/home/benjamin/gitRepos/sample2/image_generator/image_formation/if_bp_basic_farfield.py",
+		"/home/benjamin/gitRepos/sample2/image_generator/image_formation/if_polar_format.py",
+		"/home/benjamin/gitRepos/sample2/image_generator/image_formation/if_nufft.py",
+		"/home/benjamin/gitRepos/sample2/image_generator/image_formation/__init__.py",
+		"/home/benjamin/gitRepos/sample2/demo_codes/elev_sample_demo.py",
+		"/home/benjamin/gitRepos/sample2/readSi.py",
+		"/home/benjamin/Downloads/siread/si/readSi.py",
+		"/home/benjamin/Downloads/siread/si/si_view_scripts/readSi.m",
+		"/home/benjamin/Downloads/siread/si/si_view_scripts/Read_SI.m",
+		"/home/benjamin/Downloads/siread/si/si_view_scripts/img_dB.m",
+		"/home/benjamin/Downloads/siread/si/si_view_scripts/SiReader.m",
+		"/home/benjamin/gitRepos/sample2/demo_codes/art_file_list.txt",
+		"/home/benjamin/gitRepos/sample2/phase_interpolator/__init__.py",
+		"/home/benjamin/gitRepos/sample2/main.py",
+		"/home/benjamin/gitRepos/sample2/image_generator/build_flight_path.py",
+		"/home/benjamin/gitRepos/sample2/demo_codes/imform_demo.py",
+		"/home/benjamin/gitRepos/sample2/requirements.txt",
+		"/home/benjamin/gitRepos/sample2/dataset_stats.py",
+		"/home/benjamin/gitRepos/sample2/interp.py",
+		"/home/benjamin/gitRepos/sample2/imform_demo.py",
+		"/home/benjamin/gitRepos/sample2/tests/test_image_formation.py",
+		"/home/benjamin/gitRepos/sample2/test_mask.py",
+		"/home/benjamin/gitRepos/sample2/synth_if_driver.py",
+		"/home/benjamin/gitRepos/sample2/mstar_stats.csv",
+		"/home/benjamin/gitRepos/sample2/test_metadata.py",
+		"/home/benjamin/gitRepos/sample2/tmp.py",
+		"/home/benjamin/gitRepos/sample2/tests/test_chip_reader.py",
+		"/home/benjamin/gitRepos/sample2/.matlab_code/tools/alignment/super_resolve.m",
+		"/home/benjamin/gitRepos/react_picasa/node-v12.16.1-linux-x64/README.md",
+		"/home/benjamin/gitRepos/react_picasa/js/comp_test.js",
+		"/home/benjamin/gitRepos/react_picasa/js/picasa_screen.js",
+		"/home/benjamin/gitRepos/react_picasa/like_button.js",
+		"/home/benjamin/gitRepos/react_picasa/monster.js",
+		"/home/benjamin/gitRepos/react_picasa/test.html",
+		"/home/benjamin/gitRepos/faceTagging/parameters.xml",
+		"/home/benjamin/Desktop/photos_for_test/faceTagging/rectangleBen.py",
+		"/home/benjamin/Desktop/photos_for_test/faceTagging/doTagger.py",
+		"/mnt/NAS/exclude/tagger_subset/pickles_2x2/faceTagging/analyze.py",
+		"/home/benjamin/Desktop/photos_for_test/faceTagging/code/tiled_detect.py",
+		"/home/benjamin/gitRepos/photo_orienter/displayer.py",
+		"/home/benjamin/gitRepos/photoDisplayer/pyInit/getExif.py",
+		"/home/benjamin/gitRepos/django_picasa/filepopulator/models.py",
+		"/home/benjamin/gitRepos/django_picasa/random_code/imageHandler.py",
+		"/home/benjamin/gitRepos/django_picasa/docker-compose-laptop.yml",
+		"/home/benjamin/gitRepos/django_picasa/filepopulator/jpg_extractor.py",
+		"/mnt/NAS/exclude/tagger_subset/pickles_2x2/faceTagging/doTagger.py",
+		"/mnt/NAS/exclude/tagger_subset/faceTagging/doTagger.py",
+		"/mnt/NAS/exclude/tagger_subset/pickles_2x2/faceTagging/code/tiled_detect.py",
+		"/home/benjamin/Desktop/photos_for_test/code/dlib_install.txt",
+		"/home/benjamin/Desktop/photos_for_test/code/rectangleBen.py",
+		"/home/benjamin/Desktop/photos_for_test/code/pyPicasaFaceXMP/picasaXMPFaceReader.py",
+		"/home/benjamin/Desktop/photos_for_test/code/face_tag_test.py",
+		"/home/benjamin/Desktop/photos_for_test/code/tiled_detect.py",
+		"/home/benjamin/Desktop/photos_for_test/code/rectangle.py"
+	],
+	"find":
+	{
+		"height": 27.0
+	},
+	"find_in_files":
+	{
+		"height": 104.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"print",
+			"print(meas",
+			"print",
+			"print(",
+			"mat_fil",
+			"get_png_",
+			"previous_file = ",
+			"full_fi",
+			"img_data",
+			"removing",
+			"pngimagefile",
+			"xrange_res",
+			"full_f",
+			"imagesaver.",
+			"nbar",
+			"print",
+			"with op",
+			"filepah",
+			"self.log",
+			"sample_version",
+			"fliplr",
+			"FLIPUD",
+			"meas_img",
+			"print",
+			"t62",
+			"matched_",
+			"print",
+			"matched_ser",
+			"real",
+			"imform_algorithms",
+			"measured",
+			"img_form",
+			"image_formation",
+			"dataset_gen",
+			"backproject",
+			"pfa",
+			"imageSaver",
+			"matfile",
+			"save_mat",
+			"self.file_base",
+			"none",
+			"out_of_lib",
+			"range_extent",
+			"phase_history",
+			"elevation_deg",
+			"imageSaver",
+			"output_dir",
+			"outdirs",
+			"valid_targets",
+			"chipData",
+			"matched_seri",
+			"out",
+			"output_directory_forma",
+			"output_dirs",
+			"target_chip_list",
+			"target",
+			"targetFolderName",
+			"targetFoldern",
+			"chipDataClass",
+			"data_class",
+			"heigh",
+			"output_dir",
+			"imageSaver",
+			"output_dirs",
+			"output_dir",
+			"output",
+			"gen_image",
+			"M520",
+			"in_lib",
+			"align_image",
+			"plt.",
+			"stats",
+			"remove_brigh",
+			"np.mean(",
+			"grubbs",
+			"remove_br",
+			"plt.imshow",
+			"meas_img",
+			"crop_center",
+			"print",
+			"t62",
+			"T72",
+			"remove_bright_sp",
+			"meas_shifted",
+			"save_pngs",
+			"nufft",
+			"k_nodes",
+			"normali",
+			"flipl",
+			"fliplr",
+			"targs_with_measured",
+			"targs_without_measured",
+			"targs_valid_coll",
+			"valid_cols",
+			"m60",
+			"zil13",
+			"m109",
+			"hmmwv",
+			"m110",
+			"m88",
+			"m577",
+			"m978",
+			"btr60",
+			"btr",
+			"t72",
+			"brdm",
+			"scud",
+			"978",
+			"m88",
+			"t62",
+			"m109",
+			"m113",
+			"m113\n",
+			"m110",
+			"m978",
+			"m35",
+			"109",
+			"520",
+			"zil13",
+			"m548",
+			"btr60",
+			"m35",
+			"m978",
+			"<Scene>",
+			"<Year>",
+			"m577",
+			"m520",
+			"'</alias>"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+			"targs_with_model",
+			"targs_without_model",
+			"valid_config_cols",
+			"<Scene type='int'>",
+			"<Year type='int'>",
+			"</alias>",
+			"<alias>",
+			"target_set",
+			"self.readInt()",
+			"#",
+			"self.el_inc",
+			"self.az_inc",
+			"}",
+			"{",
+			"}",
+			"{",
+			"",
+			"self.readFloat()",
+			"self.readInt()",
+			"#",
+			"self.readFloat()",
+			"self.readInt()",
+			"#",
+			"self.serial",
+			"self.bounce_type",
+			"self.synth_or_real",
+			"self.im_form_alg",
+			"self.this_pol",
+			"self.phaseInterpolator",
+			"alias_sample1",
+			"param_data.",
+			"param_data",
+			"</collection>\n\t\t\t<articulation_file></articulation_file>",
+			"</min_sample_version>\n\t\t\t<collection></collection>",
+			"</serial>\n\t\t\t<wiki_link></wiki_link>",
+			"\n",
+			"<min_sample_version type='float'>",
+			"</serial>\n\t\t\t<min_sample_version>1.0</min_sample_version>",
+			"</serial>\n\t\t\t<min_sample_version>1.0</min_sample_version",
+			"</serial>\n<min_sample_version>1.0</min_sample_version",
+			"os.path.join(self.config['measured_dir'], '",
+			"__compute_bounding_box__",
+			"__remove_bright_spots__",
+			"__super_resolve__",
+			"__smooth_img__",
+			"__normalize_image__",
+			"num_iters",
+			"Rectangle"
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "Dockerfile",
+					"semi_transient": true,
+					"settings":
+					{
+						"buffer_size": 386,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								386,
+								386
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 27.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"output.unsaved_changes":
+	{
+		"height": 126.0
+	},
+	"pinned_build_system": "",
+	"project": "hello.sublime-project",
+	"replace":
+	{
+		"height": 50.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 500.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"",
+				"~/gitRepos/sample2/sample.sublime-project"
+			]
+		],
+		"width": 380.0
+	},
+	"select_symbol":
+	{
+		"height": 392.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 592.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 228.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}
