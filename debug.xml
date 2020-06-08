@@ -1,0 +1,15 @@
+
+<?xml version='1.0' encoding='UTF-8' ?>
+<root>
+    <!-- sample_version dictates which type of data source is used. 
+    <!   Version 1.0  -->
+    <api_user>benjamin</api_user>
+    <api_pass>L0TRswhp</api_pass>
+    <media_user>picasa_data</media_user>
+    <media_pass>3c6MLCBhjjbORfrZ5ByoAk27H</media_pass>
+    <media_domain>picasamedia.exploretheworld.tech</media_domain>
+    <api_domain>picasa.exploretheworld.tech/api</api_domain>
+</root>
+
+        
+

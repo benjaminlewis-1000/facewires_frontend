@@ -1,0 +1,50 @@
+
+version: "3.3"
+services:
+  picasa_frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        buildno: 1
+    image:
+      picasa_frontend_img
+    container_name: picasa_frontend
+    env_file:
+      - .env
+    command:
+      sh /start.sh
+    # entrypoint:
+    #   # serve -s build
+    #   /bin/ # For the dev server
+    environment:
+      # Add the following line to your /etc/profile:
+      # HOST_IP=`ip route | grep default | awk '{print $9}'`
+      - DOCKER_HOST_IP=${HOST_IP} 
+      - CHOKIDAR_USEPOLLING=true
+    ports:
+     - 8080:3000
+     - 8081:5000
+    volumes:
+      - '/app/node_modules'
+      - /home/benjamin/git_repos/facewires_frontend/:/app
+    networks:
+      - traefik_proxy
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.picasafront.rule=Host(`${WEBAPP_DOMAIN}`)"
+      - "traefik.http.routers.picasafront.tls.certresolver=leresolver"
+      - "traefik.http.routers.picasa_frontend.entrypoints=websecure"
+      # - "traefik.http.services.picasafront.loadbalancer.server.port=5000"
+      - "traefik.http.services.picasafront.loadbalancer.server.port=3000"
+      - "traefik.http.services.picasafront.loadbalancer.healthcheck.hostname=${WEBAPP_DOMAIN}"
+      - "traefik.http.middlewares.picasafront.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.picasafront.redirectscheme.permanent=true"
+
+
+networks:
+  default: 
+    driver: bridge
+  traefik_proxy:
+    external: true

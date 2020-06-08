@@ -4,6 +4,18 @@
 		"selected_items":
 		[
 			[
+				"dur",
+				"duration_css\t⟠"
+			],
+			[
+				"execu",
+				"execute_delete"
+			],
+			[
+				"start_",
+				"start_date"
+			],
+			[
 				"mat",
 				"matched_serials_only"
 			],
@@ -64,10 +76,73 @@
 	"buffers":
 	[
 		{
-			"file": "Dockerfile",
+			"file": "src/components/login.js",
 			"settings":
 			{
-				"buffer_size": 386,
+				"buffer_size": 2794,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/index.js",
+			"settings":
+			{
+				"buffer_size": 663,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/picasaScreen.js",
+			"settings":
+			{
+				"buffer_size": 7463,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "package.json",
+			"settings":
+			{
+				"buffer_size": 1517,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "/home/benjamin/gitRepos/papers/2021/fcs_multilook/abstract.txt",
+			"settings":
+			{
+				"buffer_size": 2792,
+				"encoding": "UTF-8",
+				"line_ending": "Unix",
+				"name": "TITLE: Multi-look SAR Classification: Training on"
+			}
+		},
+		{
+			"file": "/home/benjamin/gitRepos/slideshow/src/App.js",
+			"settings":
+			{
+				"buffer_size": 7670,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "/home/benjamin/gitRepos/slideshow/package.json",
+			"settings":
+			{
+				"buffer_size": 998,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/mainApp.js",
+			"settings":
+			{
+				"buffer_size": 2746,
+				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		}
@@ -83,6 +158,10 @@
 		"last_filter": "",
 		"selected_items":
 		[
+			[
+				"install",
+				"Package Control: Install Package"
+			],
 			[
 				"inst",
 				"Package Control: Install Package"
@@ -116,10 +195,78 @@
 	},
 	"expanded_folders":
 	[
-		"/home/benjamin/gitRepos/friendly-wires"
+		"/home/benjamin/gitRepos/friendly-wires",
+		"/home/benjamin/gitRepos/friendly-wires/src",
+		"/home/benjamin/gitRepos/friendly-wires/src/components"
 	],
 	"file_history":
 	[
+		"/home/benjamin/gitRepos/friendly-wires/src/components/picasaScreen.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/personList2.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/personList.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/imageObj.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/imageScreen.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/login.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/index.js",
+		"/home/benjamin/gitRepos/slideshow/src/App.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/pcScreenTest.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/mainApp.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/picasaScreen.js",
+		"/home/benjamin/gitRepos/test/slideshow/src/params.js",
+		"/home/benjamin/gitRepos/slideshow/src/App.css",
+		"/home/benjamin/gitRepos/slideshow/src/index.js",
+		"/home/benjamin/gitRepos/slideshow/src/switchers.css",
+		"/home/benjamin/gitRepos/slideshow/src/image.css",
+		"/home/benjamin/gitRepos/slideshow/src/switcher.js",
+		"/home/benjamin/gitRepos/faceTagging/face_extraction/getPicasa2.py",
+		"/home/benjamin/gitRepos/slideshow/src/image.js",
+		"/home/benjamin/gitRepos/slideshow/src/crossfade.js",
+		"/home/benjamin/tmp_post.py",
+		"/home/benjamin/gitRepos/id_targ_decisions/parameters.xml",
+		"/home/benjamin/kml_hist.py",
+		"/home/benjamin/post_echo.py",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/person.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/imagePanel.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/misc.css",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/folderList.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/folderObj.js",
+		"/mnt/server_home/git_repos/facewires_frontend/webpack.config.js",
+		"/mnt/server_home/git_repos/facewires_frontend/package.json",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/login.css",
+		"/mnt/NAS/GPS_Data/unzipped/20190718150412.gpx",
+		"/mnt/NAS/GPS_Data/unzipped/20190710233847.gpx",
+		"/mnt/server_home/docker_installs/location_track/add_vals_quick.py",
+		"/mnt/server_home/docker_installs/location_track/templates/example.html",
+		"/mnt/server_home/docker_installs/location_track/test_flask.py",
+		"/mnt/server_home/docker_installs/location_track/docker-compose.yml",
+		"/mnt/server_home/docker_installs/owntracks/docker-compose.yml",
+		"/mnt/server_home/git_repos/facewires_frontend/src/App.js",
+		"/mnt/server_home/git_repos/facewires_frontend/Dockerfile",
+		"/mnt/server_home/git_repos/facewires_frontend/debug.xml",
+		"/mnt/server_home/docker_installs/location_track/static/css/example.css",
+		"/mnt/server_home/docker_installs/location_track/templates/example.css",
+		"/home/benjamin/goog_hist.py",
+		"/mnt/server_home/docker_installs/location_track/templates/upload.html",
+		"/home/benjamin/gitRepos/id_targ_decisions/todos.txt",
+		"/tmp/2020-04.rec",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/isLoggedIn.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/mk_request.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/login2.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/axiosApi.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/config.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/debug.xml",
+		"/mnt/server_home/git_repos/facewires_frontend/.env",
+		"/mnt/server_home/git_repos/facewires_frontend/docker-compose.yml",
+		"/mnt/server_home/git_repos/facewires_frontend/public/index.html",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/picasaScreen.css",
+		"/mnt/server_home/git_repos/facewires_frontend/.dockerignore",
+		"/mnt/server_home/git_repos/django_picasa/dockerize/.env",
+		"/mnt/server_home/git_repos/django_picasa/dockerize/docker-compose.yaml",
+		"/mnt/server_home/git_repos/django_picasa/dockerize/Dockerfile_picasa",
+		"/mnt/server_home/git_repos/django_picasa/dockerize/Dockerfile_apache",
+		"/mnt/server_home/git_repos/facewires_frontend/server.js",
+		"/home/benjamin/gitRepos/friendly-wires/Dockerfile",
+		"/home/benjamin/gitRepos/friendly-wires/.dockerignore",
 		"/home/benjamin/gitRepos/sample2/demo_codes/dataset_stats.py",
 		"/home/benjamin/gitRepos/sample2/demo_codes/target_report.py",
 		"/home/benjamin/gitRepos/sample2/demo_codes/interp.py",
@@ -181,19 +328,11 @@
 		"/home/benjamin/gitRepos/django_picasa/random_code/imageHandler.py",
 		"/home/benjamin/gitRepos/django_picasa/docker-compose-laptop.yml",
 		"/home/benjamin/gitRepos/django_picasa/filepopulator/jpg_extractor.py",
-		"/mnt/NAS/exclude/tagger_subset/pickles_2x2/faceTagging/doTagger.py",
-		"/mnt/NAS/exclude/tagger_subset/faceTagging/doTagger.py",
-		"/mnt/NAS/exclude/tagger_subset/pickles_2x2/faceTagging/code/tiled_detect.py",
-		"/home/benjamin/Desktop/photos_for_test/code/dlib_install.txt",
-		"/home/benjamin/Desktop/photos_for_test/code/rectangleBen.py",
-		"/home/benjamin/Desktop/photos_for_test/code/pyPicasaFaceXMP/picasaXMPFaceReader.py",
-		"/home/benjamin/Desktop/photos_for_test/code/face_tag_test.py",
-		"/home/benjamin/Desktop/photos_for_test/code/tiled_detect.py",
-		"/home/benjamin/Desktop/photos_for_test/code/rectangle.py"
+		"/mnt/NAS/exclude/tagger_subset/pickles_2x2/faceTagging/doTagger.py"
 	],
 	"find":
 	{
-		"height": 27.0
+		"height": 43.0
 	},
 	"find_in_files":
 	{
@@ -207,134 +346,134 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"history-",
+			"handleLogout",
+			"loading",
+			"settimeout",
+			"fetchNames",
+			"history",
+			"history ",
+			"handleLog",
+			"refresh",
+			"list_url",
+			"image_ids",
+			"xmlto",
+			"console",
+			"shuffle",
+			"shuff",
+			"backgr",
+			"image_ids",
+			"help",
+			"help =",
+			"height",
+			"console.",
+			"ref",
+			"this.ref",
+			"url_tok",
+			"setIndex",
+			"console.log",
+			"construct_url",
+			"picasa",
+			"img_access_key",
+			"pic-wra",
+			"loading",
+			"crossfadeImag",
+			"crossfadeImage",
+			"timingfun",
+			"efault",
+			"style",
+			">\n",
+			"two",
+			"axiosInstan",
+			"people_url",
+			"getnames",
+			"axios",
+			"access_token",
+			"login",
+			"access_",
+			"access_to",
+			"access_token",
+			"refresh",
+			"axios",
+			"token/",
+			"header",
+			"str",
+			"console.log",
+			"img",
+			"alt",
+			"api_url",
+			"axio",
+			"axiosInstan",
+			"getNames",
+			"renderPerson",
+			"props",
+			"people",
+			"getnames",
+			"component",
+			"error.respons",
+			"axios-auth",
+			"history",
+			"islogged",
+			"extend",
+			"history",
+			"in database!",
+			"form",
+			"subm",
+			"button",
+			"polylines",
+			"execute",
+			"delete_points",
+			"delete poin",
+			"not in databa",
+			"elevation_fu",
+			"specific_start",
+			"calc_map",
+			"end_date",
+			"dict_dat",
+			"end_datet",
+			"start_date",
+			"calc_end",
+			"calc_s",
+			"calc_sta",
+			"-01-01",
+			"re.match",
+			"try:",
+			"r_dict['date",
+			"r_dict['dat",
+			"r_dict'[",
+			"lat_top",
+			"sndmap",
+			"lat:",
+			"del_re",
+			"assert ",
+			"del_req",
+			"assert",
+			"markers = ",
+			"fetchon",
+			"calc_map_ce",
+			"conn.exe",
+			"request.value",
+			"200",
+			"mymap",
+			"example.ht",
+			"mym",
+			"mymap",
+			"conn.exec",
+			"min_lat",
+			"methodd",
+			"conn",
+			"conn = ",
+			"conn",
+			"prog_fi",
+			"cut",
+			"map",
+			"times_in_list",
+			"times_in_lis",
+			"In lines",
 			"print",
-			"print(meas",
-			"print",
-			"print(",
-			"mat_fil",
-			"get_png_",
-			"previous_file = ",
-			"full_fi",
-			"img_data",
-			"removing",
-			"pngimagefile",
-			"xrange_res",
-			"full_f",
-			"imagesaver.",
-			"nbar",
-			"print",
-			"with op",
-			"filepah",
-			"self.log",
-			"sample_version",
-			"fliplr",
-			"FLIPUD",
-			"meas_img",
-			"print",
-			"t62",
-			"matched_",
-			"print",
-			"matched_ser",
-			"real",
-			"imform_algorithms",
-			"measured",
-			"img_form",
-			"image_formation",
-			"dataset_gen",
-			"backproject",
-			"pfa",
-			"imageSaver",
-			"matfile",
-			"save_mat",
-			"self.file_base",
-			"none",
-			"out_of_lib",
-			"range_extent",
-			"phase_history",
-			"elevation_deg",
-			"imageSaver",
-			"output_dir",
-			"outdirs",
-			"valid_targets",
-			"chipData",
-			"matched_seri",
-			"out",
-			"output_directory_forma",
-			"output_dirs",
-			"target_chip_list",
-			"target",
-			"targetFolderName",
-			"targetFoldern",
-			"chipDataClass",
-			"data_class",
-			"heigh",
-			"output_dir",
-			"imageSaver",
-			"output_dirs",
-			"output_dir",
-			"output",
-			"gen_image",
-			"M520",
-			"in_lib",
-			"align_image",
-			"plt.",
-			"stats",
-			"remove_brigh",
-			"np.mean(",
-			"grubbs",
-			"remove_br",
-			"plt.imshow",
-			"meas_img",
-			"crop_center",
-			"print",
-			"t62",
-			"T72",
-			"remove_bright_sp",
-			"meas_shifted",
-			"save_pngs",
-			"nufft",
-			"k_nodes",
-			"normali",
-			"flipl",
-			"fliplr",
-			"targs_with_measured",
-			"targs_without_measured",
-			"targs_valid_coll",
-			"valid_cols",
-			"m60",
-			"zil13",
-			"m109",
-			"hmmwv",
-			"m110",
-			"m88",
-			"m577",
-			"m978",
-			"btr60",
-			"btr",
-			"t72",
-			"brdm",
-			"scud",
-			"978",
-			"m88",
-			"t62",
-			"m109",
-			"m113",
-			"m113\n",
-			"m110",
-			"m978",
-			"m35",
-			"109",
-			"520",
-			"zil13",
-			"m548",
-			"btr60",
-			"m35",
-			"m978",
-			"<Scene>",
-			"<Year>",
-			"m577",
-			"m520",
-			"'</alias>"
+			"alt",
+			"altit",
+			"time.str"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -342,6 +481,7 @@
 		"regex": false,
 		"replace_history":
 		[
+			"fetchLinkedArray",
 			"targs_with_model",
 			"targs_without_model",
 			"valid_config_cols",
@@ -400,28 +540,165 @@
 	"groups":
 	[
 		{
-			"selected": 0,
+			"selected": 4,
 			"sheets":
 			[
 				{
 					"buffer": 0,
-					"file": "Dockerfile",
-					"semi_transient": true,
+					"file": "src/components/login.js",
+					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 386,
+						"buffer_size": 2794,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								386,
-								386
+								877,
+								877
 							]
 						],
 						"settings":
 						{
+							"syntax": "Packages/Babel/JavaScript (Babel).sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 7,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "src/index.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 663,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								282,
+								282
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Babel/JavaScript (Babel).sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 6,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "src/components/picasaScreen.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7463,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								7462,
+								7462
+							]
+						],
+						"settings":
+						{
+							"WordCount":
+							{
+								"changes": 1049,
+								"count": 295,
+								"modified": false,
+								"selection": false,
+								"status": -1,
+								"syntax": "plain text"
+							},
+							"syntax": "Packages/Babel/JavaScript (Babel).sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 5208.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "package.json",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1517,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								796,
+								796
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JSON.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "/home/benjamin/gitRepos/papers/2021/fcs_multilook/abstract.txt",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2792,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1050,
+								1050
+							]
+						],
+						"settings":
+						{
+							"WordCount":
+							{
+								"changes": 0,
+								"count": 425,
+								"modified": false,
+								"selection": false,
+								"status": -1,
+								"syntax": "plain text"
+							},
+							"auto_name": "TITLE: Multi-look SAR Classification: Training on",
 							"syntax": "Packages/Text/Plain text.tmLanguage"
 						},
 						"translation.x": 0.0,
@@ -430,17 +707,125 @@
 					},
 					"stack_index": 0,
 					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "/home/benjamin/gitRepos/slideshow/src/App.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7670,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								6041,
+								6041
+							]
+						],
+						"settings":
+						{
+							"WordCount":
+							{
+								"changes": 0,
+								"count": 263,
+								"modified": false,
+								"selection": true,
+								"status": -1,
+								"syntax": "plain text"
+							},
+							"syntax": "Packages/Babel/JavaScript (Babel).sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 4504.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 6,
+					"file": "/home/benjamin/gitRepos/slideshow/package.json",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 998,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								430,
+								430
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JSON.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "src/components/mainApp.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2746,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1324,
+								1324
+							]
+						],
+						"settings":
+						{
+							"WordCount":
+							{
+								"changes": 2,
+								"count": 123,
+								"modified": false,
+								"selection": false,
+								"status": -1,
+								"syntax": "plain text"
+							},
+							"syntax": "Packages/Babel/JavaScript (Babel).sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 404.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
 				}
 			]
 		}
 	],
 	"incremental_find":
 	{
-		"height": 27.0
+		"height": 31.0
 	},
 	"input":
 	{
-		"height": 0.0
+		"height": 39.0
 	},
 	"layout":
 	{
@@ -477,7 +862,7 @@
 	"project": "hello.sublime-project",
 	"replace":
 	{
-		"height": 50.0
+		"height": 58.0
 	},
 	"save_all_on_build": true,
 	"select_file":
@@ -497,7 +882,7 @@
 		[
 			[
 				"",
-				"~/gitRepos/sample2/sample.sublime-project"
+				"~/gitRepos/django_picasa/picasa.sublime-project"
 			]
 		],
 		"width": 380.0

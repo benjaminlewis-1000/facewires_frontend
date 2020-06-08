@@ -1,26 +1,35 @@
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
+// import { Switch, Route, Router } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Switch,
+  Route,
+  // Link,
+  // Redirect
+} from "react-router-dom";
+// import PicasaScreen from './components/picasaScreen';
+import Login from './components/login';
+import MainApp from "./components/mainApp";
+// import isLoggedIn from './components/isLoggedIn'
+// import Login from './Login';
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload. Hooray, you did it!
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+const App = () => {
+
+  return(
+    
+    <Router>
+      <div className="app-routes">
+        <main>
+          <Switch>
+            <Route exact path="/login" component={Login} />
+            <Route exact path="/faces" component={MainApp} />
+            <Route component={Login} />
+          </Switch>
+        </main>
+      </div>
+    </Router>
   );
-}
+};
 
 export default App;

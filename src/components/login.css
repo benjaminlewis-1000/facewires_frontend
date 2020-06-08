@@ -1,0 +1,17 @@
+.loginForm {
+  display: table;
+  margin-right: auto;
+  margin-left: auto;
+  margin-top: 30vh;
+  /*background-color: red;*/
+}
+/*
+.infield{
+     display: flex;
+  justify-content: center;
+}*/
+
+.menuButton{
+    height:40px;
+    width:100px;
+}
