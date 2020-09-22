@@ -105,7 +105,47 @@ class PicasaScreen extends React.Component{
 
   }
 
+
+
   componentDidMount(){
+
+
+    function compareNames(a, b) {
+      // Use toUpperCase() to ignore character casing
+      const nameA = a.person_name.toUpperCase();
+      const nameB = b.person_name.toUpperCase();
+
+      let comparison = 0;
+      if (nameA > nameB) {
+        comparison = 1;
+      } else if (nameA < nameB) {
+        comparison = -1;
+      }
+      return comparison;
+    }
+
+    function compareDirectories(a, b) {
+      // Use toUpperCase() to ignore character casing
+      const timeA = a.first_datesec;
+      const timeB = b.first_datesec;
+      const yearA = a.year;
+      const yearB = b.year;
+
+      let comparison = 0;
+      if (yearA > yearB) {
+        comparison = 1;
+      } else if (yearA < yearB) {
+        comparison = -1;
+      } else if (yearA === yearB){
+        if (timeA > timeB) {
+          comparison = 1;
+        } else if (timeA < timeB) {
+          comparison = -1;
+        } 
+      }
+      return comparison;
+    }
+
     console.debug("Picasa screen mounted")
     var next_url = this.state.people_url;
     while (next_url !== null){
@@ -115,19 +155,37 @@ class PicasaScreen extends React.Component{
       next_url = null
       this.compile_api_list(this.state.people_url, 'name_array').then(
         (resp) =>{
+          resp.sort(compareNames)
           this.setState({'people': resp})
           console.log(this.state)
           //forceUpdate
+          this.setState({names_fetched: true}); 
+          if (this.state.dirs_fetched){
+            this.setState({loading: false})
+          }
         }
       )
-      this.compile_api_list(this.state.folder_url, 'folder_aray').then(
+      this.compile_api_list(this.state.dir_url, 'folder_aray').then(
         (resp) =>{
+          resp.sort(compareDirectories)
           this.setState({'folders': resp})
           console.log(this.state)
+          this.setState({dirs_fetched: true}); 
+          if (this.state.names_fetched){
+            this.setState({loading: false})
+          }
           //forceUpdate
         }
       )
-      console.log("Now you can continue")
+      // console.log("Now you can continue")
+      
+      // while ( ! ( this.state.dirs_fetched  &&  this.state.names_fetched) ){
+      //   setTimeout(() => 
+      //   {
+      //   console.log('wait')
+      //   }, 1000)
+      // }
+      // this.setState({loading: false});
     }
   }
 
@@ -144,7 +202,7 @@ class PicasaScreen extends React.Component{
       while (next_url !== null){
         // Await waits for the function to load and the then to execute
         // before continuing the loop.
-        await this.fetchLinkedArray(next_url).then( 
+        await this.fetchAPIURL(next_url, "adsf").then( 
           (resp) => {
             // console.log(resp)
             next_url = resp.data.next
@@ -161,117 +219,8 @@ class PicasaScreen extends React.Component{
     return data_array
   }
 
-  fetchLinkedArray = async (url) => {
-    // console.log("Fetch linked array", url)
-    // console.debug("Picasa screen mounted")
-    // var next_url = this.state.people_url;
-    // while (next_url !== null){
-      // console.log(next_url)
-      // let data = await this.getNames(next_url);
-      // console.log(data)
 
-      // function compareNames(a, b) {
-      //   // Use toUpperCase() to ignore character casing
-      //   const nameA = a.person_name.toUpperCase();
-      //   const nameB = b.person_name.toUpperCase();
-
-      //   let comparison = 0;
-      //   if (nameA > nameB) {
-      //     comparison = 1;
-      //   } else if (nameA < nameB) {
-      //     comparison = -1;
-      //   }
-      //   return comparison;
-      // }
-
-      // function compareDirectories(a, b) {
-      //   // Use toUpperCase() to ignore character casing
-      //   const timeA = a.first_datesec;
-      //   const timeB = b.first_datesec;
-      //   const yearA = a.year;
-      //   const yearB = b.year;
-
-      //   let comparison = 0;
-      //   if (yearA > yearB) {
-      //     comparison = 1;
-      //   } else if (yearA < yearB) {
-      //     comparison = -1;
-      //   } else if (yearA === yearB){
-      //     if (timeA > timeB) {
-      //       comparison = 1;
-      //     } else if (timeA < timeB) {
-      //       comparison = -1;
-      //     } 
-      //   }
-      //   return comparison;
-      // }
-
-      this.fetchLinkedAPI(this.state.people_url, 'name_array', compareNames).then( ()=>{
-        console.log("Got names", this.state.name_array)
-      }).then( () => {
-        this.setState({names_fetched: true}); 
-        if (this.state.dirs_fetched){
-          this.setState({loading: false})
-        }
-      })
-      this.fetchLinkedAPI(this.state.dir_url, 'directory_array', compareDirectories).then( ()=>{
-        console.log("Got directories", this.state.directory_array)
-      }).then( () => {
-        this.setState({dirs_fetched: true}); 
-        if (this.state.names_fetched){
-          this.setState({loading: false})
-        }
-      })
-
-      // while ( ! ( this.state.dirs_fetched  &&  this.state.names_fetched) ){
-      //   setTimeout(() => 
-      //   {
-      //   console.log('wait')
-      //   }, 1000)
-      // }
-      // for (var ixi = 0; ixi < 5; ixi++) {
-        // console.log('hi')
-      var refreshIntervalId = setInterval(() => 
-        { 
-          console.log('waiting...')
-          if ( this.state.dirs_fetched  &&  this.state.names_fetched){
-            this.setState({loading: false});
-            clearInterval(refreshIntervalId);
-          }
-        }, 1000)
-      // }
-      // .then( response => {
-      //     console.log(response)
-      //     next_url = response.data.next;
-      //     console.log(next_url === null)
-      //     console.log(next_url)
-      //     console.log(response.data.previous === null)
-      //     return next_url;
-      //   }
-      // )
-    // }
-  }
-
-  fetchLinkedAPI = async (base_url, state_field, sort_function) => {
-    var data_array = [];
-      var next_url = base_url;
-      while (next_url !== null){
-        try{
-            let resp = await this.fetchAPIURL(next_url);
-            next_url = resp.data.next;
-            data_array = data_array.concat(resp.data.results);
-        }catch(e){
-          console.log('error', e)
-        }
-
-        // console.log(data_array)
-        
-      }
-      data_array.sort(sort_function);
-      this.setState({[state_field] : data_array})
-  }
-
-  fetchAPIURL = async (url) => {
+  fetchAPIURL = async (url, sort_function) => {
 
     const names = new Promise((resolve, reject) => {
         axiosInstance.get(url)
@@ -285,12 +234,6 @@ class PicasaScreen extends React.Component{
         .catch(err => {
             console.log(err)
         });
-        // , (namelist_error) => {
-        //   console.log("CORS ERROR: ", namelist_error)
-        // }
-        // .catch(err => {
-        //     console.log(err)
-        // });
     })
            
 
@@ -311,7 +254,6 @@ class PicasaScreen extends React.Component{
 
       
       <div id="screenWrapper">
-      </div>
 
         <div >
           { this.state.loading ? (
@@ -325,9 +267,11 @@ class PicasaScreen extends React.Component{
             </div>
           ) : (
             <div>
+            "Done Loading"
             </div>
           )}
           </div>
+        </div>
     );
   }
 }

@@ -26,7 +26,7 @@ class Login extends React.Component {
     e.preventDefault();
 
     const { username, password } = this.state;
-    const { history } = this.props;
+    // const { history } = this.props;
 
     var api_url = store.get('api_url') + "/token/obtain/";
 
