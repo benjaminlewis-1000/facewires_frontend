@@ -1,7 +1,9 @@
-FROM node:10
+FROM node:13.12.0-alpine
 
 # Create app directory
-WORKDIR /usr/src/app
+WORKDIR /app
+
+ENV PATH /app/node_modules/.bin:$PATH
 
 # Install app dependencies
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
@@ -17,4 +19,12 @@ COPY . .
 
 EXPOSE 8080
 
-CMD [ "node", "src/index.js" ]
+RUN echo "#! /bin/sh " >> /start.sh \ 
+&& echo "" >> /start.sh \
+&& echo "pm2 start npm -- start" >> /start.sh \
+&& echo "" >> /start.sh \ 
+&& echo "while true; do" >> /start.sh \
+&& echo "   sleep 10" >> /start.sh \
+&& echo "done " >> /start.sh
+
+CMD [ "/bin/sh" "/start.sh" ]

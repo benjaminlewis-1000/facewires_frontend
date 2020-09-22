@@ -1,13 +1,17 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
+// import PicasaScreen from './components/picasaScreen';
 import App from './App';
 import * as serviceWorker from './serviceWorker';
+import store from 'store';
+
+store.set('api_url', 'https://picasadev.exploretheworld.tech/api');
 
 ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+  // <React.StrictMode>
+    <App />,
+  // </React.StrictMode>,
   document.getElementById('root')
 );
 
