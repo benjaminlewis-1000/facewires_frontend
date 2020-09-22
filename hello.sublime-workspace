@@ -4,6 +4,18 @@
 		"selected_items":
 		[
 			[
+				"dur",
+				"duration_css\t⟠"
+			],
+			[
+				"execu",
+				"execute_delete"
+			],
+			[
+				"start_",
+				"start_date"
+			],
+			[
 				"mat",
 				"matched_serials_only"
 			],
@@ -76,6 +88,7 @@
 			"settings":
 			{
 				"buffer_size": 663,
+				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
@@ -148,6 +161,10 @@
 		"last_filter": "",
 		"selected_items":
 		[
+			[
+				"install",
+				"Package Control: Install Package"
+			],
 			[
 				"inst",
 				"Package Control: Install Package"
@@ -252,15 +269,7 @@
 		"/home/benjamin/gitRepos/django_picasa/random_code/imageHandler.py",
 		"/home/benjamin/gitRepos/django_picasa/docker-compose-laptop.yml",
 		"/home/benjamin/gitRepos/django_picasa/filepopulator/jpg_extractor.py",
-		"/mnt/NAS/exclude/tagger_subset/pickles_2x2/faceTagging/doTagger.py",
-		"/mnt/NAS/exclude/tagger_subset/faceTagging/doTagger.py",
-		"/mnt/NAS/exclude/tagger_subset/pickles_2x2/faceTagging/code/tiled_detect.py",
-		"/home/benjamin/Desktop/photos_for_test/code/dlib_install.txt",
-		"/home/benjamin/Desktop/photos_for_test/code/rectangleBen.py",
-		"/home/benjamin/Desktop/photos_for_test/code/pyPicasaFaceXMP/picasaXMPFaceReader.py",
-		"/home/benjamin/Desktop/photos_for_test/code/face_tag_test.py",
-		"/home/benjamin/Desktop/photos_for_test/code/tiled_detect.py",
-		"/home/benjamin/Desktop/photos_for_test/code/rectangle.py"
+		"/mnt/NAS/exclude/tagger_subset/pickles_2x2/faceTagging/doTagger.py"
 	],
 	"find":
 	{
@@ -413,6 +422,7 @@
 		"regex": false,
 		"replace_history":
 		[
+			"fetchLinkedArray",
 			"targs_with_model",
 			"targs_without_model",
 			"valid_config_cols",
@@ -745,7 +755,7 @@
 	},
 	"input":
 	{
-		"height": 0.0
+		"height": 39.0
 	},
 	"layout":
 	{

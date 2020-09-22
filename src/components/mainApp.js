@@ -74,39 +74,37 @@ class MainApp extends React.Component {
   }
 
 };
-
-
-
-// const MainApp = ({history}) => {
-    
-//   if (!isLoggedIn()) {
-//     return <Redirect to="/login" />;
-//   }
-
-//   return (
-//     <div id="screenWrapper">
-//       <Helmet>
-//         <title>FaceWires</title>
-//       </Helmet>
-//       <Sidebar as={Menu} inverted visible vertical width="thin" icon="labeled">
-//         <button name="logout" className="menuButton"  onClick={handleLogout(history)}>
-//         Logout
-//         </button>
-//       </Sidebar>
-//       <div className='Mainbody'>
-        
-//         <PicasaScreen />
-//       </div>
-
-//     </div>
-//   );
-// };
-
 const handleLogout = history => () => {
   console.log("Logging out")
   store.remove('loggedIn');
   history.push('/login');
 };
+
+/*
+const MainApp = ({history}) => {
+    
+  if (!isLoggedIn()) {
+    return <Redirect to="/login" />;
+  }
+
+  return (
+    <div id="screenWrapper">
+      <Helmet>
+        <title>FaceWires</title>
+      </Helmet>
+      <Sidebar as={Menu} inverted visible vertical width="thin" icon="labeled">
+        <button name="logout" className="menuButton" onClick={handleLogout(history)}>
+        Logout
+        </button>
+      </Sidebar>
+      <div className='Mainbody'>
+        
+        <PicasaScreen />
+      </div>
+
+    </div>
+  );
+};*/
 
 
 export default MainApp;
