@@ -76,14 +76,6 @@
 	"buffers":
 	[
 		{
-			"file": "src/components/mainApp.js",
-			"settings":
-			{
-				"buffer_size": 2672,
-				"line_ending": "Unix"
-			}
-		},
-		{
 			"file": "src/index.js",
 			"settings":
 			{
@@ -101,18 +93,10 @@
 			}
 		},
 		{
-			"file": "src/components/login.js",
+			"file": "src/components/mainApp.js",
 			"settings":
 			{
-				"buffer_size": 2883,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/components/isLoggedIn.js",
-			"settings":
-			{
-				"buffer_size": 74,
+				"buffer_size": 2395,
 				"line_ending": "Unix"
 			}
 		},
@@ -120,32 +104,130 @@
 			"file": "src/components/picasaScreen.js",
 			"settings":
 			{
-				"buffer_size": 5622,
+				"buffer_size": 9369,
+				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"contents": "!function(e,t){\"object\"==typeof exports&&\"object\"==typeof module?module.exports=t(require(\"axios\")):\"function\"==typeof define&&define.amd?define([\"axios\"],t):\"object\"==typeof exports?exports[\"axios-auth-refresh\"]=t(require(\"axios\")):e[\"axios-auth-refresh\"]=t(e.axios)}(this,(function(e){return function(e){var t={};function r(n){if(t[n])return t[n].exports;var u=t[n]={i:n,l:!1,exports:{}};return e[n].call(u.exports,u,u.exports,r),u.l=!0,u.exports}return r.m=e,r.c=t,r.d=function(e,t,n){r.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:n})},r.r=function(e){\"undefined\"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:\"Module\"}),Object.defineProperty(e,\"__esModule\",{value:!0})},r.t=function(e,t){if(1&t&&(e=r(e)),8&t)return e;if(4&t&&\"object\"==typeof e&&e&&e.__esModule)return e;var n=Object.create(null);if(r.r(n),Object.defineProperty(n,\"default\",{enumerable:!0,value:e}),2&t&&\"string\"!=typeof e)for(var u in e)r.d(n,u,function(t){return e[t]}.bind(null,u));return n},r.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return r.d(t,\"a\",t),t},r.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},r.p=\"\",r(r.s=0)}([function(e,t,r){\"use strict\";Object.defineProperty(t,\"__esModule\",{value:!0});var n=r(1),u={skipInstances:[],refreshCall:void 0,requestQueueInterceptorId:void 0};t.default=function(e,t,r){if(void 0===r&&(r={}),\"function\"!=typeof t)throw new Error(\"axios-auth-refresh requires `refreshAuthCall` to be a function that returns a promise.\");return e.interceptors.response.use((function(e){return e}),(function(o){if(r=n.mergeOptions(n.defaultOptions,r),!n.shouldInterceptError(o,r,e,u))return Promise.reject(o);r.pauseInstanceWhileRefreshing&&u.skipInstances.push(e);var s=n.createRefreshCall(o,t,u);return n.createRequestQueueInterceptor(e,u,r),s.finally((function(){return n.unsetCache(e,u)})).catch((function(e){return Promise.reject(e)})).then((function(){return n.resendFailedRequest(o,n.getRetryInstance(e,r))}))}))}},function(e,t,r){\"use strict\";var n=this&&this.__assign||function(){return(n=Object.assign||function(e){for(var t,r=1,n=arguments.length;r<n;r++)for(var u in t=arguments[r])Object.prototype.hasOwnProperty.call(t,u)&&(e[u]=t[u]);return e}).apply(this,arguments)};Object.defineProperty(t,\"__esModule\",{value:!0}),t.resendFailedRequest=t.getRetryInstance=t.unsetCache=t.createRequestQueueInterceptor=t.createRefreshCall=t.shouldInterceptError=t.mergeOptions=t.defaultOptions=void 0;var u=r(2);t.defaultOptions={statusCodes:[401],pauseInstanceWhileRefreshing:!1},t.mergeOptions=function(e,t){return n(n(n({},e),{pauseInstanceWhileRefreshing:t.skipWhileRefreshing}),t)},t.shouldInterceptError=function(e,t,r,n){var u;return!!e&&(!(null===(u=e.config)||void 0===u?void 0:u.skipAuthRefresh)&&(!(!e.response||!t.statusCodes.includes(parseInt(e.response.status)))&&(!t.pauseInstanceWhileRefreshing||!n.skipInstances.includes(r))))},t.createRefreshCall=function(e,t,r){return r.refreshCall||(r.refreshCall=t(e),\"function\"==typeof r.refreshCall.then)?r.refreshCall:(console.warn(\"axios-auth-refresh requires `refreshTokenCall` to return a promise.\"),Promise.reject())},t.createRequestQueueInterceptor=function(e,t,r){return void 0===t.requestQueueInterceptorId&&(t.requestQueueInterceptorId=e.interceptors.request.use((function(e){return t.refreshCall.catch((function(){throw new u.default.Cancel(\"Request call failed\")})).then((function(){return r.onRetry?r.onRetry(e):e}))}))),t.requestQueueInterceptorId},t.unsetCache=function(e,t){e.interceptors.request.eject(t.requestQueueInterceptorId),t.requestQueueInterceptorId=void 0,t.refreshCall=void 0,t.skipInstances=t.skipInstances.filter((function(t){return t!==e}))},t.getRetryInstance=function(e,t){return t.retryInstance||e},t.resendFailedRequest=function(e,t){return e.config.skipAuthRefresh=!0,t(e.response.config)}},function(t,r){t.exports=e}])}));",
+			"file": "src/components/imageScreen.js",
 			"settings":
 			{
-				"buffer_size": 3924,
-				"line_ending": "Unix",
-				"name": "!function(e,t){\"object\"==typeof exports&&\"object\"="
-			}
-		},
-		{
-			"file": "/mnt/server_home/git_repos/sshow/src/index.css",
-			"settings":
-			{
-				"buffer_size": 366,
+				"buffer_size": 6173,
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"file": "/mnt/server_home/git_repos/sshow/src/image.css",
+			"file": "src/components/gallery.js",
 			"settings":
 			{
-				"buffer_size": 1234,
+				"buffer_size": 5648,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"contents": "import React from 'react';\nimport { trackWindowScroll } from 'react-lazy-load-image-component';\nimport store from 'store';\nimport '../css/image_tile.css'\nimport LazyImage from './lazyImg'\nimport MutableSelect from './mutableSelect'\n\nconst styleLink = document.createElement(\"link\");\nstyleLink.rel = \"stylesheet\";\nstyleLink.href = \"https://cdn.jsdelivr.net/npm/semantic-ui/dist/semantic.min.css\";\ndocument.head.appendChild(styleLink);\n\nclass Gallery extends React.Component{\n  constructor(props){\n    super(props);\n    var peopleOptions = []\n\n    for (const [index, value] of this.props.people.entries()) {\n      peopleOptions.push({\n        key: index,\n        value: value.person_name,\n        text: value.person_name,\n        unassigned_person_id: this.props.unassigned_person_id,\n      })\n    }\n\n\n    this.state = {\n      ids: this.props.img_ids,\n      poss_ids: this.props.poss_ids,\n      imgsSelected: [],\n      peopleOptions: peopleOptions,\n      idxToIdMap: [],\n      shiftOn: false,\n      shiftStartIdx: -1\n    }\n\n    // console.log(this.props.people)\n    // const peopleOptions = this.props.people\n\n    // const DropdownExampleSearchSelection = () => (\n      \n    // )\n  }\n\n  clickety(event, resource_id, index){\n\n    var indexIfInList = this.state.imgsSelected.indexOf(resource_id)\n\n    // if (event.shiftKey){\n    //   var newHighlights = []\n    //   console.log('shift')\n    //   var curShift = this.state.shiftOn;\n    //   this.setState({shiftOn: !this.state.shiftOn})\n    //   if (curShift){\n    //     this.state.shiftStartIdx = index\n    //   }else{\n    //     var startIdx = this.state.shiftStartIdx\n    //     var endIdx = index\n    //     if (startIdx > endIdx){\n    //       var e = endIdx\n    //       endIdx = startIdx\n    //       startIdx = e\n    //     }\n    //     if (startIdx < this.props.img_ids.length){\n    //        if (endIdx < this.props.img_ids.length){\n    //          for (var s = startIdx; s <= endIdx; s ++){\n    //             newHighlights.push(this.props.img_ids[s])\n    //             console.log(this.props.img_ids[s])\n    //          }\n    //        }else{\n\n    //        }\n    //     }else{\n    //        if (endIdx < this.props.img_ids.length){\n\n    //        }else{\n\n    //        }\n    //     }\n    //   }\n    // }\n    \n    if (indexIfInList >= 0){\n      var newState = this.state.imgsSelected\n      newState.splice(indexIfInList, 1)\n      this.setState({imgsSelected: newState})\n    }else{\n      if (event.ctrlKey) {\n        this.setState({imgsSelected: this.state.imgsSelected.concat([resource_id])})\n      }else{\n        this.setState({imgsSelected: [resource_id]})\n      }\n    }\n    console.log(this.state)\n  }\n\n  dragLog (event, resource_id, index) {\n    var indexIfInList = this.state.imgsSelected.indexOf(resource_id)\n    console.log(indexIfInList, indexIfInList === -1)\n    \n    var dragState = this.state.imgsSelected\n    if (indexIfInList === -1){\n      if (event.ctrlKey) {\n        dragState = dragState.concat([resource_id])\n        console.log(\"Ctrl drag\")\n        this.clickety(event, resource_id)\n        this.setState({imgsSelected: this.state.imgsSelected.concat([resource_id])})\n      }else{\n        dragState = [resource_id]\n        this.setState({imgsSelected: [resource_id]})\n      }\n    }else{\n      console.log(\"Not in drag state\")\n    }\n\n    if (event.ctrlKey) {\n      console.log(dragState, this.state.imgsSelected)\n    }else{\n      console.log(dragState, this.state.imgsSelected)\n    }\n  }\n\n  createImage(index, resource_id, type){\n      var url = store.get('api_url') + '/keyed_image/face_array/?access_key=' \n        + store.get('access_key') + '&id=' + resource_id\n\n      // if (this.state.imgsSelected.indexOf(resource_id) >= 0){\n      //   // Selected = true\n      //   var className = 'img_thumb_active'\n      // }else{\n      //   className = 'img_thumb'\n      // }\n      \n\n        \n      var img = <LazyImage \n        selected={this.state.imgsSelected.indexOf(resource_id) >= 0}\n        url={url}\n        index={index}\n        key={index}\n        scrollPosition={this.props.scrollPosition}\n        onClick={ (e) => this.clickety(e,  resource_id, index) }\n        onDrag={ (e) => this.dragLog(e,  resource_id, index) }\n\n      />  \n          // if (type === 'defined'){\n          //   {<button \n          //     className='delete'\n          //   >x</button>}\n          // }else if (type === 'proposed'){\n          //   {<button \n          //     className='yes'\n          //   >&#10003;</button>\n          //  <button \n          //     className='no'\n          //   >x</button>}\n          // }else if (type === 'unassigned_tab'){\n          //   <MutableSelect peopleOptions = {this.state.peopleOptions}/>\n          // }\n        \n      return (\n        <div className='imgDiv' key={index}>\n          {img}\n          {\n            {\n              // 'defined': <button className='delete'>x</button>,\n              'proposed': <button className='yes'>&#10003;</button>,\n              'unassigned_tab':  <MutableSelect peopleOptions = {this.state.peopleOptions}/>\n            }[type]\n          }\n          {\n            {\n              'proposed': <button className='no'>x</button>,\n              'unassigned_tab':  <button className='delete'>x</button>,\n            }[type]\n          }\n        </div>\n      );\n    }\n\n  makeScreen(){\n    var items = []\n    console.log(this.props.current_id, this.props.unassigned_person_id)\n\n    if (this.props.current_id === this.props.unassigned_person_id){\n      var defined_term = 'unassigned_tab'\n    }else{\n      defined_term = 'defined'\n    }\n\n    var idxToIdMap = []\n    \n    for (const [index, value] of this.props.img_ids.entries()) {\n      items.push(this.createImage(index, value, defined_term))\n      idxToIdMap.push(value)\n    }\n    var idx_offset = items.length\n    for (const [index, value] of this.props.poss_ids.entries()) {\n      items.push(this.createImage(index + idx_offset, value, 'proposed'))\n      idxToIdMap.push(value)\n    }\n\n    this.setState({idxToIdMap: idxToIdMap})\n\n    return items\n  }\n\n  render(){\n    return(\n\n      <div className='imageScreen'>\n        \n        {this.makeScreen()}\n      </div>    \n    ); \n  }\n\n}\n\nexport default trackWindowScroll(Gallery)",
+			"settings":
+			{
+				"buffer_size": 6202,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/mutableSelect.js",
+			"settings":
+			{
+				"buffer_size": 1025,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/lazyImg.js",
+			"settings":
+			{
+				"buffer_size": 938,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/imagePanel.js",
+			"settings":
+			{
+				"buffer_size": 1724,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/css/image_tile.css",
+			"settings":
+			{
+				"buffer_size": 1805,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/personSidebar.js",
+			"settings":
+			{
+				"buffer_size": 2350,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/folderSidebar.js",
+			"settings":
+			{
+				"buffer_size": 2026,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/css/imageScreen.css",
+			"settings":
+			{
+				"buffer_size": 834,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/css/menubar.css",
+			"settings":
+			{
+				"buffer_size": 1521,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/tabular_menu.js",
+			"settings":
+			{
+				"buffer_size": 2651,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/misc.css",
+			"settings":
+			{
+				"buffer_size": 856,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/login.js",
+			"settings":
+			{
+				"buffer_size": 2915,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/css/sidebar.css",
+			"settings":
+			{
+				"buffer_size": 1370,
 				"line_ending": "Unix"
 			}
 		}
@@ -199,15 +281,42 @@
 	"expanded_folders":
 	[
 		"/mnt/server_home/git_repos/facewires_frontend",
+		"/mnt/server_home/git_repos/facewires_frontend/node_modules",
 		"/mnt/server_home/git_repos/facewires_frontend/src",
-		"/mnt/server_home/git_repos/facewires_frontend/src/components"
+		"/mnt/server_home/git_repos/facewires_frontend/src/components",
+		"/mnt/server_home/git_repos/facewires_frontend/src/css"
 	],
 	"file_history":
 	[
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/mutableSelect.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/gal.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/gal2.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/css/login.css",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/imageScreenwork.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/picasaScreen.css",
+		"/mnt/server_home/git_repos/sshow/src/App.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/mainApp.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/axios_setup.js",
+		"/mnt/server_home/git_repos/sshow/src/image.css",
+		"/mnt/server_home/git_repos/sshow/src/index.css",
+		"/mnt/server_home/git_repos/facewires_frontend/package.json",
+		"/mnt/server_home/git_repos/facewires_frontend/src/css/folderList.css",
+		"/mnt/server_home/git_repos/sshow/src/index.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/css/menubar.css",
+		"/mnt/server_home/git_repos/facewires_frontend/src/css/sidebar.css",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/tabular_menu.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/login.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/personList.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/person.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/folderList.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/folderObj.js",
 		"/mnt/server_home/git_repos/sshow/src/switcher.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/folderScreen.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/personScreen.js",
+		"/mnt/server_home/git_repos/facewires_frontend/src/components/imagesScreen.js",
+		"/mnt/server_home/git_repos/sshow/src/App.css",
 		"/mnt/server_home/git_repos/sshow/src/serviceWorker.js",
 		"/mnt/server_home/git_repos/sshow/src/image.js",
-		"/mnt/server_home/git_repos/sshow/src/App.js",
 		"/home/benjamin/gitRepos/sample2/demo_codes/dataset_stats.py",
 		"/home/benjamin/gitRepos/sample2/demo_codes/target_report.py",
 		"/home/benjamin/gitRepos/sample2/demo_codes/interp.py",
@@ -287,134 +396,134 @@
 		"case_sensitive": false,
 		"find_history":
 		[
-			"redirect",
-			"not logg",
-			"Not logged in",
-			"this.prop",
-			"refreshCall",
-			"}])}));",
-			"this.idletimer",
-			"this.onidle",
-			"access_token",
-			"localstorage",
-			"localstor",
-			"localStor",
-			"localStorage",
-			"refresh",
-			"message",
-			"updat",
-			"history",
-			"axiosInsta",
+			"imgsSele",
+			"img_ids",
+			"makescreen",
 			"setstate",
-			"this.state",
-			"resp",
-			"updater",
-			"compile_name",
-			"axiosin",
-			"image_ids",
-			"print",
-			"print(meas",
-			"print",
-			"print(",
-			"mat_fil",
-			"get_png_",
-			"previous_file = ",
-			"full_fi",
-			"img_data",
-			"removing",
-			"pngimagefile",
-			"xrange_res",
-			"full_f",
-			"imagesaver.",
-			"nbar",
-			"print",
-			"with op",
-			"filepah",
-			"self.log",
-			"sample_version",
-			"fliplr",
-			"FLIPUD",
-			"meas_img",
-			"print",
-			"t62",
-			"matched_",
-			"print",
-			"matched_ser",
-			"real",
-			"imform_algorithms",
-			"measured",
-			"img_form",
-			"image_formation",
-			"dataset_gen",
-			"backproject",
-			"pfa",
-			"imageSaver",
-			"matfile",
-			"save_mat",
-			"self.file_base",
-			"none",
-			"out_of_lib",
-			"range_extent",
-			"phase_history",
-			"elevation_deg",
-			"imageSaver",
-			"output_dir",
-			"outdirs",
-			"valid_targets",
-			"chipData",
-			"matched_seri",
-			"out",
-			"output_directory_forma",
-			"output_dirs",
-			"target_chip_list",
-			"target",
-			"targetFolderName",
-			"targetFoldern",
-			"chipDataClass",
-			"data_class",
-			"heigh",
-			"output_dir",
-			"imageSaver",
-			"output_dirs",
-			"output_dir",
-			"output",
-			"gen_image",
-			"M520",
-			"in_lib",
-			"align_image",
-			"plt.",
-			"stats",
-			"remove_brigh",
-			"np.mean(",
-			"grubbs",
-			"remove_br",
-			"plt.imshow",
-			"meas_img",
-			"crop_center",
-			"print",
-			"t62",
-			"T72",
-			"remove_bright_sp",
-			"meas_shifted",
-			"save_pngs",
-			"nufft",
-			"k_nodes",
-			"normali",
-			"flipl",
-			"fliplr",
-			"targs_with_measured",
-			"targs_without_measured",
-			"targs_valid_coll",
-			"valid_cols",
-			"m60",
-			"zil13",
-			"m109",
-			"hmmwv",
-			"m110",
-			"m88",
-			"m577",
-			"m978",
-			"btr60"
+			"idmap",
+			"createImage",
+			"makeScreen",
+			"clicket",
+			"history",
+			"lazyloadimag",
+			"person_se",
+			"unassigned",
+			"urls",
+			"person",
+			"unassign",
+			"imagescreen",
+			"peopleOption",
+			"console.",
+			"imgsSelected",
+			"bind",
+			"imgsSelected",
+			"img",
+			"opacit",
+			"`",
+			"Gallery",
+			"this.props.people",
+			"people",
+			"position",
+			"screenHeader",
+			".close",
+			"scroll",
+			"scrollposition",
+			"splice",
+			"even",
+			"vh",
+			"padding",
+			"menuremnan",
+			"vh",
+			"position",
+			"overflow",
+			"overflo",
+			"gallery",
+			"access_key",
+			"search",
+			"image_list",
+			"base_url",
+			"component",
+			"api_sourc",
+			"folder_ap",
+			"tabselectcall",
+			"tab",
+			"folder_api_i",
+			"catch",
+			".then",
+			" == ",
+			"setstate",
+			"person_api_id",
+			"api_sour",
+			"setSource",
+			"imagescreen",
+			"store.g",
+			"setToggle",
+			"childFiel",
+			"console.",
+			"axiosInsta",
+			"foldersele",
+			"highligh",
+			" \n",
+			"console.",
+			"folderSelec",
+			"onclick",
+			"handleCl",
+			"image_api_id",
+			"consol",
+			"console.",
+			"clickHand",
+			"slide_img",
+			"base_url",
+			"imageScreen",
+			"plice",
+			"folders",
+			"folder",
+			"num",
+			"color",
+			"sidebar",
+			"people",
+			"background",
+			"renderPerson",
+			"setPerson",
+			"updatePerson",
+			"setSource",
+			"setsour",
+			"setApiUrl",
+			"setSource",
+			"tabSelectCallback",
+			"sidebarList",
+			"personList",
+			"personScreen",
+			"console.log",
+			"class",
+			"personScreen ",
+			"people",
+			"loader",
+			"circleLoader",
+			"overr",
+			"loader",
+			"screenWrapper",
+			"loader",
+			"screenWrapper",
+			"vh",
+			"button",
+			"margin",
+			"debarlis",
+			"\n.span_hidden{\n    order: 2;\n}",
+			"active",
+			"switchLabel",
+			"che",
+			"checkb",
+			"sans",
+			"height",
+			"access",
+			"store.",
+			"this.setState({",
+			"axiosIns",
+			"console.",
+			"setperson",
+			"button",
+			"text"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -422,6 +531,7 @@
 		"regex": false,
 		"replace_history":
 		[
+			".delete",
 			"fetchLinkedArray",
 			"targs_with_model",
 			"targs_without_model",
@@ -486,36 +596,6 @@
 			[
 				{
 					"buffer": 0,
-					"file": "src/components/mainApp.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 2672,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								707,
-								707
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 4,
-					"type": "text"
-				},
-				{
-					"buffer": 1,
 					"file": "src/index.js",
 					"semi_transient": false,
 					"settings":
@@ -527,23 +607,24 @@
 						"selection":
 						[
 							[
-								282,
-								282
+								365,
+								365
 							]
 						],
 						"settings":
 						{
+							"git_gutter_is_enabled": true,
 							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax"
 						},
 						"translation.x": 0.0,
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 5,
 					"type": "text"
 				},
 				{
-					"buffer": 2,
+					"buffer": 1,
 					"file": "src/App.js",
 					"semi_transient": false,
 					"settings":
@@ -555,12 +636,13 @@
 						"selection":
 						[
 							[
-								671,
-								671
+								324,
+								324
 							]
 						],
 						"settings":
 						{
+							"git_gutter_is_enabled": true,
 							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
 							"tab_size": 2,
 							"translate_tabs_to_spaces": true
@@ -569,24 +651,24 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 6,
 					"type": "text"
 				},
 				{
-					"buffer": 3,
-					"file": "src/components/login.js",
+					"buffer": 2,
+					"file": "src/components/mainApp.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2883,
+						"buffer_size": 2395,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1542,
-								1542
+								1598,
+								1598
 							]
 						],
 						"settings":
@@ -596,7 +678,38 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 685.0,
+						"translation.y": 617.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "src/components/picasaScreen.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 9369,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								679,
+								679
+							]
+						],
+						"settings":
+						{
+							"git_gutter_is_enabled": true,
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 3,
@@ -604,47 +717,19 @@
 				},
 				{
 					"buffer": 4,
-					"file": "src/components/isLoggedIn.js",
-					"semi_transient": true,
-					"settings":
-					{
-						"buffer_size": 74,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								50,
-								50
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
-					"buffer": 5,
-					"file": "src/components/picasaScreen.js",
+					"file": "src/components/imageScreen.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 5622,
+						"buffer_size": 6173,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								4334,
-								4334
+								4761,
+								4761
 							]
 						],
 						"settings":
@@ -654,7 +739,37 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 1951.0,
+						"translation.y": 107.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "src/components/gallery.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 5648,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1528,
+								1528
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 634.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -665,49 +780,80 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 3924,
+						"buffer_size": 6202,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								3371,
-								3371
+								1423,
+								1423
 							]
 						],
 						"settings":
 						{
-							"auto_name": "!function(e,t){\"object\"==typeof exports&&\"object\"=",
-							"syntax": "Packages/Text/Plain text.tmLanguage"
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 663.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "src/components/mutableSelect.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1025,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								940,
+								940
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 6,
+					"stack_index": 9,
 					"type": "text"
 				},
 				{
-					"buffer": 7,
-					"file": "/mnt/server_home/git_repos/sshow/src/index.css",
+					"buffer": 8,
+					"file": "src/components/lazyImg.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 366,
+						"buffer_size": 938,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								366,
-								366
+								49,
+								49
 							]
 						],
 						"settings":
 						{
-							"syntax": "Packages/CSS/CSS.sublime-syntax"
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax"
 						},
 						"translation.x": 0.0,
 						"translation.y": 0.0,
@@ -717,20 +863,291 @@
 					"type": "text"
 				},
 				{
-					"buffer": 8,
-					"file": "/mnt/server_home/git_repos/sshow/src/image.css",
-					"semi_transient": false,
+					"buffer": 9,
+					"file": "src/components/imagePanel.js",
+					"semi_transient": true,
 					"settings":
 					{
-						"buffer_size": 1234,
+						"buffer_size": 1724,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								138,
-								138
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 153.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 10,
+					"type": "text"
+				},
+				{
+					"buffer": 10,
+					"file": "src/css/image_tile.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1805,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1674,
+								1674
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 1178.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 8,
+					"type": "text"
+				},
+				{
+					"buffer": 11,
+					"file": "src/components/personSidebar.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2350,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								441,
+								441
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 12,
+					"type": "text"
+				},
+				{
+					"buffer": 12,
+					"file": "src/components/folderSidebar.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2026,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1766,
+								1766
+							]
+						],
+						"settings":
+						{
+							"git_gutter_is_enabled": true,
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 692.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 13,
+					"type": "text"
+				},
+				{
+					"buffer": 13,
+					"file": "src/css/imageScreen.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 834,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								527,
+								527
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 11,
+					"type": "text"
+				},
+				{
+					"buffer": 14,
+					"file": "src/css/menubar.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1521,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								129,
+								129
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 102.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 14,
+					"type": "text"
+				},
+				{
+					"buffer": 15,
+					"file": "src/components/tabular_menu.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2651,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2633,
+								2633
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 816.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 18,
+					"type": "text"
+				},
+				{
+					"buffer": 16,
+					"file": "src/components/misc.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 856,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								529,
+								529
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 102.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 16,
+					"type": "text"
+				},
+				{
+					"buffer": 17,
+					"file": "src/components/login.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2915,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								217,
+								217
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 15,
+					"type": "text"
+				},
+				{
+					"buffer": 18,
+					"file": "src/css/sidebar.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1370,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								996,
+								996
 							]
 						],
 						"settings":
@@ -743,7 +1160,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 8,
+					"stack_index": 17,
 					"type": "text"
 				}
 			]
@@ -751,7 +1168,7 @@
 	],
 	"incremental_find":
 	{
-		"height": 38.0
+		"height": 32.0
 	},
 	"input":
 	{
@@ -812,7 +1229,7 @@
 		[
 			[
 				"",
-				"~/gitRepos/sar_lstm/multi_look_sar.sublime-project"
+				"/mnt/server_home/git_repos/django_picasa/picasa.sublime-project"
 			]
 		],
 		"width": 380.0

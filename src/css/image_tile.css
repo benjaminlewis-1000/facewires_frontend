@@ -1,0 +1,114 @@
+
+.img_thumb {
+  opacity: 1;
+}
+
+.img_thumb, .img_thumb_active{
+  padding: 0px;
+  width: 100px;
+  border-radius: 4%;
+  box-shadow: 8px 8px 10px #aaa;
+  margin: 10px;
+  z-index: 3;
+}
+
+.img_thumb_active {
+  border: 3px solid #000;
+  opacity: 0.7;
+}
+
+.img_thumb:hover {
+  opacity: 0.7;
+}
+
+.delete {
+  position: relative;
+  right: 28px;
+  top: 4px;
+  border-radius: 6px;
+  width: 15px;
+  height: 15px;
+  border: 1px solid #000;
+  /*right: 32px;*/
+  /*top: 32px;*/
+ /* width: 32px;
+  height: 32px;*/
+  /*opacity: 0.3;*/
+}
+.delete:hover {
+  opacity: 1;
+}
+.delete:before, .delete:after {
+  position: relative;
+ /* left: 15px;
+  content: ' ';
+  height: 33px;
+  width: 2px;*/
+  background-color: #333;
+}
+.delete:before {
+  transform: rotate(45deg);
+}
+.delete:after {
+  transform: rotate(-45deg);
+}
+
+
+.loading ~ .yes, .loading ~ .no , .loading ~ .delete, .loading ~ .person_select  {
+   visibility: hidden;
+}
+
+/*.yes ~ .loaded, .no ~ .loaded, .delete ~ .loaded {*/
+/*.loaded ~ .yes , .loaded ~ .no , .loaded ~ .delete  {*/
+.yes , .no , .delete  {
+  position: absolute;
+  text-align: center;
+  margin: auto;
+  z-index: 4;
+  background-color: white;
+/*vertical-align: middle;*/
+}
+
+.yes, .no{
+  border-radius: 4px;
+  width: 40px;
+  height: 40px;
+  bottom: -5px;
+  border-image: linear-gradient(90deg, rgba(252, 255, 247,0.90), rgba(252, 255, 247,.00)) 1; 
+  border-left:none; 
+  border-top:none; 
+  border-right:none;
+  border-bottom:none;
+  
+}
+
+.yes{
+  left: 65px;
+  color: green;
+}
+
+.no{
+  left: 15px;
+  color: red;
+}
+
+
+.imgDiv{
+  position: relative;
+  height: 150px;
+  float: left;
+  width: 150px;
+}
+
+input.person_select, div.person_select{
+  float: left;
+  height:20px;
+  width: 120px;
+  position: absolute;
+  bottom: 8px;
+  z-index: 5;
+}
+
+div.ui.selection.dropdown, input.ui.selection.dropdown{
+  min-width: 20px;
+}

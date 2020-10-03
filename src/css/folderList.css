@@ -1,0 +1,7 @@
+p.yearDivider{
+    font-family: sans-serif;
+    line-height: 1.0;
+    margin: 2px;
+    margin-left: 20px;
+    text-decoration: underline;
+}

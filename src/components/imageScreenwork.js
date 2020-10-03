@@ -4,7 +4,6 @@ import ImageObj from './imageObj';
 import React from 'react';
 import store from 'store';
 import { LazyLoadImage, trackWindowScroll } from 'react-lazy-load-image-component';
-import Gallery from './gallery'
 
 class ImageScreen extends React.Component{
   constructor(props){
@@ -15,7 +14,7 @@ class ImageScreen extends React.Component{
       loading: true,
       imagery_ids: [],
       possible_ids: [],
-      access_key: store.get('access_key'),
+      access_key: store.get('access_key')
     }
     // this.handleChange = this.handleChange.bind(this);
     // this.ref = React.createRef();
@@ -116,58 +115,36 @@ class ImageScreen extends React.Component{
       return img
     }
 
-
-  createUrl( resource_id){
-    var url = store.get('api_url') + '/keyed_image/face_array/?access_key=' 
-        + this.state.access_key + '&id=' + resource_id
-    return url
-  }
-
-
   buildScreen() {
     if (this.state.loading){
       return(
       <div className='imageScreen'>
         Image screen {this.props.tab} {this.props.api_id} <a href={this.props.api_source}>API Source</a>
-       
       </div>
       );
     }{
 
-      // var items = []
-      // for (const [index, value] of this.state.imagery_ids.entries()) {
-      //   items.push(this.createImage(index, value))
-      // } 
-      // var index = items.length;
-      // if (this.props.tab === 'People'){
-      //   for (const [index_alt, value] of this.state.possible_ids.entries()) {
-      //     items.push(this.createImage(index + index_alt, value))
-      //   } 
-      // }
+      var items = []
+      for (const [index, value] of this.state.imagery_ids.entries()) {
+        items.push(this.createImage(index, value))
+      } 
+      var index = items.length;
+      if (this.props.tab === 'People'){
+        for (const [index_alt, value] of this.state.possible_ids.entries()) {
+          items.push(this.createImage(index + index_alt, value))
+        } 
+      }
 
-      // var urls = []
-      // for (const [index, value] of this.state.imagery_ids.entries()) {
-      //   urls.push(this.createUrl(value))
-      // } 
-      // if (this.props.tab === 'People'){
-      //   for (const [index_alt, value] of this.state.possible_ids.entries()) {
-      //     urls.push(this.createUrl(value))
-      //   } 
+
+      // const Gallery = {
+
       // }
-       
+      
       return(
-        <div>
-          <div className='screenHeader'>
-            Header data lots and lots of it
-          </div>
-          <Gallery
-            poss_ids = {this.state.possible_ids} 
-            img_ids={this.state.imagery_ids}
-            people={this.props.people}
-            unassigned_person_id={this.props.unassigned_person_id}
-            current_id={this.props.api_id}
-          />
-        </div>
+         
+        <div className='imageScreen'>
+          {items}
+        </div> 
       );
 
     }

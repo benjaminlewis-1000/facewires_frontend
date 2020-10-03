@@ -3,7 +3,7 @@ import { Grid, Form, Header, Message } from 'semantic-ui-react';
 import { Redirect } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import store from 'store';
-import './login.css';
+import '../css/login.css';
 import isLoggedIn from './isLoggedIn'
 // import axiosInstance from "../axiosApi";
 import axios from 'axios';
@@ -91,6 +91,7 @@ class Login extends React.Component {
             />}
             <Form.Input className="infield"
               inline
+              autoFocus
               label="Username"
               name="username"
               onChange={this.handleChange}

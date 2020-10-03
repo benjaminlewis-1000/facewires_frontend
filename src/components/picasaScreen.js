@@ -1,70 +1,38 @@
 import React from 'react';
-import './picasaScreen.css';
 import './misc.css';
+import '../css/menubar.css'
+import '../css/sidebar.css'
+import '../css/image_tile.css'
 // import PersonList from './personList2'
 // import FolderList from './folderList'
 // import ImageScreen from './imageScreen'
-import axios from 'axios';
-import createAuthRefreshInterceptor from 'axios-auth-refresh';
 import store from 'store';
-import axiosRetry from 'axios-retry';
+// import { Grid, Form, Header, Message, Menu,Sidebar, Dropdown} from 'semantic-ui-react';
+// import { Redirect, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet';
+
+import MenuExampleTabular from './tabular_menu.js'
+import FolderSidebar from './folderSidebar'
+import PersonSidebar from './personSidebar'
+import ImageScreen from './imageScreen'
+import axiosInstance from './axios_setup'
 // var jsonDataFromXml = new XMLParser().parseFromString(xmlData);
 
 
 import CircleLoader from "react-spinners/CircleLoader";
-// var jsonDataFromXml = new XMLParser().parseFromString(xmlData);
 
-var access_token = store.get('access_token')
-// console.log("Acess token: " , access_token)
+const styleLink = document.createElement("link");
+styleLink.rel = "stylesheet";
+styleLink.href = "https://cdn.jsdelivr.net/npm/semantic-ui/dist/semantic.min.css";
+document.head.appendChild(styleLink);
 
-const axiosInstance = axios.create({
-    // baseURL: store.get('api_url'),
-    timeout: 5000,
-    mode: 'cors',
-    headers: {
-        'Authorization': "JWT " + access_token,
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
-        // 'Access-Control-Allow-Origin': '*'
-    }
-});
-
-// Solves random CORS failures
-axiosRetry(axiosInstance, {retries: 3});
-
-// const config = {
-//     headers: { Authorization: `Bearer ${token}` }
-// };
-
-
-const refreshAuthLogic = failedRequest => {
-
-    const bodyParameters = {
-       refresh: store.get('refresh_token')
-    };
-
-    console.log("Refresh")
-    try{
-      axios.post(store.get('api_url') + '/token/refresh/', bodyParameters)
-        .then(tokenRefreshResponse => {
-          console.log("Refresh logic")
-          localStorage.setItem('access_token', tokenRefreshResponse.data.access);
-          failedRequest.response.config.headers['Authorization'] = 'Bearer ' + tokenRefreshResponse.data.token;
-          return Promise.resolve(true);
-      });
-    }catch(e){
-      console.log("axios error", e)
-    }finally{
-      console.log("Finally")
+// const DropdownExampleDropdown = () => (
   
-    }
-  }
+// )
 
-const options = {
-  statusCodes: [401, 403]
-}
 
-createAuthRefreshInterceptor(axiosInstance, refreshAuthLogic, options)
+
+// export default DropdownExampleSearchSelection
 
 class PicasaScreen extends React.Component{
   
@@ -79,29 +47,32 @@ class PicasaScreen extends React.Component{
       people : [], 
       folders: [],
       urls: urls,
-      people_url: store.get('api_url') + '/people/?fields=person_name,url,num_faces',
+      people_url: store.get('api_url') + '/people/?fields=person_name,url,num_faces,id,num_possibilities',
       dir_url: store.get('api_url') + '/directories/?fields=id,url,top_level_name,first_datesec,mean_datesec,num_images,year',
+      param_url: store.get('api_url') + '/parameters/',
       loading: true,
       names_fetched: false,
-      dirs_fetched: false
+      dirs_fetched: false,
+      params_fetched: false,
+      tab: 'People',
+      unlabeled_toggle: false,
+      api_id: 0,
       
-      // images : [
-      //   // {url:'https://png.pngtree.com/png-clipart/20190515/original/pngtree-beautiful-hologram-water-color-frame-png-image_3643167.jpg',frequency:'000'},
-      //   {url:'https://picsum.photos/200',frequency:'000'}
-      // ],
-      // urls : ['https://png.pngtree.com/png-clipart/20190515/original/pngtree-neon-bar-circular-border-png-image_3843928.jpg', 'https://png.pngtree.com/png-clipart/20190515/original/pngtree-beautiful-hologram-water-color-frame-png-image_3643167.jpg']
-      // urls: ['https://picsum.photos/200','https://picsum.photos/200','https://picsum.photos/200','https://picsum.photos/200','https://picsum.photos/200','https://picsum.photos/200','https://picsum.photos/200']
     };
-    // console.debug("People: ", this.state.people_url)
-
-          // ? this.setState(applySetResult(result))
-          // : this.setState(applyUpdateResult(result));
           
+    axiosInstance.get(this.state.param_url)    
+    .then( (response) => {
+      // var info = response.data
+      var access_key = response.data.random_access_key;
 
+      this.setState({params_fetched: true})
+      store.set('access_key', access_key);
+
+      if (this.state.names_fetched && this.state.dirs_fetched){
+        this.setState({loading: false})
+      }
+    })
         
-    for (var i = 0; i < (Math.round(Math.random() * 80) + 25); i++) {
-        urls[i] = "https://picsum.photos/id/" + (i + 5) * mult + "/200/200";
-    }
 
   }
 
@@ -143,10 +114,11 @@ class PicasaScreen extends React.Component{
           comparison = -1;
         } 
       }
-      return comparison;
+      // Reverse order - multiply by -1
+      return comparison * -1;
     }
 
-    console.debug("Picasa screen mounted")
+    // console.debug("Picasa screen mounted")
     var next_url = this.state.people_url;
     while (next_url !== null){
       console.log(next_url, next_url !== null)
@@ -157,24 +129,34 @@ class PicasaScreen extends React.Component{
         (resp) =>{
           resp.sort(compareNames)
           this.setState({'people': resp})
-          console.log(this.state)
-          //forceUpdate
           this.setState({names_fetched: true}); 
-          if (this.state.dirs_fetched){
+          this.setState({api_id: resp[0].id})
+          if (this.state.dirs_fetched && this.state.params_fetched){
             this.setState({loading: false})
           }
+          var unassigned_person_id  = resp.find(element =>element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === 'Unassigned');
+          this.setState({unassigned_id: unassigned_person_id.id})
+
+          console.log(this.state)
         }
       )
       this.compile_api_list(this.state.dir_url, 'folder_aray').then(
         (resp) =>{
           resp.sort(compareDirectories)
+          console.log("Folder length", resp.length)
+          for (var i = resp.length - 1; i >= 0; i--){
+            if (resp[i].num_images === 0){
+              resp.splice(i, 1)
+            }
+          }
+          console.log("Folder length after: ", resp.length)
           this.setState({'folders': resp})
-          console.log(this.state)
           this.setState({dirs_fetched: true}); 
-          if (this.state.names_fetched){
+          if (this.state.names_fetched && this.state.params_fetched){
             this.setState({loading: false})
           }
-          //forceUpdate
+
+          console.log(this.state)
         }
       )
       // console.log("Now you can continue")
@@ -195,7 +177,7 @@ class PicasaScreen extends React.Component{
 ////////////////////////////////////////
   compile_api_list = async (base_url, state_field) => {
     var data_array = [];
-    console.log('Compile a list')
+    // console.log('Compile a list: ', base_url, "Base url")
     // return "hi"
     var next_url = base_url;
     try{
@@ -245,35 +227,124 @@ class PicasaScreen extends React.Component{
 ////////////////////////////////////////
 ///  END of name fetching
 ////////////////////////////////////////
-  
 
+
+////////////////////////////////////////
+///  START of callbacks
+////////////////////////////////////////
+
+
+  tabSelectCallback = (childData) => {
+    this.setState({tab: childData})
+  }
+  
+  setApiUrl = (childType, childUrl, childId) => {
+    // console.debug("API folder: ", childData, childId)
+    if (childType === 'folder'){
+      this.setState({api_source: childUrl})
+      this.setState({api_id: childId})
+    }else if (childType === 'person'){
+      this.setState({api_source: childUrl})
+      this.setState({api_id: childId})
+    }
+    // console.log(this.state.image_api_id)
+  }
+
+  setToggle = (childField) => {
+    console.debug( "Child field: ", childField)
+    this.setState(prevState => ({
+      [childField] : !prevState[childField]
+    }))
+    // console.log(this.state)
+  }
+
+////////////////////////////////////////
+///  END of callbacks
+////////////////////////////////////////
+
+
+  renderSidebar() {
+
+    if ( this.state.tab === "Tools" ){
+      return <p>Tools</p>
+    }
+      
+    if ( this.state.tab === "People" ){
+      return (
+      <div>
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} />
+        <ImageScreen 
+          tab={this.state.tab} 
+          api_source={this.state.api_source} 
+          api_id={this.state.api_id} 
+          people={this.state.people}
+          unassigned_person_id={this.state.unassigned_id}
+        />
+      </div>
+      );
+    }
+      
+    if ( this.state.tab === "Folders" ){
+      return (
+      <div>
+        <FolderSidebar folders={this.state.folders} setSource={this.setApiUrl} />
+        <ImageScreen tab={this.state.tab} api_source={this.state.api_source} api_id={this.state.api_id} people={this.state.people}/>
+      </div>
+      );
+    }
+      
+    return <p>Unknown state</p>
+    
+  }
 
   render() {
 
+    var {history} = this.props;
     return(
 
       
-      <div id="screenWrapper">
+      <div>
+
+        <Helmet>
+          <title>Face Classifier</title>
+        </Helmet>
+
+        
 
         <div >
           { this.state.loading ? (
-            <div className="loader">
-              <CircleLoader
-              // css={override}
-              size={250}
-              color={"#993333"}
-              loading={this.state.loading}
-              />
+            <div className='spinBackground'>
+              <div className="loader">
+                <CircleLoader
+                // css={override}
+                size={250}
+                color={"#993333"}
+                loading={this.state.loading}
+                />
+              </div>
             </div>
           ) : (
+          <div>
+            <MenuExampleTabular tabSelectCallback = {this.tabSelectCallback} setToggle={this.setToggle} />
             <div>
-            "Done Loading"
+              {this.renderSidebar()}
             </div>
-          )}
           </div>
+          )
+          }
+          </div>
+          
         </div>
     );
   }
 }
+
+
+const handleLogout = history => () => {
+  console.log("Logging out")
+  store.remove('loggedIn');
+  // history.push('/login');
+  window.location = "/login"
+};
 
 export default PicasaScreen;

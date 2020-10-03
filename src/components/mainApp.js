@@ -3,7 +3,7 @@ import React from 'react';
 import { Sidebar, Menu } from 'semantic-ui-react';
 import { Helmet } from 'react-helmet';
 import store from 'store';
-import { Redirect } from 'react-router-dom';
+// import { Redirect } from 'react-router-dom';
 // import styles from './styles.css';
 // import Users from '../Users';
 import PicasaScreen from './picasaScreen'
@@ -17,7 +17,6 @@ class MainApp extends React.Component {
 
   constructor(props){
     super(props);
-    console.log("Main app")
 
     if (!isLoggedIn()) {
       console.log("Not logged in")
@@ -39,30 +38,25 @@ class MainApp extends React.Component {
 
     var {history} = this.props;
     return (
-      <div id="screenWrapper">
+        <div id="screenWrapper">
 
-        <IdleTimer
-          ref={ref => { this.idleTimer = ref }}
-          element={document}
-          onIdle={this.onIdle}
-          debounce={250}
-          /* Set a timeout for an hour */
-          timeout={1000 * 60 * 60 } /> 
+          <IdleTimer
+            ref={ref => { this.idleTimer = ref }}
+            element={document}
+            onIdle={this.onIdle}
+            debounce={250}
+            /* Set a timeout for an hour */
+            timeout={1000 * 60 * 60 } /> 
 
-        <Helmet>
-          <title>FaceWires</title>
-        </Helmet>
-        <Sidebar as={Menu} inverted visible vertical width="thin" icon="labeled">
-          <button name="logout" className="menuButton" onClick={handleLogout(history)}>
-          Logout
-          </button>
-        </Sidebar>
-        <div className='Mainbody'>
-          
-          <PicasaScreen />
+          <Helmet>
+            <title>FaceWires</title>
+          </Helmet>
+          <div className='Mainbody'>
+            
+            <PicasaScreen />
+          </div>
+
         </div>
-
-      </div>
     );
   }
 
@@ -79,6 +73,7 @@ const handleLogout = history => () => {
   store.remove('loggedIn');
   history.push('/login');
 };
+
 
 /*
 const MainApp = ({history}) => {

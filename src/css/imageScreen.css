@@ -1,0 +1,46 @@
+.imageScreen{
+    /*height: 94vh;*/
+    background-color: white;
+    z-index: 100;
+    /*position: fixed;*/
+    /*margin-left: 150px;*/
+    
+    /*overflow:scroll;*/
+    /*overflow-x:hidden;*/
+    /*background-color: #fcfff7;*/
+/*     border: 1px solid #DDDDDD; */
+    border-radius: 4px 0 4px 0;
+    color: #3B3C3E;
+    font-size: 12px;
+    font-weight: bold;
+    left: -1px;
+    padding: 10px 7px 5px;
+    scroll-behavior: smooth;
+    margin-top: 82px
+}
+
+.imageScreen, .img_thumb, .img_thumb_active{
+    background-color:  #fcfff7;
+}
+
+.sidebarList, .screenHeader {
+    margin-top:42px;
+}
+
+.screenHeader, .imageScreen{
+    width: 90%;
+    float: right;
+}
+
+.screenHeader{
+    background-color: white;
+    z-index: 100;
+    position: fixed;
+    margin-left: 10%;
+    height: 40px;
+    padding: 4px;
+}
+
+.transition{
+    height: 150px;
+}

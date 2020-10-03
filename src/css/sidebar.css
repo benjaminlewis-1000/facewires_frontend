@@ -1,0 +1,61 @@
+
+.sidebarList button {
+  border: 0px solid green; /* Green border */
+  padding-top: 4px; /* Some padding */
+  padding-bottom: 4px; /* Some padding */
+  cursor: pointer; /* Pointer/hand icon */
+  width: 100%; /* Set a width if needed */
+  display: block; /* Make the buttons appear below each other */
+  text-align: left;
+  padding-left: 15px;
+}
+
+.sidebarList button:not(:last-child) {
+  border-bottom: none; /* Prevent double borders */
+}
+
+/* Add a background color on hover */
+.sidebarList button:hover {
+  background-color: #66b6d9;
+  color: white;
+}
+
+.click-state{
+  background-color: #228fbf;
+  color: white;
+
+}
+
+/* Scroll bar to div
+https://stackoverflow.com/questions/2836827/how-do-you-add-a-scroll-bar-to-a-div
+*/
+.sidebarList{   
+    position: fixed;
+    background-color: #fcfff7;
+    border: 1px solid #DDDDDD;
+    border-radius: 4px 0 4px 0;
+    font-size: 12px;
+    font-weight: bold;
+    left: -1px;
+    /*padding: 10px 7px 5px;*/
+    width: 10%; 
+    float: left;
+    height:94.5vh; /* 100% of screen height */
+    overflow:scroll;
+    overflow-x:hidden;
+    padding-top: 10px;
+    padding-left: 2px;
+    padding-bottom: 10px;
+    margin-bottom: 5px;
+}
+
+/*'click-state' : 'base-state'*/
+/*.click-state{
+  color: white;
+  background-color: #66b6d9;
+}*/
+
+.base-state{
+  background-color: #fcfff7; /* Green background */
+  color: #06084f; /* White text */
+}
