@@ -58,7 +58,7 @@ class Login extends React.Component {
       // this.props.push('/faces')
       window.location = "/faces"
     }).catch(error => {
-      console.debug("Not logged in:", error.response)
+      console.debug("Not logged in:", error)
     })
     
   }

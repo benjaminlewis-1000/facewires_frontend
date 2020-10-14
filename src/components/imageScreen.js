@@ -6,6 +6,7 @@ import store from 'store';
 import { LazyLoadImage, trackWindowScroll } from 'react-lazy-load-image-component';
 import Gallery from './gallery'
 
+
 class ImageScreen extends React.Component{
   constructor(props){
     super(props);
@@ -23,7 +24,9 @@ class ImageScreen extends React.Component{
 
   componentDidUpdate(prevProps, prevState, snapshot){
 
-    if (this.props.api_id !== prevProps.api_id){
+    if (this.props.api_id !== prevProps.api_id || 
+      ( this.props.unlabeled !== prevProps.unlabeled && 
+        this.props.api_id !== this.props.unassigned_person_id) ){
       console.log("Update needed")
       this.setState({loading: true})
       this.setState({loading_definite: true})
@@ -40,23 +43,37 @@ class ImageScreen extends React.Component{
         console.log("Invalid state")
       }
 
-      // console.log(this.props)
-      var imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
-      console.log(imagery_url)
-      try{
-        axiosInstance.get(imagery_url)
-        .then( (response) => {
-          // resolve({data: response.data});
-          console.log(response)
-          this.setState({imagery_ids: response.data.id_list}); 
-          this.setState({loading_definite: false})
+      console.log("Props: ", this.props)
 
-          if (this.state.loading_poss){
-            this.setState({loading: false})
-          }
-        });
-      }catch(e){
-        console.log('error', e)
+      if (! this.props.unlabeled && this.props.tab === "People" || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
+        var imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
+        console.log(imagery_url)
+        try{
+          axiosInstance.get(imagery_url)
+          .then( (response) => {
+            // resolve({data: response.data});
+            // console.log(response)
+            this.setState({imagery_ids: response.data.id_list}); 
+            this.setState({loading_definite: false})
+
+            // if (! this.state.loading_poss){
+            //   this.setState({loading: false})
+            // }
+            // while ( this.state.loading_poss ){
+            //     setTimeout(() => 
+            //     {
+            //     console.log('wait 1')
+            //     }, 200)
+            //   }
+            // console.log("Set state")
+            // this.setState({loading: false})
+          });
+        }catch(e){
+          console.log('error', e)
+        }
+      }else{
+        this.setState({imagery_ids: []}); 
+        this.setState({loading_definite: false})
       }
 
       if (this.props.tab === 'People'){
@@ -66,19 +83,22 @@ class ImageScreen extends React.Component{
           axiosInstance.get(imagery_url)
           .then( (response) => {
             // resolve({data: response.data});
-            console.log(response)
+            // console.log(response)
             this.setState({possible_ids: response.data.id_list}); 
             this.setState({loading_poss: false})
 
-          if (this.state.loading_definite){
+            if (! this.state.loading_definite){
+              this.setState({loading: false})
+            }
+
             this.setState({loading: false})
-          }
           });
         }catch(e){
           console.log('error', e)
         }
       }else{
-        this.setState({loading_poss: true})
+        this.setState({loading_poss: false})
+        this.setState({loading: false})
       }
     }
 
@@ -132,7 +152,7 @@ class ImageScreen extends React.Component{
        
       </div>
       );
-    }{
+    }else{
 
       // var items = []
       // for (const [index, value] of this.state.imagery_ids.entries()) {
@@ -154,19 +174,27 @@ class ImageScreen extends React.Component{
       //     urls.push(this.createUrl(value))
       //   } 
       // }
+      console.log("Ready",this.state)
+      var gallery = <Gallery
+                    poss_ids = {this.state.possible_ids} 
+                    img_ids={this.state.imagery_ids}
+                    people={this.props.people}
+                    unassigned_person_id={this.props.unassigned_person_id}
+                    ignore_person_id={this.props.ignore_person_id}
+                    current_person_id={this.props.api_id}
+                    ready = {this.state.loading}
+                    updatePersonList={this.props.updatePersonList}
+                    unlabeled={this.props.unlabeled}
+                  />
        
       return(
         <div>
+
+
           <div className='screenHeader'>
             Header data lots and lots of it
           </div>
-          <Gallery
-            poss_ids = {this.state.possible_ids} 
-            img_ids={this.state.imagery_ids}
-            people={this.props.people}
-            unassigned_person_id={this.props.unassigned_person_id}
-            current_id={this.props.api_id}
-          />
+          {gallery}
         </div>
       );
 

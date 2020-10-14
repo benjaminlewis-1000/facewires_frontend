@@ -44,3 +44,7 @@
 .transition{
     height: 150px;
 }
+
+.infinite-scroll-component {
+    overflow: hidden !important;
+}

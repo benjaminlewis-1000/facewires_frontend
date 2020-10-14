@@ -31,11 +31,14 @@ class PersonSidebar extends React.Component {
         className={className}
         key={index}
         onClick = {() =>  this.handleClick(index, value.url, value.id)  }
+        onDrop = {() => {console.log("Dropped on me!")}}
+        onDragOver={console.log("drag over")}
       >
         {value.person_name}   ({value.num_faces})
       </button>
     );
   }
+  //
 
   render() {
     const people = this.props.people

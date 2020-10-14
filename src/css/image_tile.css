@@ -112,3 +112,27 @@ input.person_select, div.person_select{
 div.ui.selection.dropdown, input.ui.selection.dropdown{
   min-width: 20px;
 }
+
+.hidden_img{
+    display: none;
+    position: relative;
+    width: 0px;
+}
+
+.react-contextmenu{
+  z-index: 100;
+  background-color: #f3f3f3;
+  border-radius: 5px;
+}
+
+.react-contextmenu-item{
+  padding: 4px;
+  margin: 10px;
+}
+
+
+.react-contextmenu-item:hover {
+  opacity: 0.7;
+  background-color: #afbab2;
+  color: #2861d4;
+}

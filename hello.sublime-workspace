@@ -4,6 +4,14 @@
 		"selected_items":
 		[
 			[
+				"lsit",
+				"listOrder"
+			],
+			[
+				"person",
+				"current_person_id"
+			],
+			[
 				"dur",
 				"duration_css\t⟠"
 			],
@@ -104,8 +112,33 @@
 			"file": "src/components/picasaScreen.js",
 			"settings":
 			{
-				"buffer_size": 9369,
+				"buffer_size": 10265,
 				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "/home/benjamin/gitRepos/testProject/App.js",
+			"settings":
+			{
+				"buffer_size": 2759,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/login.js",
+			"settings":
+			{
+				"buffer_size": 2915,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/axios_setup.js",
+			"settings":
+			{
+				"buffer_size": 1518,
 				"line_ending": "Unix"
 			}
 		},
@@ -113,7 +146,7 @@
 			"file": "src/components/imageScreen.js",
 			"settings":
 			{
-				"buffer_size": 6173,
+				"buffer_size": 6490,
 				"line_ending": "Unix"
 			}
 		},
@@ -121,24 +154,8 @@
 			"file": "src/components/gallery.js",
 			"settings":
 			{
-				"buffer_size": 5648,
+				"buffer_size": 7737,
 				"encoding": "UTF-8",
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"contents": "import React from 'react';\nimport { trackWindowScroll } from 'react-lazy-load-image-component';\nimport store from 'store';\nimport '../css/image_tile.css'\nimport LazyImage from './lazyImg'\nimport MutableSelect from './mutableSelect'\n\nconst styleLink = document.createElement(\"link\");\nstyleLink.rel = \"stylesheet\";\nstyleLink.href = \"https://cdn.jsdelivr.net/npm/semantic-ui/dist/semantic.min.css\";\ndocument.head.appendChild(styleLink);\n\nclass Gallery extends React.Component{\n  constructor(props){\n    super(props);\n    var peopleOptions = []\n\n    for (const [index, value] of this.props.people.entries()) {\n      peopleOptions.push({\n        key: index,\n        value: value.person_name,\n        text: value.person_name,\n        unassigned_person_id: this.props.unassigned_person_id,\n      })\n    }\n\n\n    this.state = {\n      ids: this.props.img_ids,\n      poss_ids: this.props.poss_ids,\n      imgsSelected: [],\n      peopleOptions: peopleOptions,\n      idxToIdMap: [],\n      shiftOn: false,\n      shiftStartIdx: -1\n    }\n\n    // console.log(this.props.people)\n    // const peopleOptions = this.props.people\n\n    // const DropdownExampleSearchSelection = () => (\n      \n    // )\n  }\n\n  clickety(event, resource_id, index){\n\n    var indexIfInList = this.state.imgsSelected.indexOf(resource_id)\n\n    // if (event.shiftKey){\n    //   var newHighlights = []\n    //   console.log('shift')\n    //   var curShift = this.state.shiftOn;\n    //   this.setState({shiftOn: !this.state.shiftOn})\n    //   if (curShift){\n    //     this.state.shiftStartIdx = index\n    //   }else{\n    //     var startIdx = this.state.shiftStartIdx\n    //     var endIdx = index\n    //     if (startIdx > endIdx){\n    //       var e = endIdx\n    //       endIdx = startIdx\n    //       startIdx = e\n    //     }\n    //     if (startIdx < this.props.img_ids.length){\n    //        if (endIdx < this.props.img_ids.length){\n    //          for (var s = startIdx; s <= endIdx; s ++){\n    //             newHighlights.push(this.props.img_ids[s])\n    //             console.log(this.props.img_ids[s])\n    //          }\n    //        }else{\n\n    //        }\n    //     }else{\n    //        if (endIdx < this.props.img_ids.length){\n\n    //        }else{\n\n    //        }\n    //     }\n    //   }\n    // }\n    \n    if (indexIfInList >= 0){\n      var newState = this.state.imgsSelected\n      newState.splice(indexIfInList, 1)\n      this.setState({imgsSelected: newState})\n    }else{\n      if (event.ctrlKey) {\n        this.setState({imgsSelected: this.state.imgsSelected.concat([resource_id])})\n      }else{\n        this.setState({imgsSelected: [resource_id]})\n      }\n    }\n    console.log(this.state)\n  }\n\n  dragLog (event, resource_id, index) {\n    var indexIfInList = this.state.imgsSelected.indexOf(resource_id)\n    console.log(indexIfInList, indexIfInList === -1)\n    \n    var dragState = this.state.imgsSelected\n    if (indexIfInList === -1){\n      if (event.ctrlKey) {\n        dragState = dragState.concat([resource_id])\n        console.log(\"Ctrl drag\")\n        this.clickety(event, resource_id)\n        this.setState({imgsSelected: this.state.imgsSelected.concat([resource_id])})\n      }else{\n        dragState = [resource_id]\n        this.setState({imgsSelected: [resource_id]})\n      }\n    }else{\n      console.log(\"Not in drag state\")\n    }\n\n    if (event.ctrlKey) {\n      console.log(dragState, this.state.imgsSelected)\n    }else{\n      console.log(dragState, this.state.imgsSelected)\n    }\n  }\n\n  createImage(index, resource_id, type){\n      var url = store.get('api_url') + '/keyed_image/face_array/?access_key=' \n        + store.get('access_key') + '&id=' + resource_id\n\n      // if (this.state.imgsSelected.indexOf(resource_id) >= 0){\n      //   // Selected = true\n      //   var className = 'img_thumb_active'\n      // }else{\n      //   className = 'img_thumb'\n      // }\n      \n\n        \n      var img = <LazyImage \n        selected={this.state.imgsSelected.indexOf(resource_id) >= 0}\n        url={url}\n        index={index}\n        key={index}\n        scrollPosition={this.props.scrollPosition}\n        onClick={ (e) => this.clickety(e,  resource_id, index) }\n        onDrag={ (e) => this.dragLog(e,  resource_id, index) }\n\n      />  \n          // if (type === 'defined'){\n          //   {<button \n          //     className='delete'\n          //   >x</button>}\n          // }else if (type === 'proposed'){\n          //   {<button \n          //     className='yes'\n          //   >&#10003;</button>\n          //  <button \n          //     className='no'\n          //   >x</button>}\n          // }else if (type === 'unassigned_tab'){\n          //   <MutableSelect peopleOptions = {this.state.peopleOptions}/>\n          // }\n        \n      return (\n        <div className='imgDiv' key={index}>\n          {img}\n          {\n            {\n              // 'defined': <button className='delete'>x</button>,\n              'proposed': <button className='yes'>&#10003;</button>,\n              'unassigned_tab':  <MutableSelect peopleOptions = {this.state.peopleOptions}/>\n            }[type]\n          }\n          {\n            {\n              'proposed': <button className='no'>x</button>,\n              'unassigned_tab':  <button className='delete'>x</button>,\n            }[type]\n          }\n        </div>\n      );\n    }\n\n  makeScreen(){\n    var items = []\n    console.log(this.props.current_id, this.props.unassigned_person_id)\n\n    if (this.props.current_id === this.props.unassigned_person_id){\n      var defined_term = 'unassigned_tab'\n    }else{\n      defined_term = 'defined'\n    }\n\n    var idxToIdMap = []\n    \n    for (const [index, value] of this.props.img_ids.entries()) {\n      items.push(this.createImage(index, value, defined_term))\n      idxToIdMap.push(value)\n    }\n    var idx_offset = items.length\n    for (const [index, value] of this.props.poss_ids.entries()) {\n      items.push(this.createImage(index + idx_offset, value, 'proposed'))\n      idxToIdMap.push(value)\n    }\n\n    this.setState({idxToIdMap: idxToIdMap})\n\n    return items\n  }\n\n  render(){\n    return(\n\n      <div className='imageScreen'>\n        \n        {this.makeScreen()}\n      </div>    \n    ); \n  }\n\n}\n\nexport default trackWindowScroll(Gallery)",
-			"settings":
-			{
-				"buffer_size": 6202,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/components/mutableSelect.js",
-			"settings":
-			{
-				"buffer_size": 1025,
 				"line_ending": "Unix"
 			}
 		},
@@ -146,15 +163,15 @@
 			"file": "src/components/lazyImg.js",
 			"settings":
 			{
-				"buffer_size": 938,
+				"buffer_size": 6866,
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"file": "src/components/imagePanel.js",
+			"file": "src/components/mutableSelect.js",
 			"settings":
 			{
-				"buffer_size": 1724,
+				"buffer_size": 5541,
 				"line_ending": "Unix"
 			}
 		},
@@ -162,7 +179,7 @@
 			"file": "src/css/image_tile.css",
 			"settings":
 			{
-				"buffer_size": 1805,
+				"buffer_size": 1880,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
@@ -171,7 +188,7 @@
 			"file": "src/components/personSidebar.js",
 			"settings":
 			{
-				"buffer_size": 2350,
+				"buffer_size": 2458,
 				"line_ending": "Unix"
 			}
 		},
@@ -187,7 +204,7 @@
 			"file": "src/css/imageScreen.css",
 			"settings":
 			{
-				"buffer_size": 834,
+				"buffer_size": 900,
 				"line_ending": "Unix"
 			}
 		},
@@ -212,14 +229,6 @@
 			"settings":
 			{
 				"buffer_size": 856,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/components/login.js",
-			"settings":
-			{
-				"buffer_size": 2915,
 				"line_ending": "Unix"
 			}
 		},
@@ -288,6 +297,7 @@
 	],
 	"file_history":
 	[
+		"/home/benjamin/gitRepos/testProject/App.js",
 		"/mnt/server_home/git_repos/facewires_frontend/src/components/mutableSelect.js",
 		"/mnt/server_home/git_repos/facewires_frontend/src/components/gal.js",
 		"/mnt/server_home/git_repos/facewires_frontend/src/components/gal2.js",
@@ -396,6 +406,104 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"center",
+			"imgsSele",
+			"selected",
+			"clickety",
+			"set_inv",
+			"imgsselec",
+			"this.state.items",
+			"concat",
+			"compareName",
+			"url ",
+			"this.state.people",
+			"people",
+			"people:",
+			"this.state.people",
+			"imageScreen",
+			"galler",
+			"lazyIma",
+			"mutableSelec",
+			"createImag",
+			"face_id",
+			"resource_id",
+			"dropdown_en",
+			"onChange",
+			"dropdown",
+			"dropdown_ente",
+			"visible",
+			"mutablesel",
+			"assign",
+			"api_key",
+			"JWT",
+			"confirm",
+			"=[]\n",
+			"onclick",
+			"return",
+			"403",
+			"axios",
+			"axiosInsta",
+			"ignored",
+			"close_una",
+			"onenter",
+			"mutable",
+			"peopleOptions",
+			"people",
+			"peopl",
+			"mutable",
+			"peopleOpt",
+			"peopleOption",
+			"unassigned_person",
+			"unassigned",
+			"unassi",
+			"confirmed",
+			"current_id",
+			"hidden_button",
+			"imgs_len",
+			"this.state.ready",
+			"setstate",
+			"index",
+			"resourc",
+			"onfiledr",
+			"clicket",
+			"imgsSelected",
+			"this.state.imgsSele",
+			"lazyim",
+			"imgsSelected",
+			"selected=",
+			"selected",
+			"gallery",
+			"img_thumb",
+			"_active",
+			"selected=",
+			"selected =",
+			"selected",
+			"onDrop",
+			"createImage",
+			"clickety",
+			"imgsSelected",
+			"makePerson",
+			"unassigned_tab",
+			"propose",
+			"createAuth",
+			"console.",
+			"imgs_len",
+			"start",
+			"all_load",
+			"'defined",
+			"type",
+			"createImage",
+			"defined",
+			"start_idx",
+			"ids_load",
+			"items",
+			"items ",
+			"create",
+			"possible_ids",
+			"Gallery",
+			"possible_ids",
+			"Gallery",
+			"makescreen",
 			"imgsSele",
 			"img_ids",
 			"makescreen",
@@ -425,105 +533,7 @@
 			"people",
 			"position",
 			"screenHeader",
-			".close",
-			"scroll",
-			"scrollposition",
-			"splice",
-			"even",
-			"vh",
-			"padding",
-			"menuremnan",
-			"vh",
-			"position",
-			"overflow",
-			"overflo",
-			"gallery",
-			"access_key",
-			"search",
-			"image_list",
-			"base_url",
-			"component",
-			"api_sourc",
-			"folder_ap",
-			"tabselectcall",
-			"tab",
-			"folder_api_i",
-			"catch",
-			".then",
-			" == ",
-			"setstate",
-			"person_api_id",
-			"api_sour",
-			"setSource",
-			"imagescreen",
-			"store.g",
-			"setToggle",
-			"childFiel",
-			"console.",
-			"axiosInsta",
-			"foldersele",
-			"highligh",
-			" \n",
-			"console.",
-			"folderSelec",
-			"onclick",
-			"handleCl",
-			"image_api_id",
-			"consol",
-			"console.",
-			"clickHand",
-			"slide_img",
-			"base_url",
-			"imageScreen",
-			"plice",
-			"folders",
-			"folder",
-			"num",
-			"color",
-			"sidebar",
-			"people",
-			"background",
-			"renderPerson",
-			"setPerson",
-			"updatePerson",
-			"setSource",
-			"setsour",
-			"setApiUrl",
-			"setSource",
-			"tabSelectCallback",
-			"sidebarList",
-			"personList",
-			"personScreen",
-			"console.log",
-			"class",
-			"personScreen ",
-			"people",
-			"loader",
-			"circleLoader",
-			"overr",
-			"loader",
-			"screenWrapper",
-			"loader",
-			"screenWrapper",
-			"vh",
-			"button",
-			"margin",
-			"debarlis",
-			"\n.span_hidden{\n    order: 2;\n}",
-			"active",
-			"switchLabel",
-			"che",
-			"checkb",
-			"sans",
-			"height",
-			"access",
-			"store.",
-			"this.setState({",
-			"axiosIns",
-			"console.",
-			"setperson",
-			"button",
-			"text"
+			".close"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -531,6 +541,8 @@
 		"regex": false,
 		"replace_history":
 		[
+			"face_id",
+			"hidden_img",
 			".delete",
 			"fetchLinkedArray",
 			"targs_with_model",
@@ -591,7 +603,7 @@
 	"groups":
 	[
 		{
-			"selected": 5,
+			"selected": 4,
 			"sheets":
 			[
 				{
@@ -607,8 +619,8 @@
 						"selection":
 						[
 							[
-								365,
-								365
+								391,
+								391
 							]
 						],
 						"settings":
@@ -620,7 +632,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 11,
 					"type": "text"
 				},
 				{
@@ -651,7 +663,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 6,
+					"stack_index": 15,
 					"type": "text"
 				},
 				{
@@ -667,8 +679,8 @@
 						"selection":
 						[
 							[
-								1598,
-								1598
+								2370,
+								2370
 							]
 						],
 						"settings":
@@ -678,7 +690,7 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 617.0,
+						"translation.y": 1122.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 4,
@@ -690,15 +702,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 9369,
+						"buffer_size": 10265,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								679,
-								679
+								7602,
+								7602
 							]
 						],
 						"settings":
@@ -709,7 +721,7 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 4238.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 3,
@@ -717,166 +729,19 @@
 				},
 				{
 					"buffer": 4,
-					"file": "src/components/imageScreen.js",
+					"file": "/home/benjamin/gitRepos/testProject/App.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 6173,
+						"buffer_size": 2759,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								4761,
-								4761
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 107.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 2,
-					"type": "text"
-				},
-				{
-					"buffer": 5,
-					"file": "src/components/gallery.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 5648,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1528,
-								1528
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 634.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 0,
-					"type": "text"
-				},
-				{
-					"buffer": 6,
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 6202,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1423,
-								1423
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 663.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
-					"buffer": 7,
-					"file": "src/components/mutableSelect.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 1025,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								940,
-								940
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 9,
-					"type": "text"
-				},
-				{
-					"buffer": 8,
-					"file": "src/components/lazyImg.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 938,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								49,
-								49
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 7,
-					"type": "text"
-				},
-				{
-					"buffer": 9,
-					"file": "src/components/imagePanel.js",
-					"semi_transient": true,
-					"settings":
-					{
-						"buffer_size": 1724,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								0,
-								0
+								947,
+								947
 							]
 						],
 						"settings":
@@ -889,54 +754,54 @@
 						"translation.y": 153.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 10,
+					"stack_index": 0,
 					"type": "text"
 				},
 				{
-					"buffer": 10,
-					"file": "src/css/image_tile.css",
+					"buffer": 5,
+					"file": "src/components/login.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1805,
+						"buffer_size": 2915,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1674,
-								1674
+								869,
+								869
 							]
 						],
 						"settings":
 						{
-							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
 							"tab_size": 2,
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 1178.0,
+						"translation.y": 102.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 8,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
-					"buffer": 11,
-					"file": "src/components/personSidebar.js",
+					"buffer": 6,
+					"file": "src/components/axios_setup.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2350,
+						"buffer_size": 1518,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								441,
-								441
+								29,
+								29
 							]
 						],
 						"settings":
@@ -949,11 +814,191 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "src/components/imageScreen.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6490,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								5238,
+								5238
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 2232.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 9,
+					"type": "text"
+				},
+				{
+					"buffer": 8,
+					"file": "src/components/gallery.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7737,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								5493,
+								5493
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 2453.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 7,
+					"type": "text"
+				},
+				{
+					"buffer": 9,
+					"file": "src/components/lazyImg.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6866,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2223,
+								2223
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 1071.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				},
+				{
+					"buffer": 10,
+					"file": "src/components/mutableSelect.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 5541,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								3889,
+								3889
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 1836.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 8,
+					"type": "text"
+				},
+				{
+					"buffer": 11,
+					"file": "src/css/image_tile.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1880,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1818,
+								1818
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 1304.0,
+						"zoom_level": 1.0
+					},
 					"stack_index": 12,
 					"type": "text"
 				},
 				{
 					"buffer": 12,
+					"file": "src/components/personSidebar.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2458,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1257,
+								1257
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 73.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 14,
+					"type": "text"
+				},
+				{
+					"buffer": 13,
 					"file": "src/components/folderSidebar.js",
 					"semi_transient": false,
 					"settings":
@@ -977,27 +1022,27 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 692.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 13,
+					"stack_index": 10,
 					"type": "text"
 				},
 				{
-					"buffer": 13,
+					"buffer": 14,
 					"file": "src/css/imageScreen.css",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 834,
+						"buffer_size": 900,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								527,
-								527
+								900,
+								900
 							]
 						],
 						"settings":
@@ -1007,14 +1052,14 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 102.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 11,
+					"stack_index": 13,
 					"type": "text"
 				},
 				{
-					"buffer": 14,
+					"buffer": 15,
 					"file": "src/css/menubar.css",
 					"semi_transient": false,
 					"settings":
@@ -1040,11 +1085,11 @@
 						"translation.y": 102.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 14,
+					"stack_index": 16,
 					"type": "text"
 				},
 				{
-					"buffer": 15,
+					"buffer": 16,
 					"file": "src/components/tabular_menu.js",
 					"semi_transient": false,
 					"settings":
@@ -1074,7 +1119,7 @@
 					"type": "text"
 				},
 				{
-					"buffer": 16,
+					"buffer": 17,
 					"file": "src/components/misc.css",
 					"semi_transient": false,
 					"settings":
@@ -1100,37 +1145,7 @@
 						"translation.y": 102.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 16,
-					"type": "text"
-				},
-				{
-					"buffer": 17,
-					"file": "src/components/login.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 2915,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								217,
-								217
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 15,
+					"stack_index": 6,
 					"type": "text"
 				},
 				{
@@ -1168,7 +1183,7 @@
 	],
 	"incremental_find":
 	{
-		"height": 32.0
+		"height": 26.0
 	},
 	"input":
 	{
@@ -1229,7 +1244,7 @@
 		[
 			[
 				"",
-				"/mnt/server_home/git_repos/django_picasa/picasa.sublime-project"
+				"~/gitRepos/sar_lstm/multi_look_sar.sublime-project"
 			]
 		],
 		"width": 380.0

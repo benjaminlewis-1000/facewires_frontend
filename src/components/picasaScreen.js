@@ -38,15 +38,10 @@ class PicasaScreen extends React.Component{
   
   constructor(props) {
     super(props);
-    var urls = []
-    var mult = Math.round(Math.random() * 9) + 1
 
-    // console.log(access_token)
-        
     this.state = {
       people : [], 
       folders: [],
-      urls: urls,
       people_url: store.get('api_url') + '/people/?fields=person_name,url,num_faces,id,num_possibilities',
       dir_url: store.get('api_url') + '/directories/?fields=id,url,top_level_name,first_datesec,mean_datesec,num_images,year',
       param_url: store.get('api_url') + '/parameters/',
@@ -60,6 +55,7 @@ class PicasaScreen extends React.Component{
       
     };
           
+    console.log(this.state.param_url)
     axiosInstance.get(this.state.param_url)    
     .then( (response) => {
       // var info = response.data
@@ -72,28 +68,30 @@ class PicasaScreen extends React.Component{
         this.setState({loading: false})
       }
     })
+
+    this.updatePersonList = this.updatePersonList.bind(this)
         
 
   }
 
 
+  compareNames(a, b) {
+    // Use toUpperCase() to ignore character casing
+    const nameA = a.person_name.toUpperCase();
+    const nameB = b.person_name.toUpperCase();
+
+    let comparison = 0;
+    if (nameA > nameB) {
+      comparison = 1;
+    } else if (nameA < nameB) {
+      comparison = -1;
+    }
+    return comparison;
+  }
 
   componentDidMount(){
 
 
-    function compareNames(a, b) {
-      // Use toUpperCase() to ignore character casing
-      const nameA = a.person_name.toUpperCase();
-      const nameB = b.person_name.toUpperCase();
-
-      let comparison = 0;
-      if (nameA > nameB) {
-        comparison = 1;
-      } else if (nameA < nameB) {
-        comparison = -1;
-      }
-      return comparison;
-    }
 
     function compareDirectories(a, b) {
       // Use toUpperCase() to ignore character casing
@@ -127,7 +125,7 @@ class PicasaScreen extends React.Component{
       next_url = null
       this.compile_api_list(this.state.people_url, 'name_array').then(
         (resp) =>{
-          resp.sort(compareNames)
+          resp.sort(this.compareNames)
           this.setState({'people': resp})
           this.setState({names_fetched: true}); 
           this.setState({api_id: resp[0].id})
@@ -135,7 +133,9 @@ class PicasaScreen extends React.Component{
             this.setState({loading: false})
           }
           var unassigned_person_id  = resp.find(element =>element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === 'Unassigned');
+          var ignore_person_id  = resp.find(element =>element.person_name === ".ignore" );
           this.setState({unassigned_id: unassigned_person_id.id})
+          this.setState({ignore_person_id: ignore_person_id.id})
 
           console.log(this.state)
         }
@@ -262,6 +262,20 @@ class PicasaScreen extends React.Component{
 ///  END of callbacks
 ////////////////////////////////////////
 
+  updatePersonList(person_name, api_key){
+    console.log("Updating person list in PicasaScreen", person_name, api_key, this.state.people)
+    var new_object = {'id': api_key,
+                      'num_faces' : 1,
+                      'num_possibilities': 0,
+                      'person_name': person_name,
+                      'url': store.get('api_url') + '/people/' + api_key + '/'}
+
+    var person_list = this.state.people.concat(new_object)
+    person_list.sort(this.compareNames)
+    this.setState({people: person_list})
+
+    console.log(new_object)
+  }
 
   renderSidebar() {
 
@@ -279,6 +293,9 @@ class PicasaScreen extends React.Component{
           api_id={this.state.api_id} 
           people={this.state.people}
           unassigned_person_id={this.state.unassigned_id}
+          ignore_person_id={this.state.ignore_person_id}
+          updatePersonList={this.updatePersonList}
+          unlabeled={this.state.unlabeled_toggle}
         />
       </div>
       );
@@ -288,7 +305,13 @@ class PicasaScreen extends React.Component{
       return (
       <div>
         <FolderSidebar folders={this.state.folders} setSource={this.setApiUrl} />
-        <ImageScreen tab={this.state.tab} api_source={this.state.api_source} api_id={this.state.api_id} people={this.state.people}/>
+        <ImageScreen 
+          tab={this.state.tab} 
+          api_source={this.state.api_source} 
+          api_id={this.state.api_id} 
+          people={this.state.people}
+          unlabeled={this.state.unlabeled_toggle}
+        />
       </div>
       );
     }
@@ -311,7 +334,7 @@ class PicasaScreen extends React.Component{
 
         
 
-        <div >
+        <React.Fragment>
           { this.state.loading ? (
             <div className='spinBackground'>
               <div className="loader">
@@ -323,18 +346,18 @@ class PicasaScreen extends React.Component{
                 />
               </div>
             </div>
-          ) : (
-          <div>
-            <MenuExampleTabular tabSelectCallback = {this.tabSelectCallback} setToggle={this.setToggle} />
+            ) : (
             <div>
-              {this.renderSidebar()}
+              <MenuExampleTabular tabSelectCallback = {this.tabSelectCallback} setToggle={this.setToggle} />
+              <div>
+                {this.renderSidebar()}
+              </div>
             </div>
-          </div>
-          )
+            )
           }
-          </div>
+        </React.Fragment>
           
-        </div>
+      </div>
     );
   }
 }
