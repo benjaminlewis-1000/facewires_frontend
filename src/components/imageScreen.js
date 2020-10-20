@@ -1,13 +1,14 @@
 import '../css/imageScreen.css';
+import '../css/imageModal.css';
 import axiosInstance from './axios_setup';
 import ImageObj from './imageObj';
-import React from 'react';
+import React, {useState} from 'react';
 import store from 'store';
 import { LazyLoadImage, trackWindowScroll } from 'react-lazy-load-image-component';
 import Gallery from './gallery'
 
-
 class ImageScreen extends React.Component{
+
   constructor(props){
     super(props);
     this.state = {
@@ -18,7 +19,9 @@ class ImageScreen extends React.Component{
       possible_ids: [],
       access_key: store.get('access_key'),
     }
-    // this.handleChange = this.handleChange.bind(this);
+
+
+
     // this.ref = React.createRef();
   }
 
@@ -51,22 +54,10 @@ class ImageScreen extends React.Component{
         try{
           axiosInstance.get(imagery_url)
           .then( (response) => {
-            // resolve({data: response.data});
-            // console.log(response)
+            
             this.setState({imagery_ids: response.data.id_list}); 
             this.setState({loading_definite: false})
 
-            // if (! this.state.loading_poss){
-            //   this.setState({loading: false})
-            // }
-            // while ( this.state.loading_poss ){
-            //     setTimeout(() => 
-            //     {
-            //     console.log('wait 1')
-            //     }, 200)
-            //   }
-            // console.log("Set state")
-            // this.setState({loading: false})
           });
         }catch(e){
           console.log('error', e)
@@ -144,13 +135,14 @@ class ImageScreen extends React.Component{
   }
 
 
+
   buildScreen() {
     if (this.state.loading){
       return(
-      <div className='imageScreen'>
-        Image screen {this.props.tab} {this.props.api_id} <a href={this.props.api_source}>API Source</a>
-       
-      </div>
+          <div className='screenHeader'>
+             {highlight_img} 
+             <span className='header_person_name'>{selectedName}</span>
+          </div>
       );
     }else{
 
@@ -186,13 +178,34 @@ class ImageScreen extends React.Component{
                     updatePersonList={this.props.updatePersonList}
                     unlabeled={this.props.unlabeled}
                   />
+
+      console.log("selected index: ", this.props.people)
+      if ( this.props.selectedIndex === -100 ){
+        var selectedName = 'Unassigned'
+        // var id_url = null
+        var highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' className='highlight_img' />
+        //
+      }else{
+        selectedName = this.props.people[this.props.selectedIndex].person_name
+        var id_num = this.props.people[this.props.selectedIndex].id
+        var id_url = store.get('api_url') + '/keyed_image/face_highlight/?access_key=' 
+          + this.state.access_key + '&id=' + id_num
+        highlight_img = <img src={id_url} className="highlight_img" />
+      }
+
+
+
+      
+
        
+                             // <img src="https://i.pinimg.com/originals/00/99/f4/0099f4d94bcd096e932b750edea40c5d.jpg" alt="Mountain" className='modalImage' /> 
       return(
         <div>
-
-
           <div className='screenHeader'>
-            Header data lots and lots of it
+            {highlight_img} 
+            <span className='header_person_name'>{selectedName}</span>
+            
+           
           </div>
           {gallery}
         </div>

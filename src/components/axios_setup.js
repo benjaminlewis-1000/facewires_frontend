@@ -32,37 +32,129 @@ axiosRetry(axiosInstance, {retries: 3});
 //   error => {console.log("Error 2")}
 // )
 
-const refreshAuthLogic = failedRequest => {
+
+// let authToken = '';
+
+const refreshAuthLogic = (failedRequest) => {
 
     const bodyParameters = {
        refresh: store.get('refresh_token')
     };
 
-    console.log("Refresh")
-    console.log(failedRequest)
-    try{
-      console.log("Try")
-      axios.post(store.get('api_url') + '/token/refresh/', bodyParameters)
-        .then(tokenRefreshResponse => {
-          console.log("Then?")
-          console.log("Refresh logic", tokenRefreshResponse)
-          localStorage.setItem('access_token', tokenRefreshResponse.data.access);
-          failedRequest.response.config.headers['Authorization'] = 'JWT ' + tokenRefreshResponse.data.token;
-          console.log("Resolved.")
-          return Promise.resolve(true);
-      }).catch(
-        () => {
-          console.log("Axios catch")
-        }
-      );
-    }catch(e){
-      console.log("Catch")
-      console.log("axios error", e)
-    }finally{
-      console.log("Finally")
-    }
-    return Promise.resolve(true);
+    // console.log("Refresh")
+    // console.log(failedRequest)
+    // try{
+    //   console.log("Try")
+    return axiosInstance.post(store.get('api_url') + '/token/refresh/', bodyParameters)
+      .then((tokenRefreshResponse) => {
+        // console.log("Then?")
+        // console.log("Refresh logic", tokenRefreshResponse)
+        console.log(tokenRefreshResponse.data)
+        const access_token = tokenRefreshResponse.data.access
+        localStorage.setItem('access_token', access_token);
+        failedRequest.response.config.headers.Authorization = 'JWT ${access_token}';
+        
+        // failedRequest.response.config.headers.Authorization = 'JWT ${tokenRefreshResponse.data.token}';
+        // console.log("Resolved.")
+        return Promise.resolve();
+    }).catch(
+      () => {
+        console.log("Axios catch")
+      }
+    );
+    // }catch(e){
+    //   console.log("axios error", e)
+    // }finally{
+    //   console.log("Finally")
+    // }
+    // return Promise.resolve(true);
   }
+
+// function getAuthToken() {
+//     if (authToken) {
+//         console.log(`Token exists: ${authToken}`);
+//         return `Token ${authToken}`;
+//     }
+//     return null;
+// }
+
+// function test(){
+//     console.log("Called")
+// }
+
+function getNewToken(){
+    const bodyParameters = {
+       refresh: store.get('refresh_token')
+    };
+
+    axiosInstance.post(store.get('api_url') + '/token/refresh/', bodyParameters)
+      .then((tokenRefreshResponse) => {
+        // console.log("Then?")
+        // console.log("Refresh logic", tokenRefreshResponse)
+        // console.log(tokenRefreshResponse.data)
+        const access_token = tokenRefreshResponse.data.access
+        // console.log(access_token)
+        localStorage.setItem('access_token', access_token);
+        // failedRequest.response.config.headers.Authorization = 'JWT ${access_token}';
+        
+        // failedRequest.response.config.headers.Authorization = 'JWT ${tokenRefreshResponse.data.token}';
+        // console.log("Resolved.")
+        // return Promise.resolve();
+    }).catch(
+      () => {
+        console.log("Axios catch")
+      }
+    );
+}
+
+// Set the page to get a new JWT token every 3 minutes (180 seconds). This is well below
+// the 5 minute mark.
+var interval = setInterval(getNewToken, 3 * 60 * 1000)
+
+var st = new Date()
+
+axiosInstance.interceptors.request.use((request) => {
+    // var et = new Date()
+    // var refresh_url = store.get('api_url') + '/token/refresh/'
+    // var elapsed = et - st
+    var access = localStorage.getItem('access_token')
+    // console.log(access)
+    var token = "JWT " + access
+    // console.log(token)
+    request.headers.Authorization = token;
+
+    return request
+    // if (elapsed > 3000 && request.url !== refresh_url){// 300 seconds - 5 minutes
+    //     console.log("Need to request a new key.", elapsed)
+    //     console.log(request.url)
+    //         // return request
+    //     const bodyParameters = {
+    //        refresh: store.get('refresh_token')
+    //     };
+    //     axiosInstance.post(refresh_url, bodyParameters).then((tokenRefreshResponse) => {
+    //         // console.log("Then?")
+    //         // console.log("Refresh logic", tokenRefreshResponse)
+    //         console.log(tokenRefreshResponse.data)
+    //         // const access_token = tokenRefreshResponse.data.access
+    //         // localStorage.setItem('access_token', access_token);
+    //         // // failedRequest.response.config.headers.Authorization = 'JWT ${access_token}';
+            
+    //         // // failedRequest.response.config.headers.Authorization = 'JWT ${tokenRefreshResponse.data.token}';
+    //         // // console.log("Resolved.")
+    //         // console.log(`Requesting ${request.url}`, et - st);
+    //         // st = new Date()
+    //     })
+    //         return request
+    // } else{
+    //     return request
+    // }
+    // console.log(`Requesting ${request.url}`, et - st);
+    // const token = getAuthToken();
+    // // if (token) {
+    // //     request.headers.Authorization = token;
+    // // }
+    // return request;
+});
 
 const options = {
   statusCodes: [401, 403]

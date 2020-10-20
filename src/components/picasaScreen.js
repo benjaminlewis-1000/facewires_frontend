@@ -52,6 +52,7 @@ class PicasaScreen extends React.Component{
       tab: 'People',
       unlabeled_toggle: false,
       api_id: 0,
+      selectedIndex: -100,
       
     };
           
@@ -126,6 +127,7 @@ class PicasaScreen extends React.Component{
       this.compile_api_list(this.state.people_url, 'name_array').then(
         (resp) =>{
           resp.sort(this.compareNames)
+          resp = resp.filter(element => element.num_faces > 0)
           this.setState({'people': resp})
           this.setState({names_fetched: true}); 
           this.setState({api_id: resp[0].id})
@@ -143,13 +145,13 @@ class PicasaScreen extends React.Component{
       this.compile_api_list(this.state.dir_url, 'folder_aray').then(
         (resp) =>{
           resp.sort(compareDirectories)
-          console.log("Folder length", resp.length)
+          // console.log("Folder length", resp.length)
           for (var i = resp.length - 1; i >= 0; i--){
             if (resp[i].num_images === 0){
               resp.splice(i, 1)
             }
           }
-          console.log("Folder length after: ", resp.length)
+          // console.log("Folder length after: ", resp.length)
           this.setState({'folders': resp})
           this.setState({dirs_fetched: true}); 
           if (this.state.names_fetched && this.state.params_fetched){
@@ -196,7 +198,7 @@ class PicasaScreen extends React.Component{
     }catch(e){
       console.log('error', e)
     }
-    console.log(data_array)
+    // console.log(data_array)
 
     return data_array
   }
@@ -238,14 +240,17 @@ class PicasaScreen extends React.Component{
     this.setState({tab: childData})
   }
   
-  setApiUrl = (childType, childUrl, childId) => {
+  setApiUrl = (childType, childUrl, childId, index) => {
     // console.debug("API folder: ", childData, childId)
+    console.log(index)
     if (childType === 'folder'){
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
+      this.setState({selectedIndex: index})
     }else if (childType === 'person'){
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
+      this.setState({selectedIndex: index})
     }
     // console.log(this.state.image_api_id)
   }
@@ -290,12 +295,13 @@ class PicasaScreen extends React.Component{
         <ImageScreen 
           tab={this.state.tab} 
           api_source={this.state.api_source} 
-          api_id={this.state.api_id} 
+          api_id={this.state.api_id}
           people={this.state.people}
           unassigned_person_id={this.state.unassigned_id}
           ignore_person_id={this.state.ignore_person_id}
           updatePersonList={this.updatePersonList}
           unlabeled={this.state.unlabeled_toggle}
+          selectedIndex={this.state.selectedIndex}
         />
       </div>
       );
@@ -311,6 +317,7 @@ class PicasaScreen extends React.Component{
           api_id={this.state.api_id} 
           people={this.state.people}
           unlabeled={this.state.unlabeled_toggle}
+          selectedIndex={this.state.selectedIndex}
         />
       </div>
       );

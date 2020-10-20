@@ -1,6 +1,7 @@
 #menuBar{
   margin-bottom: 0;  
-  position: relative; 
+  position: fixed; 
+  background-color: white;
 }
 
 .menu{

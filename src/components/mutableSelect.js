@@ -111,6 +111,19 @@ keyDown(event){
         // }
 }
 
+listClick(inputName, api_key){
+  console.log("Clicked on list.", api_key)
+  this.setState({visible: false})
+  this.assignPerson(inputName, api_key, true)
+  // Basically, push this up to the lazyImg.
+}
+
+blur(){
+  setTimeout(() => {  
+    this.setState({visible: false});
+  }, 200);
+}
+
 makeSearchListNew(){
 
   var optionList = []
@@ -125,13 +138,15 @@ makeSearchListNew(){
       }
       optionList.push(
         // <div className={className} key={value.key} api_key={value.api_key} role='option' onClick={(e)=>this.clickList(e, value.text, value.api_key)}>
-        <div className={className} key={value.key} api_key={value.api_key} role='option' onClick={() => { console.log("button clicked");}}>
-          <div  onClick={() => { console.log("button clicked");}}>{value.text}</div>
+        <div className={className} key={value.key} api_key={value.api_key} onClick={e => this.listClick(value.text, value.api_key)} onBlur={() => {console.log("blur")}} >
+          <span>{value.text}</span>
         </div>
       )
     } 
     
   // this.setState({opt_len: optionList.length})
+  //menu transition
+      //mutableMenu
   return(
 
     <div className="ui active visible search selection dropdown person_select">
@@ -146,7 +161,7 @@ makeSearchListNew(){
           this.setState({value: ''})
         }
         }
-        onBlur={() => {this.setState({visible: false});}}
+        onBlur={() => {this.blur()}}
         onKeyDown={(e)=>{this.keyDown(e)} }
         // onKeyUp={(e)=>{
         //   this.setState({listOrder: Math.min(this.state.listOrder - 1, 0)});
@@ -155,8 +170,8 @@ makeSearchListNew(){
         onChange={(e)=>{this.onChange(e)}}
         onKeyPress={(e)=>{this.keyPress(e, options[this.state.listOrder])}}
       />
-      <div className="default text"></div>
-      <div className={`${this.state.visible ? 'visible': ''} menu transition`} role="listbox">
+
+      <div className={`${this.state.visible ? 'visible': ''}  menu transition`} role="listbox" >
         {optionList}
       </div>
     </div>

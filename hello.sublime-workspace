@@ -87,7 +87,7 @@
 			"file": "src/index.js",
 			"settings":
 			{
-				"buffer_size": 663,
+				"buffer_size": 660,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
@@ -112,7 +112,91 @@
 			"file": "src/components/picasaScreen.js",
 			"settings":
 			{
-				"buffer_size": 10265,
+				"buffer_size": 10647,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/login.js",
+			"settings":
+			{
+				"buffer_size": 2906,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/axios_setup.js",
+			"settings":
+			{
+				"buffer_size": 5348,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/axios2.js",
+			"settings":
+			{
+				"buffer_size": 3939,
+				"line_ending": "Unix",
+				"name": "require('axios-debug-log');"
+			}
+		},
+		{
+			"file": "src/components/imageScreen.js",
+			"settings":
+			{
+				"buffer_size": 7844,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/css/imageModal.css",
+			"settings":
+			{
+				"buffer_size": 1797,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/gallery.js",
+			"settings":
+			{
+				"buffer_size": 8438,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/lazyImg.js",
+			"settings":
+			{
+				"buffer_size": 7765,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/components/customContext.js",
+			"settings":
+			{
+				"buffer_size": 1247,
+				"line_ending": "Unix",
+				"name": "class CustomContext extends React.Component{"
+			}
+		},
+		{
+			"file": "src/components/mutableSelect.js",
+			"settings":
+			{
+				"buffer_size": 6084,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/css/image_tile.css",
+			"settings":
+			{
+				"buffer_size": 4764,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
@@ -127,68 +211,10 @@
 			}
 		},
 		{
-			"file": "src/components/login.js",
-			"settings":
-			{
-				"buffer_size": 2915,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/components/axios_setup.js",
-			"settings":
-			{
-				"buffer_size": 1518,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/components/imageScreen.js",
-			"settings":
-			{
-				"buffer_size": 6490,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/components/gallery.js",
-			"settings":
-			{
-				"buffer_size": 7737,
-				"encoding": "UTF-8",
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/components/lazyImg.js",
-			"settings":
-			{
-				"buffer_size": 6866,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/components/mutableSelect.js",
-			"settings":
-			{
-				"buffer_size": 5541,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "src/css/image_tile.css",
-			"settings":
-			{
-				"buffer_size": 1880,
-				"encoding": "UTF-8",
-				"line_ending": "Unix"
-			}
-		},
-		{
 			"file": "src/components/personSidebar.js",
 			"settings":
 			{
-				"buffer_size": 2458,
+				"buffer_size": 2474,
 				"line_ending": "Unix"
 			}
 		},
@@ -204,7 +230,7 @@
 			"file": "src/css/imageScreen.css",
 			"settings":
 			{
-				"buffer_size": 900,
+				"buffer_size": 1313,
 				"line_ending": "Unix"
 			}
 		},
@@ -212,7 +238,7 @@
 			"file": "src/css/menubar.css",
 			"settings":
 			{
-				"buffer_size": 1521,
+				"buffer_size": 1545,
 				"line_ending": "Unix"
 			}
 		},
@@ -229,6 +255,14 @@
 			"settings":
 			{
 				"buffer_size": 856,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "src/css/folderList.css",
+			"settings":
+			{
+				"buffer_size": 140,
 				"line_ending": "Unix"
 			}
 		},
@@ -297,8 +331,9 @@
 	],
 	"file_history":
 	[
-		"/home/benjamin/gitRepos/testProject/App.js",
 		"/mnt/server_home/git_repos/facewires_frontend/src/components/mutableSelect.js",
+		"/home/benjamin/Downloads/convogan_paper/paper_draft.tex",
+		"/home/benjamin/gitRepos/testProject/App.js",
 		"/mnt/server_home/git_repos/facewires_frontend/src/components/gal.js",
 		"/mnt/server_home/git_repos/facewires_frontend/src/components/gal2.js",
 		"/mnt/server_home/git_repos/facewires_frontend/src/css/login.css",
@@ -406,6 +441,91 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"modal",
+			"clickhandl",
+			"onclick",
+			"localClic",
+			"click",
+			"sin",
+			"authToken",
+			"config",
+			"access_token",
+			"img",
+			"togglemoda",
+			"className",
+			"visib",
+			"person_sel",
+			"person",
+			"face_id",
+			"mutableSele",
+			"face_id",
+			"api_key",
+			"imagescreen",
+			"menu",
+			"scree",
+			"visible",
+			"item",
+			"click\"",
+			"componentDidMoun",
+			"updatePerson",
+			"param_url",
+			"unassign",
+			"access_ke",
+			"req_ty",
+			"store.get",
+			"selecteDIn",
+			"people",
+			"screenhead",
+			"position",
+			"screenwra",
+			"selectedIndex",
+			"selected_index",
+			"selected",
+			"selectedInd",
+			"index",
+			"this.props.setSour",
+			"selected",
+			"api_id",
+			"makePerson",
+			"personSelected",
+			"ImageScreen",
+			"eve",
+			"confirm_pro",
+			"close_ign",
+			"close_unass",
+			"context",
+			"item",
+			"person_sele",
+			"people",
+			"vh",
+			"close_unass",
+			"close_assig",
+			"close_ass",
+			"handlecli",
+			"handle",
+			"handleClick",
+			"lazyImag",
+			"”",
+			"“",
+			"’",
+			"menu_id",
+			"context",
+			"this.contex",
+			"localclick",
+			"onclick",
+			"option",
+			"clickList",
+			"onclick",
+			"imagery_id",
+			"this.props.unla",
+			"galler",
+			"read",
+			"while",
+			"items",
+			"this.state.items",
+			"unlabele",
+			"urls",
+			"unlabeled",
 			"center",
 			"imgsSele",
 			"selected",
@@ -448,92 +568,7 @@
 			"onenter",
 			"mutable",
 			"peopleOptions",
-			"people",
-			"peopl",
-			"mutable",
-			"peopleOpt",
-			"peopleOption",
-			"unassigned_person",
-			"unassigned",
-			"unassi",
-			"confirmed",
-			"current_id",
-			"hidden_button",
-			"imgs_len",
-			"this.state.ready",
-			"setstate",
-			"index",
-			"resourc",
-			"onfiledr",
-			"clicket",
-			"imgsSelected",
-			"this.state.imgsSele",
-			"lazyim",
-			"imgsSelected",
-			"selected=",
-			"selected",
-			"gallery",
-			"img_thumb",
-			"_active",
-			"selected=",
-			"selected =",
-			"selected",
-			"onDrop",
-			"createImage",
-			"clickety",
-			"imgsSelected",
-			"makePerson",
-			"unassigned_tab",
-			"propose",
-			"createAuth",
-			"console.",
-			"imgs_len",
-			"start",
-			"all_load",
-			"'defined",
-			"type",
-			"createImage",
-			"defined",
-			"start_idx",
-			"ids_load",
-			"items",
-			"items ",
-			"create",
-			"possible_ids",
-			"Gallery",
-			"possible_ids",
-			"Gallery",
-			"makescreen",
-			"imgsSele",
-			"img_ids",
-			"makescreen",
-			"setstate",
-			"idmap",
-			"createImage",
-			"makeScreen",
-			"clicket",
-			"history",
-			"lazyloadimag",
-			"person_se",
-			"unassigned",
-			"urls",
-			"person",
-			"unassign",
-			"imagescreen",
-			"peopleOption",
-			"console.",
-			"imgsSelected",
-			"bind",
-			"imgsSelected",
-			"img",
-			"opacit",
-			"`",
-			"Gallery",
-			"this.props.people",
-			"people",
-			"position",
-			"screenHeader",
-			".close"
+			"people"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -541,6 +576,8 @@
 		"regex": false,
 		"replace_history":
 		[
+			"\"",
+			"'",
 			"face_id",
 			"hidden_img",
 			".delete",
@@ -603,7 +640,7 @@
 	"groups":
 	[
 		{
-			"selected": 4,
+			"selected": 0,
 			"sheets":
 			[
 				{
@@ -612,15 +649,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 663,
+						"buffer_size": 660,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								391,
-								391
+								492,
+								492
 							]
 						],
 						"settings":
@@ -632,7 +669,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 11,
+					"stack_index": 0,
 					"type": "text"
 				},
 				{
@@ -648,8 +685,8 @@
 						"selection":
 						[
 							[
-								324,
-								324
+								5,
+								5
 							]
 						],
 						"settings":
@@ -663,7 +700,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 15,
+					"stack_index": 7,
 					"type": "text"
 				},
 				{
@@ -690,10 +727,10 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 1122.0,
+						"translation.y": 862.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 4,
+					"stack_index": 21,
 					"type": "text"
 				},
 				{
@@ -702,15 +739,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 10265,
+						"buffer_size": 10647,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								7602,
-								7602
+								2065,
+								2065
 							]
 						],
 						"settings":
@@ -721,14 +758,316 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 4238.0,
+						"translation.y": 546.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "src/components/login.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2906,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1583,
+								1583
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 408.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 6,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "src/components/axios_setup.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 5348,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								5217,
+								5217
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 2212.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				},
+				{
+					"buffer": 6,
+					"file": "src/components/axios2.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 3939,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								3939,
+								3939
+							]
+						],
+						"settings":
+						{
+							"auto_name": "require('axios-debug-log');",
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 204.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 8,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "src/components/imageScreen.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7844,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								324,
+								324
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 13.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 3,
 					"type": "text"
 				},
 				{
-					"buffer": 4,
+					"buffer": 8,
+					"file": "src/css/imageModal.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1797,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								185,
+								185
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 9,
+					"type": "text"
+				},
+				{
+					"buffer": 9,
+					"file": "src/components/gallery.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 8438,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								4815,
+								4815
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 2289.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 10,
+					"file": "src/components/lazyImg.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7765,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								3490,
+								3490
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 1484.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 11,
+					"file": "src/components/customContext.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1247,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								479,
+								479
+							]
+						],
+						"settings":
+						{
+							"auto_name": "class CustomContext extends React.Component{",
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 11,
+					"type": "text"
+				},
+				{
+					"buffer": 12,
+					"file": "src/components/mutableSelect.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6084,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								3168,
+								3168
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 2040.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 12,
+					"type": "text"
+				},
+				{
+					"buffer": 13,
+					"file": "src/css/image_tile.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 4764,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								345,
+								345
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 209.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 10,
+					"type": "text"
+				},
+				{
+					"buffer": 14,
 					"file": "/home/benjamin/gitRepos/testProject/App.js",
 					"semi_transient": false,
 					"settings":
@@ -754,54 +1093,24 @@
 						"translation.y": 153.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 16,
 					"type": "text"
 				},
 				{
-					"buffer": 5,
-					"file": "src/components/login.js",
+					"buffer": 15,
+					"file": "src/components/personSidebar.js",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2915,
+						"buffer_size": 2474,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								869,
-								869
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 102.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 2,
-					"type": "text"
-				},
-				{
-					"buffer": 6,
-					"file": "src/components/axios_setup.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 1518,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								29,
-								29
+								611,
+								611
 							]
 						],
 						"settings":
@@ -814,191 +1123,11 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 15,
 					"type": "text"
 				},
 				{
-					"buffer": 7,
-					"file": "src/components/imageScreen.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 6490,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								5238,
-								5238
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 2232.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 9,
-					"type": "text"
-				},
-				{
-					"buffer": 8,
-					"file": "src/components/gallery.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 7737,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								5493,
-								5493
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 2453.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 7,
-					"type": "text"
-				},
-				{
-					"buffer": 9,
-					"file": "src/components/lazyImg.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 6866,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								2223,
-								2223
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 1071.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 5,
-					"type": "text"
-				},
-				{
-					"buffer": 10,
-					"file": "src/components/mutableSelect.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 5541,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								3889,
-								3889
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 1836.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 8,
-					"type": "text"
-				},
-				{
-					"buffer": 11,
-					"file": "src/css/image_tile.css",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 1880,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1818,
-								1818
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/CSS/CSS.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 1304.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 12,
-					"type": "text"
-				},
-				{
-					"buffer": 12,
-					"file": "src/components/personSidebar.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 2458,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1257,
-								1257
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 73.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 14,
-					"type": "text"
-				},
-				{
-					"buffer": 13,
+					"buffer": 16,
 					"file": "src/components/folderSidebar.js",
 					"semi_transient": false,
 					"settings":
@@ -1025,24 +1154,24 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 10,
+					"stack_index": 20,
 					"type": "text"
 				},
 				{
-					"buffer": 14,
+					"buffer": 17,
 					"file": "src/css/imageScreen.css",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 900,
+						"buffer_size": 1313,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								900,
-								900
+								1201,
+								1201
 							]
 						],
 						"settings":
@@ -1052,117 +1181,27 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 102.0,
+						"translation.y": 549.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 13,
 					"type": "text"
 				},
 				{
-					"buffer": 15,
+					"buffer": 18,
 					"file": "src/css/menubar.css",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1521,
+						"buffer_size": 1545,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								129,
-								129
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/CSS/CSS.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 102.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 16,
-					"type": "text"
-				},
-				{
-					"buffer": 16,
-					"file": "src/components/tabular_menu.js",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 2651,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								2633,
-								2633
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 816.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 18,
-					"type": "text"
-				},
-				{
-					"buffer": 17,
-					"file": "src/components/misc.css",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 856,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								529,
-								529
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/CSS/CSS.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 102.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 6,
-					"type": "text"
-				},
-				{
-					"buffer": 18,
-					"file": "src/css/sidebar.css",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 1370,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								996,
-								996
+								249,
+								249
 							]
 						],
 						"settings":
@@ -1175,7 +1214,125 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
+					"stack_index": 14,
+					"type": "text"
+				},
+				{
+					"buffer": 19,
+					"file": "src/components/tabular_menu.js",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2651,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2201,
+								2201
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JavaScript.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 816.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 22,
+					"type": "text"
+				},
+				{
+					"buffer": 20,
+					"file": "src/components/misc.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 856,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								648,
+								648
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 153.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 18,
+					"type": "text"
+				},
+				{
+					"buffer": 21,
+					"file": "src/css/folderList.css",
+					"semi_transient": true,
+					"settings":
+					{
+						"buffer_size": 140,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
 					"stack_index": 17,
+					"type": "text"
+				},
+				{
+					"buffer": 22,
+					"file": "src/css/sidebar.css",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1370,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								738,
+								738
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/CSS/CSS.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 19,
 					"type": "text"
 				}
 			]
@@ -1244,7 +1401,7 @@
 		[
 			[
 				"",
-				"~/gitRepos/sar_lstm/multi_look_sar.sublime-project"
+				"/mnt/server_home/git_repos/django_picasa/picasa.sublime-project"
 			]
 		],
 		"width": 380.0

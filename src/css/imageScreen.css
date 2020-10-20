@@ -16,10 +16,10 @@
     left: -1px;
     padding: 10px 7px 5px;
     scroll-behavior: smooth;
-    margin-top: 82px
+    margin-top: 120px
 }
 
-.imageScreen, .img_thumb, .img_thumb_active{
+.imageScreen, .img_thumb, .img_thumb_active, #screenWrapper{
     background-color:  #fcfff7;
 }
 
@@ -37,8 +37,10 @@
     z-index: 100;
     position: fixed;
     margin-left: 10%;
-    height: 40px;
+    height: 80px;
+    line-height: 80px;
     padding: 4px;
+    
 }
 
 .transition{
@@ -47,4 +49,24 @@
 
 .infinite-scroll-component {
     overflow: hidden !important;
+}
+
+.highlight_img{
+    height: 70px;
+    margin: 0 15px 0 15px;
+    border-radius: 50%;
+}
+
+.header_person_name{
+    text-shadow: 1px 1px #A9A9A9;
+    font-size: 25px;
+    color: #450293;
+    font-stretch: expanded;
+    vertical-align:middle;
+    height: 90px;
+    position: relative;
+    
+    display: inline-block;
+    vertical-align: middle;
+    line-height: normal;
 }

@@ -9,17 +9,17 @@ class PersonSidebar extends React.Component {
     super(props);
     // console.log(props)
     var default_url = this.props.people.find(element =>element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === 'Unassigned');
-    this.props.setSource(default_url.url)
+    // this.props.setSource(default_url.url)
     this.state = {
       personSelected: -100,
     }
 
-    this.props.setSource('person', default_url.url, default_url.id)
+    this.props.setSource('person', default_url.url, default_url.id, -100)
   }
 
   handleClick(index, url, id) {
     // console.log(index, url)
-    this.props.setSource('person', url, id)
+    this.props.setSource('person', url, id, index)
     this.setState({ personSelected: index })
   }
 

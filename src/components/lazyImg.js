@@ -12,48 +12,44 @@ import axiosInstance from './axios_setup'
 class LazyImage extends React.Component{
   constructor(props){
     super(props);
+    console.log("Construct")
 
     this.state = {
       loaded: false,
       ignored: false,
       type: this.props.type,
-      selected: false
     }
 
     this.close_unassigned = this.close_unassigned.bind(this)
     this.close_assigned = this.close_assigned.bind(this)
     this.confirm_proposed = this.confirm_proposed.bind(this)
     this.localClick = this.localClick.bind(this)
-    this.contextMenu = this.contextMenu.bind(this)
-    // this.dropdown_enter = this.dropdown_enter.bind(this)
-    // this.onClick = this.onClick.bind(this)
+    this.otherAssignment = this.otherAssignment.bind(this)
+    this.set_as_thumbnail = this.set_as_thumbnail.bind(this)
     
   }
 
+   componentDidUpdate(prevProps, prevState, snapshot){
+     // if (prevProps !== this.props){
+       console.log("Update lazy image")
+       // this.forceUpdate()
+     // }
+   }
+ 
+  shouldComponentUpdate(nextProps, nextState){
+    console.log("Should it? ")
+    return this.props.selected!==nextProps.selected;
+  }
 
-  // componentWillReceiveProps({imgsSelected}) {
-  //   console.log("Received")
-  // }
+  componentDidUpdate(prevProps, prevState, snapshot) {
+   console.log("Recieved")
+  }
 
-  // shouldComponentUpdate(nextProps, nextState){
-  //   // console.log("Hmmm", nextProps.imgsSelected, nextProps, nextState)
-  //   return false
-  // }
-
-  // componentDidUpdate(prevProps, prevState, snapshot){
-  //     console.log("Update")
-  // }
-
-  // onClick (event) {
-  //   console.log("Drop")
-  //   // this.props.onClick()
-  // }
-
-
-  close_unassigned(event){
+  close_unassigned(){
     // console.log("Lazy img: ", this.props.imgsSelected())
     // console.log("Send ", this.props.face_id, " to .ignore", 'Person is ', this.props.current_person_id)
-    this.setState({ignored: true})
+    this.setState({ignored: true}, () => {console.log(this.state.ignored)}) 
+    // console.log(this.props.imgsSelected, 'close unassigned')
     var ignore_url = store.get('api_url') + '/faces/' + this.props.face_id + '/ignore_face/'
 
     axiosInstance.put(ignore_url, {
@@ -64,9 +60,10 @@ class LazyImage extends React.Component{
     }).catch(error => {
       console.log("Error in close_unassigned")
     })
+    
   }
 
-  close_ignored(event){
+  close_ignored(){
     // console.log("Send ", this.props.face_id, " to .realignore", 'Person is ', this.props.current_person_id)
     // console.log("Lazy img: ", this.props.imgsSelected())
     this.setState({ignored: true})
@@ -84,7 +81,7 @@ class LazyImage extends React.Component{
 
   close_assigned(){
     // Unassigne a face from this person. 
-    console.log("Unassign")
+    // console.log("Unassign")
     this.setState({ignored: true})
 
     var unassign_url = store.get('api_url') + '/faces/' + this.props.face_id + '/unassign_face/'
@@ -97,7 +94,20 @@ class LazyImage extends React.Component{
     })
   }
 
-  confirm_proposed(event){
+  set_as_thumbnail(){
+     // Accessible as <root>/api/faces/<face_id>/set_as_person_thumbnail/
+        // # Accept: HTML PUT
+    var thumbnail_url = store.get('api_url') + '/faces/' + this.props.face_id + '/set_as_person_thumbnail/'
+    
+    axiosInstance.put(thumbnail_url)
+    .then(response => {
+      
+    }).catch(error => {
+      console.log("Error in set as thumbnail")
+    })
+  }
+
+  confirm_proposed(){
     // console.log("Confirm ", this.props.face_id, 'Person is ', this.props.current_person_id)
     // console.log("Lazy img: ", this.props.imgsSelected())
     this.setState({type: 'confirmed'})
@@ -109,64 +119,47 @@ class LazyImage extends React.Component{
       declared_name_key: this.props.current_person_id
     })
     .then(response => {
-      console.log(response)
+      // console.log(response)
     }).catch(error => {
       console.log("Error in confirm_proposed")
     })
   }
 
   set_invisible(){
-    console.log(this.props.imgsSelected)
+    // console.log(this.props.imgsSelected)
     this.setState({ignored: true})
   }
 
-  contextMenu(e){
-    e.preventDefault();
-    console.log("Context")
-    
-      // contextMenu.show({
-      //   id: 1,
-      //   event: e,
-      // });
-
-    // const rect = this.canvasRef.getBoundingClientRect();
-    // const x = e.clientX - rect.left;
-    // const y = e.clientY - rect.top;
-
-    // // Some logic
-    // if (
-    //   x >= square.x &&
-    //   x <= square.x + square.width &&
-    //   y >= square.y &&
-    //   y <= square.y + square.height
-    // ) {
-    //   // Don't forget to pass the id and the event and voila!
-    // }
+  localClick(event){
+    // console.log("Log: ", this.props.imgsSelected())
+    this.props.onClick(event, this.props.face_id, 0).then( (val) => {
+      console.log("Hey", val, this.props.face_id,  val.indexOf(this.props.face_id), this.props)
+      // console.log("Local clikc: ", zz, this.props.face_id)
+//      if (val.indexOf(this.props.face_id) >= -1){
+//        this.setState({selected: true})
+//      }else{
+//        this.setState({selected: false})
+//      }
+      // console.log("Set state", this.state.selected)
+    })
   }
 
-  localClick(event){
-    console.log("Log: ", this.props.imgsSelected())
-    this.props.onClick(event, this.props.face_id, 0)
-    if (this.props.imgsSelected().indexOf(this.props.face_id) >= 0){
-      this.setState({selected: true})
-    }else{
-      this.setState({selected: false})
-    }
-    console.log("Set state", this.state.selected)
+  otherAssignment(){
+    this.setState({type: 'unassigned_tab'})
   }
 
   
-handleClick(e, data) {
-  console.log(data.foo);
-}
+// handleClick(e, data) {
+//   console.log(data.foo);
+// }
 
   render(){
-      if (this.state.selected){
-        var className = 'img_thumb_active'
-      }else{
-        className = 'img_thumb'
-      }
-      // console.log(this.props.imgsSelected())
+//      if (this.props.selected){
+//        var className = 'img_thumb_active'
+//      }else{
+//        className = 'img_thumb'
+//      }
+//      console.log(this.props.imgsSelected())
 
       var mutable_select = <MutableSelect 
                         peopleOptions = {this.props.peopleOptions}
@@ -176,38 +169,42 @@ handleClick(e, data) {
                         updatePersonList={this.props.updatePersonList}
                       />
       
-      const component = 
-          <LazyLoadImage 
-            className={this.state.ignored ? 'hidden_img' :
-                  this.state.selected ? 'img_thumb_active' : 'img_thumb'} 
-            state={{'loaded': false}}
-            src={this.props.url} 
-            key={this.props.index}
-            effect='blur'
-            scrollPosition={this.props.scrollPosition}
-            onClick={(e) =>{this.localClick(e)} }
-            onContextMenu={(e) => {this.contextMenu(e)} }
-            onDrop={ this.props.onDrop }
-            onDrag={ this.props.onDrag }
-            wrapperClassName= {this.state.loaded ? 'loaded' : 'loading'}
-            afterLoad={() => {
-              this.setState({loaded: true})
-            } }
-          />
-
-          
-
       return(
 
         <div className={this.state.ignored ? 'hidden_img' : 'imgDiv' }>
 
-          <ContextMenuTrigger id={this.props.index}>
-            {component}
+          <ContextMenuTrigger id={this.props.index.toString()}>
+            <LazyLoadImage 
+              className={ this.state.ignored  ? 'hidden_img' :
+                    this.props.selected ? 'img_thumb_active' : 'img_thumb'} 
+              state={{'loaded': false}}
+              src={this.props.url} 
+              key={this.props.index}
+              effect='blur'
+              scrollPosition={this.props.scrollPosition}
+              onClick={(e) =>{this.localClick(e)} }
+              onDrop={ this.props.onDrop }
+              onDrag={ this.props.onDrag }
+              wrapperClassName= {this.state.loaded ? 'loaded' : 'loading'}
+              afterLoad={() => {
+                this.setState({loaded: true})
+              } }
+            />
+
           </ContextMenuTrigger>
      
-          <ContextMenu id={this.props.index}>
+          <ContextMenu id={this.props.index.toString()}>
             <MenuItem onClick={this.close_assigned}>
               Remove from person
+            </MenuItem>
+            <MenuItem onClick={this.close_unassigned}>
+              Send to ignore
+            </MenuItem>
+            <MenuItem onClick={this.otherAssignment}>
+              Send to other person
+            </MenuItem>
+            <MenuItem onClick={this.set_as_thumbnail}>
+              Set as highlight image
             </MenuItem>
           </ContextMenu>
           
@@ -215,7 +212,7 @@ handleClick(e, data) {
             {
               // 'defined': <button className='delete'>x</button>,
               'proposed': <button className= {this.state.ignored ? 'hidden_img' : 'yes'}
-                          onClick={ (e)=>{this.confirm_proposed(e) } }
+                          onClick={ (e)=>{this.confirm_proposed() } }
                           >
                           &#10003;
                           </button>,
@@ -230,12 +227,12 @@ handleClick(e, data) {
                           x
                           </button>,
               'unassigned_tab':  <button className= {this.state.ignored ? 'hidden_img' : 'delete' }
-                                  onClick={ (e)=>{this.close_unassigned(e) } }
+                                  onClick={ (e)=>{this.close_unassigned() } }
                                   >
                                   x
                                   </button>,
               'ignored':  <button className= {this.state.ignored ? 'hidden_img' : 'delete' }
-                                  onClick={ (e)=>{this.close_ignored(e) } }
+                                  onClick={ (e)=>{this.close_ignored() } }
                                   >
                                   x
                                   </button>,
@@ -245,7 +242,7 @@ handleClick(e, data) {
             <React.Fragment>
               <button 
                 className= {this.state.ignored ? 'hidden_img' : 'delete' }
-                onClick={ (e)=>{this.close_ignored(e) } }
+                onClick={ (e)=>{this.close_ignored() } }
               >
                 x
               </button>
