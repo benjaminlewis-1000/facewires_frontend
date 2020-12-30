@@ -49,16 +49,18 @@ class Gallery extends React.Component{
 
 
     this.clicks = [];
+    this.last_face_id=-1
     this.close_unassigned = this.close_unassigned.bind(this)
     this.close_assigned = this.close_assigned.bind(this)
     this.confirm_proposed = this.confirm_proposed.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
+    this.setHidden = this.setHidden.bind(this);
 
   }
 
   componentDidUpdate(prevProps, prevState, snapshot){
     if (prevProps !== this.props){
-      console.log("Update gallery", this.props.img_ids)
+      // console.log("Update gallery", this.props.img_ids)
 
       // this.setState({combined_list: this.props.img_ids.concat(this.props.poss_ids)})
       this.setState({imgs_len: this.props.img_ids.length})
@@ -110,7 +112,7 @@ class Gallery extends React.Component{
       this.setState({lastClicked: index})
     }
         // this.setState({imgsSelected: newState})
-    this.setState({imgsSelected: imagesSelected}, () => {console.log("Image selected", this.state.imgsSelected, imagesSelected)})
+    this.setState({imgsSelected: imagesSelected})
     // console.log("Selected: ", imagesSelected)
     return imagesSelected
   }
@@ -165,23 +167,29 @@ class Gallery extends React.Component{
         this.clicks.push(new Date().getTime());
         var timeout
         window.clearTimeout(timeout);
+        var sameFace = (this.last_face_id === face_id)
+        this.last_face_id = face_id
 
         let promiseA = new Promise((resolve, reject) => {
           timeout = window.setTimeout(() => {
-              if (this.clicks.length > 1 && this.clicks[this.clicks.length - 1] - this.clicks[this.clicks.length - 2] < 250) {
+              if (this.clicks.length > 1 && this.clicks[this.clicks.length - 1] - this.clicks[this.clicks.length - 2] < 250 && sameFace) {
                 // doubleClick(event.target);
                 console.log("double")
                 this.setState({modalURL: store.get('api_url') + '/keyed_image/face_source/?id=' + face_id + '&access_key=' + store.get('access_key') })
                 this.clicks = []
                 this.toggleModal()
                 resolve([])
-              } else if (this.clicks.length > 0) {
-                console.log("singleClick")
+              } else {
+                // console.log("singleClick")
                 var imgs_selected = this.singleClick(event, face_id, index);
                 this.clicks = []
-                console.log('image select: ', imgs_selected)
+                // console.log('image select: ', imgs_selected)
                 resolve(imgs_selected)
               }
+              //  else{
+              //   this.clicks = []
+              //   resolve(this.state.imgsSelected)
+              // }
           }, 250);
         })
         return promiseA
@@ -193,44 +201,49 @@ class Gallery extends React.Component{
     this.setState({modalOpen: !this.state.modalOpen});
   }
 
+  setHidden(){
+    var uniq_selected = [...new Set(this.state.imgsSelected.concat(this.state.hidden))]
+    this.setState({hidden: uniq_selected})
+  }
 
-  createImage(index, face_id, type){
-    // Type is a value in ['proposed', 'unassigned_tab', 'defined', 'ignored'].
-      var url = store.get('api_url') + '/keyed_image/face_array/?access_key=' 
-        + store.get('access_key') + '&id=' + face_id    
 
-      // var selected=this.state.imgsSelected.indexOf(face_id) >= 0
-      // console.log(selected)
+//   createImage(index, face_id, type){
+//     // Type is a value in ['proposed', 'unassigned_tab', 'defined', 'ignored'].
+//       var url = store.get('api_url') + '/keyed_image/face_array/?access_key=' 
+//         + store.get('access_key') + '&id=' + face_id    
 
-      // var img = <LazyImage 
-      return (
-         <LazyImage 
-          selected={this.state.imgsSelected.indexOf(face_id) >= 0}
-//          imgsSelected={() => this.state.imgsSelected}
-          url={url}
-          index={index}
-          key={face_id}
-          scrollPosition={this.props.scrollPosition}
-          onClick={ (e) => this.clickHandler(e,  face_id, index) }
-//          onDoubleClick={ (e) => {console.log("double click")}}
-//          onDrag={ (e) => this.dragLog(e,  face_id, index) }
- //         onDrop={(e) => this.onDrop(e)}
-          face_id={face_id}
-          type={type}
-          current_person_id={this.props.current_person_id}
-          peopleOptions={this.state.peopleOptions}
-          ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
-          updatePersonList={this.props.updatePersonList}
-        />  
-      );
+//       // var selected=this.state.imgsSelected.indexOf(face_id) >= 0
+//       // console.log(selected)
+
+//       // var img = <LazyImage 
+//       return (
+//          <LazyImage 
+//           selected={this.state.imgsSelected.indexOf(face_id) >= 0}
+// //          imgsSelected={() => this.state.imgsSelected}
+//           url={url}
+//           index={index}
+//           key={face_id}
+//           scrollPosition={this.props.scrollPosition}
+//           onClick={ (e) => this.clickHandler(e,  face_id, index) }
+// //          onDoubleClick={ (e) => {console.log("double click")}}
+// //          onDrag={ (e) => this.dragLog(e,  face_id, index) }
+//  //         onDrop={(e) => this.onDrop(e)}
+//           face_id={face_id}
+//           type={type}
+//           current_person_id={this.props.current_person_id}
+//           peopleOptions={this.state.peopleOptions}
+//           ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
+//           updatePersonList={this.props.updatePersonList}
+//         />  
+//       );
         
-//      return(
-//        <div key={index}>
-//         {img}
-//        </div>
-//      );
+// //      return(
+// //        <div key={index}>
+// //         {img}
+// //        </div>
+// //      );
 
-    }
+//     }
 
 //
 
@@ -302,6 +315,7 @@ class Gallery extends React.Component{
                 selected={this.state.imgsSelected.indexOf(x_val[1]) >= 0}
                 imgsSelected={this.state.imgsSelected}
                 hidden={this.state.hidden.indexOf(x_val[1]) >= 0}
+                setHidden={this.setHidden}
                 url={store.get('api_url') + '/keyed_image/face_array/?access_key=' 
                     + store.get('access_key') + '&id=' + x_val[1] }
                 index={x_val[0]}

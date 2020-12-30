@@ -56,7 +56,7 @@ class PicasaScreen extends React.Component{
       
     };
           
-    console.log(this.state.param_url)
+    // console.log(this.state.param_url)
     axiosInstance.get(this.state.param_url)    
     .then( (response) => {
       // var info = response.data
@@ -120,7 +120,7 @@ class PicasaScreen extends React.Component{
     // console.debug("Picasa screen mounted")
     var next_url = this.state.people_url;
     while (next_url !== null){
-      console.log(next_url, next_url !== null)
+      // console.log(next_url, next_url !== null)
       // let data = this.getNames(next_url);
       // console.log(data)
       next_url = null

@@ -1,8 +1,8 @@
 import '../css/imageScreen.css';
 import '../css/imageModal.css';
 import axiosInstance from './axios_setup';
-import ImageObj from './imageObj';
-import React, {useState} from 'react';
+// import ImageObj from './imageObj';
+import React from 'react';
 import store from 'store';
 import { LazyLoadImage, trackWindowScroll } from 'react-lazy-load-image-component';
 import Gallery from './gallery'
@@ -166,7 +166,7 @@ class ImageScreen extends React.Component{
       //     urls.push(this.createUrl(value))
       //   } 
       // }
-      console.log("Ready",this.state)
+      // console.log("Ready",this.state)
       var gallery = <Gallery
                     poss_ids = {this.state.possible_ids} 
                     img_ids={this.state.imagery_ids}
@@ -179,7 +179,7 @@ class ImageScreen extends React.Component{
                     unlabeled={this.props.unlabeled}
                   />
 
-      console.log("selected index: ", this.props.people)
+      // console.log("selected index: ", this.props.people)
       if ( this.props.selectedIndex === -100 ){
         var selectedName = 'Unassigned'
         // var id_url = null

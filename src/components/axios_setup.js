@@ -52,7 +52,7 @@ const refreshAuthLogic = (failedRequest) => {
         console.log(tokenRefreshResponse.data)
         const access_token = tokenRefreshResponse.data.access
         localStorage.setItem('access_token', access_token);
-        failedRequest.response.config.headers.Authorization = 'JWT ${access_token}';
+        failedRequest.response.config.headers.Authorization = `JWT ${access_token}`;
         
         // failedRequest.response.config.headers.Authorization = 'JWT ${tokenRefreshResponse.data.token}';
         // console.log("Resolved.")
@@ -94,7 +94,7 @@ function getNewToken(){
         // console.log(tokenRefreshResponse.data)
         const access_token = tokenRefreshResponse.data.access
         // console.log(access_token)
-        localStorage.setItem('access_token', access_token);
+        store.set('access_token', access_token);
         // failedRequest.response.config.headers.Authorization = 'JWT ${access_token}';
         
         // failedRequest.response.config.headers.Authorization = 'JWT ${tokenRefreshResponse.data.token}';
@@ -109,15 +109,15 @@ function getNewToken(){
 
 // Set the page to get a new JWT token every 3 minutes (180 seconds). This is well below
 // the 5 minute mark.
-var interval = setInterval(getNewToken, 3 * 60 * 1000)
+setInterval(getNewToken, 3 * 60 * 1000)
 
-var st = new Date()
+// var st = new Date()
 
 axiosInstance.interceptors.request.use((request) => {
     // var et = new Date()
     // var refresh_url = store.get('api_url') + '/token/refresh/'
     // var elapsed = et - st
-    var access = localStorage.getItem('access_token')
+    var access = store.get('access_token')
     // console.log(access)
     var token = "JWT " + access
     // console.log(token)

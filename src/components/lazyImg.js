@@ -26,72 +26,102 @@ class LazyImage extends React.Component{
     this.localClick = this.localClick.bind(this)
     this.otherAssignment = this.otherAssignment.bind(this)
     this.set_as_thumbnail = this.set_as_thumbnail.bind(this)
+    this.get_unique_list = this.get_unique_list.bind(this)
     
   }
 
-   componentDidUpdate(prevProps, prevState, snapshot){
-     // if (prevProps !== this.props){
-       console.log("Update lazy image")
-       // this.forceUpdate()
-     // }
-   }
+  //  componentDidUpdate(prevProps, prevState, snapshot){
+  //    // if (prevProps !== this.props){
+  //      console.log("Update lazy image")
+  //      // this.forceUpdate()
+  //    // }
+  //  }
  
-  shouldComponentUpdate(nextProps, nextState){
-    console.log("Should it? ")
-    return this.props.selected!==nextProps.selected;
-  }
+  // shouldComponentUpdate(nextProps, nextState){
+  //   console.log("Should it? ")
+  //   return this.props.selected!==nextProps.selected;
+  // }
 
-  componentDidUpdate(prevProps, prevState, snapshot) {
-   console.log("Recieved")
+  // componentDidUpdate(prevProps, prevState, snapshot) {
+  //  console.log("Recieved")
+  // }
+
+  get_unique_list(){
+
+    var uniq_selected = [...new Set(this.props.imgsSelected)]
+    const thisIdx = uniq_selected.indexOf(this.props.face_id)
+    uniq_selected.splice(thisIdx, 1)
+    uniq_selected = uniq_selected.concat(this.props.face_id)
+    this.props.setHidden()
+    this.setState({ignored: true}) 
+
+    return uniq_selected
   }
 
   close_unassigned(){
-    // console.log("Lazy img: ", this.props.imgsSelected())
-    // console.log("Send ", this.props.face_id, " to .ignore", 'Person is ', this.props.current_person_id)
-    this.setState({ignored: true}, () => {console.log(this.state.ignored)}) 
-    // console.log(this.props.imgsSelected, 'close unassigned')
-    var ignore_url = store.get('api_url') + '/faces/' + this.props.face_id + '/ignore_face/'
 
-    axiosInstance.put(ignore_url, {
-        ignore_type: 'soft'
-    })
-    .then(response => {
-      console.log(response)
-    }).catch(error => {
-      console.log("Error in close_unassigned")
-    })
+    const uniq_selected = this.get_unique_list()
+
+    function softIgnore(faceId){
+      var ignore_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
+      // console.log(faceId, ignore_url)
+      // var ignore_url = store.get('api_url') + '/faces/' + this.props.face_id + '/ignore_face/'
+      axiosInstance.put(ignore_url, {
+          ignore_type: 'soft'
+      })
+      .then(response => {
+        // console.log(response)
+      }).catch(error => {
+        console.log("Error in close_unassigned")
+      })
+    }
+
+    uniq_selected.forEach(softIgnore)
     
   }
 
   close_ignored(){
     // console.log("Send ", this.props.face_id, " to .realignore", 'Person is ', this.props.current_person_id)
     // console.log("Lazy img: ", this.props.imgsSelected())
-    this.setState({ignored: true})
-    var ignore_url = store.get('api_url') + '/faces/' + this.props.face_id + '/ignore_face/'
+    // this.setState({ignored: true})
+    // var ignore_url = store.get('api_url') + '/faces/' + this.props.face_id + '/ignore_face/'
 
-    axiosInstance.put(ignore_url, {
-        ignore_type: 'hard'
-    })
-    .then(response => {
-      console.log(response)
-    }).catch(error => {
-      console.log("Error in close_ignored")
-    })
+    const uniq_selected = this.get_unique_list()
+
+    function hardIgnore(faceId){
+      var ignore_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
+      // var ignore_url = store.get('api_url') + '/faces/' + this.props.face_id + '/ignore_face/'
+      axiosInstance.put(ignore_url, {
+          ignore_type: 'hard'
+      })
+      .then(response => {
+        console.log(response)
+      }).catch(error => {
+        console.log("Error in close_unassigned")
+      })
+    }
+
+    uniq_selected.forEach(hardIgnore)
+
   }
 
   close_assigned(){
-    // Unassigne a face from this person. 
-    // console.log("Unassign")
-    this.setState({ignored: true})
 
-    var unassign_url = store.get('api_url') + '/faces/' + this.props.face_id + '/unassign_face/'
+    const uniq_selected = this.get_unique_list()
 
-    axiosInstance.put(unassign_url)
-    .then(response => {
-      
-    }).catch(error => {
-      console.log("Error in close_assigned")
-    })
+    function unassign(faceId){
+
+      var unassign_url = store.get('api_url') + '/faces/' + faceId + '/unassign_face/'
+      axiosInstance.put(unassign_url)
+      .then(response => {
+        
+      }).catch(error => {
+        console.log("Error in close_assigned")
+      })
+    }
+
+    uniq_selected.forEach(unassign)
+
   }
 
   set_as_thumbnail(){
@@ -108,21 +138,25 @@ class LazyImage extends React.Component{
   }
 
   confirm_proposed(){
-    // console.log("Confirm ", this.props.face_id, 'Person is ', this.props.current_person_id)
-    // console.log("Lazy img: ", this.props.imgsSelected())
-    this.setState({type: 'confirmed'})
-    this.setState({ignored: true})
 
-    var confirm_url = store.get('api_url') + '/faces/' + this.props.face_id + '/assign_face_to_person/'
+    const uniq_selected = this.get_unique_list()
+    const current_person_id = this.props.current_person_id
 
-    axiosInstance.patch(confirm_url, {
-      declared_name_key: this.props.current_person_id
-    })
-    .then(response => {
-      // console.log(response)
-    }).catch(error => {
-      console.log("Error in confirm_proposed")
-    })
+    function confirm(faceId){
+
+      var confirm_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
+
+      axiosInstance.patch(confirm_url, {
+        declared_name_key: current_person_id
+      })
+      .then(response => {
+        // console.log(response)
+      }).catch(error => {
+        console.log("Error in confirm_proposed")
+      })
+    }
+
+    uniq_selected.forEach(confirm)
   }
 
   set_invisible(){
@@ -132,16 +166,17 @@ class LazyImage extends React.Component{
 
   localClick(event){
     // console.log("Log: ", this.props.imgsSelected())
-    this.props.onClick(event, this.props.face_id, 0).then( (val) => {
-      console.log("Hey", val, this.props.face_id,  val.indexOf(this.props.face_id), this.props)
-      // console.log("Local clikc: ", zz, this.props.face_id)
-//      if (val.indexOf(this.props.face_id) >= -1){
-//        this.setState({selected: true})
-//      }else{
-//        this.setState({selected: false})
-//      }
-      // console.log("Set state", this.state.selected)
-    })
+    this.props.onClick(event, this.props.face_id, 0)
+//     .then( (val) => {
+//       console.log("Hey", val, this.props.face_id,  val.indexOf(this.props.face_id), this.props)
+//       // console.log("Local clikc: ", zz, this.props.face_id)
+// //      if (val.indexOf(this.props.face_id) >= -1){
+// //        this.setState({selected: true})
+// //      }else{
+// //        this.setState({selected: false})
+// //      }
+//       // console.log("Set state", this.state.selected)
+//     })
   }
 
   otherAssignment(){
@@ -154,12 +189,7 @@ class LazyImage extends React.Component{
 // }
 
   render(){
-//      if (this.props.selected){
-//        var className = 'img_thumb_active'
-//      }else{
-//        className = 'img_thumb'
-//      }
-//      console.log(this.props.imgsSelected())
+
 
       var mutable_select = <MutableSelect 
                         peopleOptions = {this.props.peopleOptions}
@@ -171,11 +201,11 @@ class LazyImage extends React.Component{
       
       return(
 
-        <div className={this.state.ignored ? 'hidden_img' : 'imgDiv' }>
+        <div className={ (this.props.hidden || this.state.ignored) ? 'hidden_img' : 'imgDiv' }>
 
           <ContextMenuTrigger id={this.props.index.toString()}>
             <LazyLoadImage 
-              className={ this.state.ignored  ? 'hidden_img' :
+              className={  (this.props.hidden || this.state.ignored)  ? 'hidden_img' :
                     this.props.selected ? 'img_thumb_active' : 'img_thumb'} 
               state={{'loaded': false}}
               src={this.props.url} 
