@@ -14,7 +14,7 @@ var access_token = store.get('access_token')
 
 const axiosInstance = axios.create({
     // baseURL: store.get('api_url'),
-    timeout: 5000,
+    timeout: 15000,
     headers: {
         'Authorization': "JWT " + access_token,
         'Content-Type': 'application/json',

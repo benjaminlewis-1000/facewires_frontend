@@ -23,9 +23,17 @@ class PersonSidebar extends React.Component {
     this.setState({ personSelected: index })
   }
 
-  makePerson(value, index, selected) {
+  makePerson(value, index, selected, unverified, unlabeled) {
     var className = selected ? 'click-state' : 'base-state'; // this.state.id === this.props.personSelected ? 'click-state' : 'base-state';
     // console.log(this.state.id, this.props.personSelected)
+
+    if (unlabeled){
+      var text = `${value.person_name}   (${value.num_possibilities})`
+    }else if (unverified){
+      var text = `${value.person_name}   (${value.num_unverified_faces})`
+    }else{
+      var text = `${value.person_name}   (${value.num_faces})`
+    }
     return(
       <button 
         className={className}
@@ -34,7 +42,7 @@ class PersonSidebar extends React.Component {
         onDrop = {() => {console.log("Dropped on me!")}}
         onDragOver={console.log("drag over")}
       >
-        {value.person_name}   ({value.num_faces})
+        {text}
       </button>
     );
   }
@@ -45,6 +53,7 @@ class PersonSidebar extends React.Component {
     var items = []
 
     var only_unlabeled = this.props.unlabeled
+    var only_unverified = this.props.only_unverified
     
     const myData = [].concat(people)
     myData.sort()
@@ -56,11 +65,14 @@ class PersonSidebar extends React.Component {
 
     for (const [index, value] of myData.entries()) {
 
-      if (only_unlabeled && value.num_possibilities === 0){
+      if ( only_unlabeled && value.num_possibilities === 0){
+        continue
+      }
+      if ( only_unverified && value.num_unverified_faces === 0){
         continue
       }
       if (index !== found_idx){
-        items.push(this.makePerson(value, index, this.state.personSelected === index))
+        items.push(this.makePerson(value, index, this.state.personSelected === index, only_unverified, only_unlabeled))
       }
       //
     }

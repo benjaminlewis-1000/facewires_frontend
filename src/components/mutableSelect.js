@@ -28,12 +28,27 @@ class MutableSelect extends React.Component{
     
   }  
 
-focusInput(){
-  this.focusRef.current.focus()
-}
+  focusInput(){
+    this.focusRef.current.focus()
+  }
+
+  get_unique_list(){
+
+    var uniq_selected = [...new Set(this.props.imgsSelected)]
+    const thisIdx = uniq_selected.indexOf(this.props.face_id)
+    uniq_selected.splice(thisIdx, 1)
+    uniq_selected = uniq_selected.concat(this.props.face_id)
+    this.props.setHidden()
+    // this.setState({ignored: true}) 
+
+    return uniq_selected
+  }
 
 assignPerson(inputName, api_key, personExists){
+  const uniq_selected = this.get_unique_list()
+  console.log(uniq_selected)
   console.log("Assigning person ", inputName, "Exists? " , personExists, "API KEY: ", api_key)
+
   this.setState({visible:false})
   this.setState({value: inputName})
 
@@ -69,6 +84,23 @@ assignPerson(inputName, api_key, personExists){
     })
   }
   this.props.setInvisible()
+
+
+  function confirm(faceId){
+
+    var confirm_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
+
+    axiosInstance.patch(confirm_url, {
+      declared_name_key: api_key
+    })
+    .then(response => {
+      // console.log(response)
+    }).catch(error => {
+      console.log("Error in confirm_proposed")
+    })
+  }
+
+  uniq_selected.forEach(confirm)
 }
 
 clickList(event, textValue, api_key){

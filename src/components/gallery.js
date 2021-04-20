@@ -55,6 +55,7 @@ class Gallery extends React.Component{
     this.confirm_proposed = this.confirm_proposed.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
     this.setHidden = this.setHidden.bind(this);
+    this.unselectAll = this.unselectAll.bind(this);
 
   }
 
@@ -80,20 +81,34 @@ class Gallery extends React.Component{
     // console.log(indexIfInList)
 
     var imagesSelected = this.state.imgsSelected
+    console.log(this.state.lastClicked, index)
 
     if (event.shiftKey){
-      var newlySelected = []
-      var startIdx = this.state.lastClicked
-      if (index < startIdx){
-        var endIndex = startIdx
-        startIdx = index
-      }else{
-        endIndex = index
+      if (this.state.lastClicked === -1){
+        var startIdx = index
+        this.setState({lastClicked: index})
+        imagesSelected = [face_id]
       }
-      for (var i = startIdx; i <= endIndex; i++){
-        newlySelected.push(idxToIdMap[i])
+      else {
+        var newlySelected = []
+        var startIdx = this.state.lastClicked
+        if (index < startIdx){
+          var endIndex = startIdx
+          startIdx = index
+        }else{
+          endIndex = index
+        }
+        for (var i = startIdx; i <= endIndex; i++){
+          if (this.state.hidden.indexOf(idxToIdMap[i]) < 0){
+            newlySelected.push(idxToIdMap[i])
+          }
+          // console.log(this.state.hidden.indexOf(idxToIdMap[i]) >= 0)
+          // console.log(idxToIdMap[i])
+          // console.log(this.state.hidden)
+        }
+        console.log(newlySelected)
+        imagesSelected = imagesSelected.concat(newlySelected)
       }
-      imagesSelected = imagesSelected.concat(newlySelected)
     }else{
     
       if (indexIfInList >= 0){
@@ -113,8 +128,12 @@ class Gallery extends React.Component{
     }
         // this.setState({imgsSelected: newState})
     this.setState({imgsSelected: imagesSelected})
-    // console.log("Selected: ", imagesSelected)
     return imagesSelected
+  }
+
+  unselectAll(){
+    this.setState({imgsSelected: []})
+    this.setState({lastClicked: -1})
   }
 
 //  dragLog (event, face_id, index) {
@@ -201,8 +220,10 @@ class Gallery extends React.Component{
     this.setState({modalOpen: !this.state.modalOpen});
   }
 
-  setHidden(){
-    var uniq_selected = [...new Set(this.state.imgsSelected.concat(this.state.hidden))]
+  setHidden(current_selected_id){
+    // console.log("Set hidden", this.state.imgsSelected, current_selected_id)
+    var uniq_selected = [...new Set(this.state.imgsSelected.concat(this.state.hidden).concat([current_selected_id]))]
+    // console.log(uniq_selected)
     this.setState({hidden: uniq_selected})
   }
 
@@ -331,6 +352,7 @@ class Gallery extends React.Component{
                 peopleOptions={this.state.peopleOptions}
                 ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
                 updatePersonList={this.props.updatePersonList}
+                unselectAll={this.unselectAll}
               />  
             )}
           </InfiniteScroll>

@@ -29,6 +29,7 @@ class ImageScreen extends React.Component{
 
     if (this.props.api_id !== prevProps.api_id || 
       ( this.props.unlabeled !== prevProps.unlabeled && 
+        this.props.only_unverified !== prevProps.only_unverified && 
         this.props.api_id !== this.props.unassigned_person_id) ){
       console.log("Update needed")
       this.setState({loading: true})
@@ -51,8 +52,13 @@ class ImageScreen extends React.Component{
       if (! this.props.unlabeled && this.props.tab === "People" || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
         var imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
         console.log(imagery_url)
+        console.log("Only Unverified: ", this.props.only_unverified)
         try{
-          axiosInstance.get(imagery_url)
+          axiosInstance.get(imagery_url, {
+            params: {
+              only_unverified: this.props.only_unverified
+            }
+          })
           .then( (response) => {
             
             this.setState({imagery_ids: response.data.id_list}); 
@@ -67,7 +73,7 @@ class ImageScreen extends React.Component{
         this.setState({loading_definite: false})
       }
 
-      if (this.props.tab === 'People'){
+      if (this.props.tab === 'People' ){
         var imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + 'face_poss'
         console.log(imagery_url)
         try{
@@ -177,6 +183,7 @@ class ImageScreen extends React.Component{
                     ready = {this.state.loading}
                     updatePersonList={this.props.updatePersonList}
                     unlabeled={this.props.unlabeled}
+                    only_unverified={this.props.only_unverified}
                   />
 
       // console.log("selected index: ", this.props.people)

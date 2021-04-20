@@ -13,21 +13,6 @@ ol, ul {
 }
 
 
-.loader{
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  -ms-transform: translate(-50%, -50%);
-  transform: translate(-50%, -50%);
-  background-color: #e4ede6;
-}
-
-.spinBackground{
-  background-color: #e4ede6;
-  height: 100vh;
-}
-
-
 #rand{
   height: 8vh;
   position: float;

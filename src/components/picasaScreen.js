@@ -3,6 +3,7 @@ import './misc.css';
 import '../css/menubar.css'
 import '../css/sidebar.css'
 import '../css/image_tile.css'
+import '../css/login.css'
 // import PersonList from './personList2'
 // import FolderList from './folderList'
 // import ImageScreen from './imageScreen'
@@ -10,6 +11,7 @@ import store from 'store';
 // import { Grid, Form, Header, Message, Menu,Sidebar, Dropdown} from 'semantic-ui-react';
 // import { Redirect, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
+import { Redirect } from 'react-router-dom';
 
 import MenuExampleTabular from './tabular_menu.js'
 import FolderSidebar from './folderSidebar'
@@ -42,8 +44,9 @@ class PicasaScreen extends React.Component{
     this.state = {
       people : [], 
       folders: [],
-      people_url: store.get('api_url') + '/people/?fields=person_name,url,num_faces,id,num_possibilities',
-      dir_url: store.get('api_url') + '/directories/?fields=id,url,top_level_name,first_datesec,mean_datesec,num_images,year',
+      // people_url: store.get('api_url') + '/people/?fields=person_name,url,num_faces,id,num_possibilities&limit=1000',
+      people_url: store.get('api_url') + '/person_list/',
+      dir_url: store.get('api_url') + '/folder_list/',
       param_url: store.get('api_url') + '/parameters/',
       loading: true,
       names_fetched: false,
@@ -51,6 +54,7 @@ class PicasaScreen extends React.Component{
       params_fetched: false,
       tab: 'People',
       unlabeled_toggle: false,
+      only_unverified_toggle: false,
       api_id: 0,
       selectedIndex: -100,
       
@@ -131,6 +135,7 @@ class PicasaScreen extends React.Component{
           this.setState({'people': resp})
           this.setState({names_fetched: true}); 
           this.setState({api_id: resp[0].id})
+          console.log("Getting people")
           if (this.state.dirs_fetched && this.state.params_fetched){
             this.setState({loading: false})
           }
@@ -212,11 +217,11 @@ class PicasaScreen extends React.Component{
           resolve({data: response.data});
         }
         , (namelist_error) => {
-          console.log("CORS ERROR: ", namelist_error)
+          console.log("CORS ERROR: ", url,  namelist_error)
         }
         )
         .catch(err => {
-            console.log(err)
+            console.log(url, err)
         });
     })
            
@@ -235,6 +240,13 @@ class PicasaScreen extends React.Component{
 ///  START of callbacks
 ////////////////////////////////////////
 
+
+  logoutclick = (childData) => {
+    console.log("Logout")
+    store.set('loggedIn', false);
+    window.location = "/login"
+    return <Redirect to="/login" />;
+  }
 
   tabSelectCallback = (childData) => {
     this.setState({tab: childData})
@@ -291,7 +303,7 @@ class PicasaScreen extends React.Component{
     if ( this.state.tab === "People" ){
       return (
       <div>
-        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} />
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} />
         <ImageScreen 
           tab={this.state.tab} 
           api_source={this.state.api_source} 
@@ -301,6 +313,7 @@ class PicasaScreen extends React.Component{
           ignore_person_id={this.state.ignore_person_id}
           updatePersonList={this.updatePersonList}
           unlabeled={this.state.unlabeled_toggle}
+          only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}
         />
       </div>
@@ -317,6 +330,7 @@ class PicasaScreen extends React.Component{
           api_id={this.state.api_id} 
           people={this.state.people}
           unlabeled={this.state.unlabeled_toggle}
+          only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}
         />
       </div>
@@ -352,6 +366,7 @@ class PicasaScreen extends React.Component{
                 loading={this.state.loading}
                 />
               </div>
+              <button className='logoutButton' onClick = {this.logoutclick} >Abort and Logout</button>
             </div>
             ) : (
             <div>

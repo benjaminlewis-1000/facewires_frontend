@@ -25,6 +25,7 @@ class LazyImage extends React.Component{
     this.confirm_proposed = this.confirm_proposed.bind(this)
     this.localClick = this.localClick.bind(this)
     this.otherAssignment = this.otherAssignment.bind(this)
+    this.verifyFace = this.verifyFace.bind(this)
     this.set_as_thumbnail = this.set_as_thumbnail.bind(this)
     this.get_unique_list = this.get_unique_list.bind(this)
     
@@ -52,9 +53,10 @@ class LazyImage extends React.Component{
     const thisIdx = uniq_selected.indexOf(this.props.face_id)
     uniq_selected.splice(thisIdx, 1)
     uniq_selected = uniq_selected.concat(this.props.face_id)
-    this.props.setHidden()
+    this.props.setHidden(this.props.face_id)
     this.setState({ignored: true}) 
 
+    console.log(uniq_selected)
     return uniq_selected
   }
 
@@ -77,6 +79,7 @@ class LazyImage extends React.Component{
     }
 
     uniq_selected.forEach(softIgnore)
+    this.props.unselectAll()
     
   }
 
@@ -102,6 +105,7 @@ class LazyImage extends React.Component{
     }
 
     uniq_selected.forEach(hardIgnore)
+    this.props.unselectAll()
 
   }
 
@@ -121,6 +125,7 @@ class LazyImage extends React.Component{
     }
 
     uniq_selected.forEach(unassign)
+    this.props.unselectAll()
 
   }
 
@@ -157,11 +162,33 @@ class LazyImage extends React.Component{
     }
 
     uniq_selected.forEach(confirm)
+    this.props.unselectAll()
   }
 
   set_invisible(){
     // console.log(this.props.imgsSelected)
     this.setState({ignored: true})
+  }
+
+  verifyFace(){
+    console.log("Verify", this.props.face_id)
+    const uniq_selected = this.get_unique_list()
+    this.props.unselectAll()
+    console.log(uniq_selected)
+
+    function verify(faceId){
+
+      var verify_url = store.get('api_url') + '/faces/' + faceId + '/verify_face/'
+      // console.log(verify_url)
+      axiosInstance.patch(verify_url)
+      .then(response => {
+        
+      }).catch(error => {
+        console.log("Error in verify_face")
+      })
+    }
+
+    uniq_selected.forEach(verify)
   }
 
   localClick(event){
@@ -196,7 +223,9 @@ class LazyImage extends React.Component{
                         face_id={this.props.face_id}
                         current_person_id={this.props.current_person_id}
                         setInvisible={(e)=>{this.set_invisible()}}
+                        setHidden={this.props.setHidden}
                         updatePersonList={this.props.updatePersonList}
+                        imgsSelected={this.props.imgsSelected}
                       />
       
       return(
@@ -232,6 +261,9 @@ class LazyImage extends React.Component{
             </MenuItem>
             <MenuItem onClick={this.otherAssignment}>
               Send to other person
+            </MenuItem>
+            <MenuItem onClick={this.verifyFace}>
+              Verify face
             </MenuItem>
             <MenuItem onClick={this.set_as_thumbnail}>
               Set as highlight image

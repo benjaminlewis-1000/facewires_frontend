@@ -87,6 +87,10 @@ export default class MenuExampleTabular extends Component {
           {this.createTabToggle('Only Unlabeled Faces', 'unlabeled_toggle', 'People')}
         </div>
 
+        <div id='PeopleRemnant' className={`contextMenu ${peopleState}`}>
+          {this.createTabToggle('Only Unverified Faces', 'only_unverified_toggle', 'People')}
+        </div>
+
         <div id='FolderRemnant' className={`contextMenu ${folderState}`}>
           {this.createTabToggle('Faces', 'face', 'Folders')}
         </div>

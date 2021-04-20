@@ -7,7 +7,7 @@ import axiosRetry from 'axios-retry';
 var access_token = store.get('access_token')
 const axiosInstance = axios.create({
     // baseURL: store.get('api_url'),
-    timeout: 5000,
+    timeout: 15000,
     mode: 'cors',
     headers: {
         'Authorization': "JWT " + access_token,

@@ -32,7 +32,7 @@ class Login extends React.Component {
 
     const axiosInstance = axios.create({
         // baseURL: api_url,
-        timeout: 5000,
+        timeout: 15000,
         headers: {
             'Authorization': "JWT " + localStorage.getItem('access_token'),
             'Content-Type': 'application/json',
