@@ -56,6 +56,7 @@ class Gallery extends React.Component{
     this.toggleModal = this.toggleModal.bind(this);
     this.setHidden = this.setHidden.bind(this);
     this.unselectAll = this.unselectAll.bind(this);
+    this.clearImagesSelected = this.clearImagesSelected.bind(this);
 
   }
 
@@ -129,6 +130,11 @@ class Gallery extends React.Component{
         // this.setState({imgsSelected: newState})
     this.setState({imgsSelected: imagesSelected})
     return imagesSelected
+  }
+
+  clearImagesSelected(){
+    console.log("Clearing selected")
+    this.setState({imgsSelected: []})
   }
 
   unselectAll(){
@@ -343,6 +349,7 @@ class Gallery extends React.Component{
                 key={x_val[1]}
                 scrollPosition={this.props.scrollPosition}
                 onClick={ (e) => this.clickHandler(e,  x_val[1], x_val[0]) }
+                clearImagesSelected={this.clearImagesSelected}
       //          onDoubleClick={ (e) => {console.log("double click")}}
       //          onDrag={ (e) => this.dragLog(e,  face_id, index) }
        //         onDrop={(e) => this.onDrop(e)}

@@ -57,6 +57,7 @@ class LazyImage extends React.Component{
     this.setState({ignored: true}) 
 
     console.log(uniq_selected)
+    this.props.clearImagesSelected()
     return uniq_selected
   }
 
@@ -145,6 +146,7 @@ class LazyImage extends React.Component{
   confirm_proposed(){
 
     const uniq_selected = this.get_unique_list()
+    console.log("Confirming!")
     const current_person_id = this.props.current_person_id
 
     function confirm(faceId){
@@ -226,6 +228,8 @@ class LazyImage extends React.Component{
                         setHidden={this.props.setHidden}
                         updatePersonList={this.props.updatePersonList}
                         imgsSelected={this.props.imgsSelected}
+                        clearImagesSelected={this.props.clearImagesSelected}
+                        get_unique_list={this.get_unique_list}
                       />
       
       return(

@@ -32,20 +32,21 @@ class MutableSelect extends React.Component{
     this.focusRef.current.focus()
   }
 
-  get_unique_list(){
+  // get_unique_list(){
 
-    var uniq_selected = [...new Set(this.props.imgsSelected)]
-    const thisIdx = uniq_selected.indexOf(this.props.face_id)
-    uniq_selected.splice(thisIdx, 1)
-    uniq_selected = uniq_selected.concat(this.props.face_id)
-    this.props.setHidden()
-    // this.setState({ignored: true}) 
+  //   var uniq_selected = [...new Set(this.props.imgsSelected)]
+  //   const thisIdx = uniq_selected.indexOf(this.props.face_id)
+  //   uniq_selected.splice(thisIdx, 1)
+  //   uniq_selected = uniq_selected.concat(this.props.face_id)
+  //   this.props.setHidden()
+  //   this.setState({ignored: true}) 
+  //   this.props.clearImagesSelected()
 
-    return uniq_selected
-  }
+  //   return uniq_selected
+  // }
 
 assignPerson(inputName, api_key, personExists){
-  const uniq_selected = this.get_unique_list()
+  const uniq_selected = this.props.get_unique_list()
   console.log(uniq_selected)
   console.log("Assigning person ", inputName, "Exists? " , personExists, "API KEY: ", api_key)
 

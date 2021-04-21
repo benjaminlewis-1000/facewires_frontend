@@ -1,6 +1,6 @@
 /* eslint-disable arrow-body-style */
 import React from 'react';
-import { Sidebar, Menu } from 'semantic-ui-react';
+// import { Sidebar, Menu } from 'semantic-ui-react';
 import { Helmet } from 'react-helmet';
 import store from 'store';
 // import { Redirect } from 'react-router-dom';
@@ -68,6 +68,7 @@ class MainApp extends React.Component {
   }
 
 };
+
 const handleLogout = history => () => {
   console.log("Logging out")
   store.remove('loggedIn');

@@ -4,7 +4,8 @@ import axiosInstance from './axios_setup';
 // import ImageObj from './imageObj';
 import React from 'react';
 import store from 'store';
-import { LazyLoadImage, trackWindowScroll } from 'react-lazy-load-image-component';
+import { LazyLoadImage } from 'react-lazy-load-image-component';
+// import { LazyLoadImage, trackWindowScroll } from 'react-lazy-load-image-component';
 import Gallery from './gallery'
 
 class ImageScreen extends React.Component{
@@ -49,8 +50,9 @@ class ImageScreen extends React.Component{
 
       console.log("Props: ", this.props)
 
-      if (! this.props.unlabeled && this.props.tab === "People" || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
-        var imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
+      var imagery_url = ''
+      if (! (this.props.unlabeled && this.props.tab === "People") || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
+        imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
         console.log(imagery_url)
         console.log("Only Unverified: ", this.props.only_unverified)
         try{
@@ -74,7 +76,7 @@ class ImageScreen extends React.Component{
       }
 
       if (this.props.tab === 'People' ){
-        var imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + 'face_poss'
+        imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
         console.log(imagery_url)
         try{
           axiosInstance.get(imagery_url)
@@ -146,8 +148,6 @@ class ImageScreen extends React.Component{
     if (this.state.loading){
       return(
           <div className='screenHeader'>
-             {highlight_img} 
-             <span className='header_person_name'>{selectedName}</span>
           </div>
       );
     }else{
@@ -190,14 +190,14 @@ class ImageScreen extends React.Component{
       if ( this.props.selectedIndex === -100 ){
         var selectedName = 'Unassigned'
         // var id_url = null
-        var highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' className='highlight_img' />
+        var highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' alt="highlight" className='highlight_img' />
         //
       }else{
         selectedName = this.props.people[this.props.selectedIndex].person_name
         var id_num = this.props.people[this.props.selectedIndex].id
         var id_url = store.get('api_url') + '/keyed_image/face_highlight/?access_key=' 
           + this.state.access_key + '&id=' + id_num
-        highlight_img = <img src={id_url} className="highlight_img" />
+        highlight_img = <img src={id_url} className="highlight_img"  alt="highlight" />
       }
 
 

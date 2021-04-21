@@ -27,12 +27,13 @@ class PersonSidebar extends React.Component {
     var className = selected ? 'click-state' : 'base-state'; // this.state.id === this.props.personSelected ? 'click-state' : 'base-state';
     // console.log(this.state.id, this.props.personSelected)
 
+    var text = ""
     if (unlabeled){
-      var text = `${value.person_name}   (${value.num_possibilities})`
+      text = `${value.person_name}   (${value.num_possibilities})`
     }else if (unverified){
-      var text = `${value.person_name}   (${value.num_unverified_faces})`
+      text = `${value.person_name}   (${value.num_unverified_faces})`
     }else{
-      var text = `${value.person_name}   (${value.num_faces})`
+      text = `${value.person_name}   (${value.num_faces})`
     }
     return(
       <button 
