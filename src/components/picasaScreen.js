@@ -131,16 +131,19 @@ class PicasaScreen extends React.Component{
       this.compile_api_list(this.state.people_url, 'name_array').then(
         (resp) =>{
           resp.sort(this.compareNames)
-          resp = resp.filter(element => element.num_faces > 0)
+          resp = resp.filter(element => element.num_faces > 0 || element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === ".ignore")
           this.setState({'people': resp})
           this.setState({names_fetched: true}); 
           this.setState({api_id: resp[0].id})
           console.log("Getting people")
+          console.log(resp)
           if (this.state.dirs_fetched && this.state.params_fetched){
             this.setState({loading: false})
           }
           var unassigned_person_id  = resp.find(element =>element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === 'Unassigned');
           var ignore_person_id  = resp.find(element =>element.person_name === ".ignore" );
+          console.log(unassigned_person_id)
+          console.log(ignore_person_id)
           this.setState({unassigned_id: unassigned_person_id.id})
           this.setState({ignore_person_id: ignore_person_id.id})
 

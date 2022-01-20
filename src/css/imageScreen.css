@@ -49,6 +49,11 @@
 
 .infinite-scroll-component {
     overflow: hidden !important;
+    /* 80 px - screenHeader height
+    42px -- menu height
+    13 px -- padding
+    */
+    height: calc( 100vh - 80px - 42px - 13px) !important;
 }
 
 .highlight_img{
@@ -57,16 +62,27 @@
     border-radius: 50%;
 }
 
-.header_person_name{
+.header_person_name, .no_classify_checkbox{
     text-shadow: 1px 1px #A9A9A9;
-    font-size: 25px;
     color: #450293;
     font-stretch: expanded;
     vertical-align:middle;
-    height: 90px;
     position: relative;
     
     display: inline-block;
     vertical-align: middle;
     line-height: normal;
+}
+
+.header_person_name{
+    font-size: 25px;
+    height: 90px;
+}
+
+.no_classify_checkbox{
+    font-size: 15px;
+    height: 100%;
+    top:  45%;
+    float: right;
+    right: 10%;
 }

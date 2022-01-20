@@ -161,6 +161,7 @@ makeSearchListNew(){
 
   var optionList = []
   var re = new RegExp(this.state.filterValue, 'gi');
+  console.log(this.props.peopleOptions)
   var options = this.props.peopleOptions.filter(person => person.text.match(re))
 
   for (const [index, value] of options.entries()) {

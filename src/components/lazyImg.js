@@ -113,15 +113,27 @@ class LazyImage extends React.Component{
   close_assigned(){
 
     const uniq_selected = this.get_unique_list()
+    const current_person_id = this.props.current_person_id
 
     function unassign(faceId){
 
       var unassign_url = store.get('api_url') + '/faces/' + faceId + '/unassign_face/'
+      var reject_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
+
       axiosInstance.put(unassign_url)
       .then(response => {
         
       }).catch(error => {
         console.log("Error in close_assigned")
+      })
+      
+      axiosInstance.put(reject_url, {
+          unassociate_id: current_person_id
+      })
+      .then(response => {
+        
+      }).catch(error => {
+        console.log("Error in close_assigned rejection list")
       })
     }
 

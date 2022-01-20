@@ -83,7 +83,7 @@ export default class MenuExampleTabular extends Component {
 
         <div id='menuRemnant'>
 
-        <div id='PeopleRemnant' className={`contextMenu ${peopleState}`}>
+        <div id='UnlabelRemnant' className={`contextMenu ${peopleState}`}>
           {this.createTabToggle('Only Unlabeled Faces', 'unlabeled_toggle', 'People')}
         </div>
 

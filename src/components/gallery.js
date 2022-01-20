@@ -24,10 +24,17 @@ class Gallery extends React.Component{
         value: value.person_name,
         text: value.person_name,
         api_key: value.id,
+        num_images: value.num_faces,
         // unassigned_person_id: this.props.unassigned_person_id,
         shiftOn: false
       })
     }
+
+    // Sort peopleOptions by number of images,
+    // most to least.
+    peopleOptions.sort(function(a, b) {
+      return b.num_images - a.num_images
+    });
 
 
     this.state = {
@@ -84,15 +91,16 @@ class Gallery extends React.Component{
     var imagesSelected = this.state.imgsSelected
     console.log(this.state.lastClicked, index)
 
+    var startIdx = -1
     if (event.shiftKey){
       if (this.state.lastClicked === -1){
-        var startIdx = index
+        startIdx = index
         this.setState({lastClicked: index})
         imagesSelected = [face_id]
       }
       else {
         var newlySelected = []
-        var startIdx = this.state.lastClicked
+        startIdx = this.state.lastClicked
         if (index < startIdx){
           var endIndex = startIdx
           startIdx = index

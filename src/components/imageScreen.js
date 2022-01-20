@@ -16,12 +16,15 @@ class ImageScreen extends React.Component{
       loading_definite: true,
       loading_poss: true,
       loading: true,
+      active: false,
       imagery_ids: [],
       possible_ids: [],
       access_key: store.get('access_key'),
     }
 
 
+    this.toggle_unlikely = this.toggle_unlikely.bind(this)
+    this.handleCheckbox = this.handleCheckbox.bind(this)
 
     // this.ref = React.createRef();
   }
@@ -142,6 +145,29 @@ class ImageScreen extends React.Component{
     return url
   }
 
+  toggle_unlikely(){
+    var id_num = this.props.people[this.props.selectedIndex].id
+    var toggle_url = store.get('api_url') + '/people/' + id_num + '/toggle_further_unlikely/'
+
+    var old_unlikely = this.props.people[this.props.selectedIndex].further_images_unlikely
+    this.props.people[this.props.selectedIndex].further_images_unlikely = !old_unlikely
+    this.state.active = !this.state.active
+    
+    axiosInstance.put(toggle_url)
+    .then(response => {
+      
+    }).catch(error => {
+      console.log("Error in toggle unlikely")
+    })
+  }
+
+  handleCheckbox(e) {
+    const name = e.target.name;
+    const checked = e.target.checked;
+    this.setState((prevState) => {
+        this.state.active = !prevState.active;
+    });
+  }
 
 
   buildScreen() {
@@ -190,9 +216,12 @@ class ImageScreen extends React.Component{
       if ( this.props.selectedIndex === -100 ){
         var selectedName = 'Unassigned'
         // var id_url = null
+        var further_unlikely = false
         var highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' alt="highlight" className='highlight_img' />
         //
       }else{
+        further_unlikely = this.props.people[this.props.selectedIndex].further_images_unlikely
+        this.state.active = further_unlikely
         selectedName = this.props.people[this.props.selectedIndex].person_name
         var id_num = this.props.people[this.props.selectedIndex].id
         var id_url = store.get('api_url') + '/keyed_image/face_highlight/?access_key=' 
@@ -211,8 +240,17 @@ class ImageScreen extends React.Component{
           <div className='screenHeader'>
             {highlight_img} 
             <span className='header_person_name'>{selectedName}</span>
-            
-           
+            <span className='no_classify_checkbox'>
+                &emsp;&emsp;&emsp;
+                <input type="checkbox" 
+                    checked={this.state.active} 
+                    onClick={this.toggle_unlikely}
+                    onChange={this.handleCheckbox}>
+                </input>
+                &nbsp;
+                Further Images Unlikely
+            </span>
+
           </div>
           {gallery}
         </div>

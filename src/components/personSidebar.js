@@ -28,7 +28,11 @@ class PersonSidebar extends React.Component {
     // console.log(this.state.id, this.props.personSelected)
 
     var text = ""
-    if (unlabeled){
+    // Always make the Unassigned person show the num_possibilities.
+    // The other switches change values according to the toggles
+    // at the top of the screen -- "only unlabeled faces" and 
+    // "only unverified faces" respectively
+    if (unlabeled || value.person_name === "Unassigned"){
       text = `${value.person_name}   (${value.num_possibilities})`
     }else if (unverified){
       text = `${value.person_name}   (${value.num_unverified_faces})`
