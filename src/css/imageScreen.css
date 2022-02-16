@@ -53,7 +53,7 @@
     42px -- menu height
     13 px -- padding
     */
-    height: calc( 100vh - 80px - 42px - 13px) !important;
+    min-height: calc( 100vh - 80px - 42px - 13px) !important;
 }
 
 .highlight_img{
