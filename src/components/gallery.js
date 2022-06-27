@@ -1,9 +1,12 @@
 import React from 'react';
+// import { useCallback, useEffect } from 'react';
 import { trackWindowScroll } from 'react-lazy-load-image-component';
+import ReactDOM from 'react-dom';
 import store from 'store';
 import '../css/image_tile.css'
 import LazyImage from './lazyImg'
 import InfiniteScroll from "react-infinite-scroll-component";
+import axiosInstance from './axios_setup'
 import Modal from "react-modal";
 
 const styleLink = document.createElement("link");
@@ -11,6 +14,10 @@ styleLink.rel = "stylesheet";
 styleLink.href = "https://cdn.jsdelivr.net/npm/semantic-ui/dist/semantic.min.css";
 document.head.appendChild(styleLink);
 
+
+// window.addEventListener("keydown", (event) => {
+//     console.log(event)
+// });
 
 class Gallery extends React.Component{
   
@@ -57,15 +64,42 @@ class Gallery extends React.Component{
 
     this.clicks = [];
     this.last_face_id=-1
-    this.close_unassigned = this.close_unassigned.bind(this)
-    this.close_assigned = this.close_assigned.bind(this)
-    this.confirm_proposed = this.confirm_proposed.bind(this)
+    this.api_action = this.api_action.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
     this.setHidden = this.setHidden.bind(this);
     this.unselectAll = this.unselectAll.bind(this);
     this.clearImagesSelected = this.clearImagesSelected.bind(this);
 
+      // this.handleKeyPress = useCallback((event) => {
+      //   console.log(`Key pressed: ${event.key}`);
+      // }, []);
+  }  
+
+  componentDidMount(){
+    document.addEventListener("keydown", this._handleKeyDown);
   }
+
+  _handleKeyDown = (event) => {
+    const cp = this.props.current_person_id
+    const ip = this.props.ignore_person_id
+    if (event.key == 'Delete'){
+        console.log(event)
+
+        // If on ignore tab: 
+        if ( cp === ip ){
+            console.log("Ignore tab")
+            this.api_action('close_ignored')
+        }else{
+            console.log("Person tab")
+        }
+    }
+    if (event.key === 'R' && event.shiftKey){
+        console.log("Shift-r")
+        this.api_action('close_assigned')
+    }
+  }
+  
+
 
   componentDidUpdate(prevProps, prevState, snapshot){
     if (prevProps !== this.props){
@@ -79,6 +113,16 @@ class Gallery extends React.Component{
       // this.forceUpdate()
     }
   }
+
+  // useEffect(handleKeyPress) {
+  //   // attach the event listener
+  //   document.addEventListener('keydown', handleKeyPress);
+
+  //   // remove the event listener
+  //   return () => {
+  //     document.removeEventListener('keydown', handleKeyPress);
+  //   };
+  // }
 
   singleClick(event, face_id, index){
     console.log(face_id)
@@ -150,6 +194,112 @@ class Gallery extends React.Component{
     this.setState({lastClicked: -1})
   }
 
+
+  ///////////////////////////////////////////
+  // API calls
+  ///////////////////////////////////////////
+
+  
+  get_unique_list(added_id){
+
+    var uniq_selected = [...new Set(this.state.imgsSelected)]
+    this.setHidden(added_id)
+    this.clearImagesSelected()
+    
+    if (added_id !== undefined){
+        const thisIdx = uniq_selected.indexOf(added_id)
+        uniq_selected.splice(thisIdx, 1)
+        uniq_selected = uniq_selected.concat(added_id)
+    }
+
+    console.log("Got uniques")
+    return uniq_selected
+  }
+
+
+  api_action(action_type, face_id){
+    console.log(action_type, face_id)
+    var assert = require('assert');
+    var action_valid = ['close_unassigned', 'close_ignored', 'close_assigned', 'confirm_proposed', 'verify_face'].includes(action_type)
+    // console.log(action_valid)
+    assert.equal( action_valid, true);
+    const current_person_id = this.props.current_person_id
+
+    const uniq_selected = this.get_unique_list(face_id)
+
+    this.unselectAll()
+    
+    if ( ['close_unassigned', 'close_ignored', 'close_assigned'].includes(action_type) ) {
+        // action_type === 'close_unassigned' || action_type == 'close_ignored' || action_type === 'close_assigned' ){
+
+        function jointAssign(faceId){
+            var api_url = ""
+            var axiosDict = {}
+
+            if ( action_type === 'close_unassigned' ){
+                api_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
+                axiosDict = {ignore_type: 'soft'}
+                // ignore_type_str = 'soft'
+            }else if ( action_type === 'close_ignored' ){
+                api_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
+                axiosDict = {ignore_type: 'hard'}
+            }else if ( action_type === 'close_assigned' ){
+                api_url = store.get('api_url') + '/faces/' + faceId + '/unassign_face/'
+                axiosDict = {}
+            }
+            
+            axiosInstance.put(api_url, axiosDict)
+            .then(response => {
+              console.log(response)
+            }).catch(error => {
+              console.log("Error in jointAssign " + action_type)
+            })
+
+            if ( action_type === 'close_assigned' ){
+                // Needs a second step
+                var reject_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
+                axiosInstance.put(reject_url, {
+                    unassociate_id: current_person_id
+                })
+                .then(response => {
+                  
+                }).catch(error => {
+                  console.log("Error in close_assigned rejection list")
+                })
+            }
+        }
+
+        uniq_selected.forEach(jointAssign)
+
+    } else if ( ['confirm_proposed', 'verify_face'].includes(action_type) ){
+
+        function jointAssign(faceId){
+            var api_url = ""
+            var axiosDict = {}
+
+            if ( action_type === 'confirm_proposed' ){
+                api_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
+                axiosDict = {declared_name_key: current_person_id}
+            }else if ( action_type === 'verify_face' ){
+                api_url = store.get('api_url') + '/faces/' + faceId + '/verify_face/'
+                // axiosDict = {ignore_type: 'hard'}
+            }
+
+
+          axiosInstance.patch(api_url, axiosDict )
+          .then(response => {
+            // console.log(response)
+          }).catch(error => {
+            console.log("Error in jointAssign patch " + action_type )
+          })
+        }
+
+        uniq_selected.forEach(jointAssign)
+
+    } 
+    
+  }
+  
 //  dragLog (event, face_id, index) {
 //    var indexIfInList = this.state.imgsSelected.indexOf(face_id)
     // console.log(indexIfInList, indexIfInList === -1)
@@ -179,18 +329,6 @@ class Gallery extends React.Component{
 
   onDrop(event){
     console.log("Drop")
-  }
-
-  close_unassigned(event, face_id){
-    console.log("Send ", face_id, " to .ignore")
-  }
-
-  close_assigned(event, face_id){
-    console.log("Remove ", face_id, " from assigned")
-  }
-
-  confirm_proposed(event, face_id){
-    console.log("Confirm ", face_id)
   }
 
   clickHandler(event, face_id, index) {
@@ -237,50 +375,9 @@ class Gallery extends React.Component{
   setHidden(current_selected_id){
     // console.log("Set hidden", this.state.imgsSelected, current_selected_id)
     var uniq_selected = [...new Set(this.state.imgsSelected.concat(this.state.hidden).concat([current_selected_id]))]
-    // console.log(uniq_selected)
+    console.log(uniq_selected)
     this.setState({hidden: uniq_selected})
   }
-
-
-//   createImage(index, face_id, type){
-//     // Type is a value in ['proposed', 'unassigned_tab', 'defined', 'ignored'].
-//       var url = store.get('api_url') + '/keyed_image/face_array/?access_key=' 
-//         + store.get('access_key') + '&id=' + face_id    
-
-//       // var selected=this.state.imgsSelected.indexOf(face_id) >= 0
-//       // console.log(selected)
-
-//       // var img = <LazyImage 
-//       return (
-//          <LazyImage 
-//           selected={this.state.imgsSelected.indexOf(face_id) >= 0}
-// //          imgsSelected={() => this.state.imgsSelected}
-//           url={url}
-//           index={index}
-//           key={face_id}
-//           scrollPosition={this.props.scrollPosition}
-//           onClick={ (e) => this.clickHandler(e,  face_id, index) }
-// //          onDoubleClick={ (e) => {console.log("double click")}}
-// //          onDrag={ (e) => this.dragLog(e,  face_id, index) }
-//  //         onDrop={(e) => this.onDrop(e)}
-//           face_id={face_id}
-//           type={type}
-//           current_person_id={this.props.current_person_id}
-//           peopleOptions={this.state.peopleOptions}
-//           ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
-//           updatePersonList={this.props.updatePersonList}
-//         />  
-//       );
-        
-// //      return(
-// //        <div key={index}>
-// //         {img}
-// //        </div>
-// //      );
-
-//     }
-
-//
 
   fetchMoreData = () => {
       var combined_list = this.props.img_ids.concat(this.props.poss_ids)
@@ -350,6 +447,11 @@ class Gallery extends React.Component{
                 selected={this.state.imgsSelected.indexOf(x_val[1]) >= 0}
                 imgsSelected={this.state.imgsSelected}
                 hidden={this.state.hidden.indexOf(x_val[1]) >= 0}
+                api_action={this.api_action}
+                // close_unassigned={this.close_unassigned}
+                // close_ignored={this.close_ignored}
+                // close_assigned={this.close_assigned}
+                // confirm_proposed={this.confirm_proposed}
                 setHidden={this.setHidden}
                 url={store.get('api_url') + '/keyed_image/face_array/?access_key=' 
                     + store.get('access_key') + '&id=' + x_val[1] }
