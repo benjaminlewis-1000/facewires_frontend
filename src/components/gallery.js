@@ -248,7 +248,7 @@ class Gallery extends React.Component{
                 axiosDict = {}
             }
             
-            axiosInstance.put(api_url, axiosDict)
+            axiosInstance.patch(api_url, axiosDict)
             .then(response => {
               console.log(response)
             }).catch(error => {
@@ -258,7 +258,7 @@ class Gallery extends React.Component{
             if ( action_type === 'close_assigned' ){
                 // Needs a second step
                 var reject_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
-                axiosInstance.put(reject_url, {
+                axiosInstance.patch(reject_url, {
                     unassociate_id: current_person_id
                 })
                 .then(response => {

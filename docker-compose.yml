@@ -1,6 +1,8 @@
 
-version: "3.3"
+# version: "3.3"
 services:
+  # Running via cloudflared tunnel. Service is at facewire.exploretheworld.tech,
+  # running at service http://picasa_frontend:3000
   picasa_frontend:
     build:
       context: .
@@ -22,25 +24,15 @@ services:
       # HOST_IP=`ip route | grep default | awk '{print $9}'`
       - DOCKER_HOST_IP=${HOST_IP} 
       - CHOKIDAR_USEPOLLING=true
-    ports:
-     - 8080:3000
-     - 8081:5000
+#    ports:
+#     - 8080:3000
+#     - 8081:5000
     volumes:
       - '/app/node_modules'
       - /home/benjamin/git_repos/facewires_frontend/:/app
     networks:
       - traefik_proxy
     restart: always
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.picasafront.rule=Host(`${WEBAPP_DOMAIN}`)"
-      - "traefik.http.routers.picasafront.tls.certresolver=leresolver"
-      - "traefik.http.routers.picasa_frontend.entrypoints=websecure"
-      # - "traefik.http.services.picasafront.loadbalancer.server.port=5000"
-      - "traefik.http.services.picasafront.loadbalancer.server.port=3000"
-      - "traefik.http.services.picasafront.loadbalancer.healthcheck.hostname=${WEBAPP_DOMAIN}"
-      - "traefik.http.middlewares.picasafront.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.picasafront.redirectscheme.permanent=true"
 
 
 networks:
