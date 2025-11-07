@@ -243,10 +243,15 @@ class Gallery extends React.Component{
             }else if ( action_type === 'close_ignored' ){
                 api_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
                 axiosDict = {ignore_type: 'hard'}
-            }else if ( action_type === 'close_assigned' ){
-                api_url = store.get('api_url') + '/faces/' + faceId + '/unassign_face/'
-                axiosDict = {}
             }
+            else if ( action_type === 'close_assigned' ){
+                api_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
+                axiosDict = {unassociate_id: current_person_id}
+            }
+            // else if ( action_type === 'close_assigned' ){
+            //     api_url = store.get('api_url') + '/faces/' + faceId + '/unassign_face/'
+            //     axiosDict = {}
+            // }
             
             axiosInstance.patch(api_url, axiosDict)
             .then(response => {
@@ -255,18 +260,18 @@ class Gallery extends React.Component{
               console.log("Error in jointAssign " + action_type)
             })
 
-            if ( action_type === 'close_assigned' ){
-                // Needs a second step
-                var reject_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
-                axiosInstance.patch(reject_url, {
-                    unassociate_id: current_person_id
-                })
-                .then(response => {
+            // if ( action_type === 'close_assigned' ){
+            //     // Needs a second step
+            //     var reject_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
+            //     axiosInstance.patch(reject_url, {
+            //         unassociate_id: current_person_id
+            //     })
+            //     .then(response => {
                   
-                }).catch(error => {
-                  console.log("Error in close_assigned rejection list")
-                })
-            }
+            //     }).catch(error => {
+            //       console.log("Error in close_assigned rejection list")
+            //     })
+            // }
         }
 
         uniq_selected.forEach(jointAssign)
