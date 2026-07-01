@@ -17,6 +17,7 @@
     "axios": ">=0.19.2",
     "axios-auth-refresh": "*",
     "axios-auto-refresh-jwt": "^2.0.2",
+    "nodemon": "^3.1.10",
     "forever": "*",
     "pm2": ">=4.2.3",
     "react": ">=16.13.1",
@@ -44,6 +45,7 @@
     "axios-auth-refresh": "^3.0.0",
     "axios-retry": "^3.1.9",
     "babel-loader": "^8.0.6",
+    "nodemon": "^3.1.10",
     "react-idle-timer": "^4.3.6",
     "webpack": "^4.35.0",
     "webpack-cli": "^3.3.4"
@@ -52,6 +54,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "build_webpack": "webpack --config webpack.config.js",
+    "debug": "nodemon /app/node_modules/.bin/react-scripts start",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

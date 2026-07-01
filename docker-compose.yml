@@ -24,8 +24,8 @@ services:
       # HOST_IP=`ip route | grep default | awk '{print $9}'`
       - DOCKER_HOST_IP=${HOST_IP} 
       - CHOKIDAR_USEPOLLING=true
-#    ports:
-#     - 8080:3000
+    ports:
+     - 8081:3000
 #     - 8081:5000
     volumes:
       - '/app/node_modules'

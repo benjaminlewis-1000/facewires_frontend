@@ -98,7 +98,8 @@ class ImageScreen extends React.Component{
         }catch(e){
           console.log('error', e)
         }
-      }else{
+      }
+      else{
         this.setState({loading_poss: false})
         this.setState({loading: false})
       }
@@ -231,10 +232,7 @@ class ImageScreen extends React.Component{
 
 
 
-      
-
-       
-                             // <img src="https://i.pinimg.com/originals/00/99/f4/0099f4d94bcd096e932b750edea40c5d.jpg" alt="Mountain" className='modalImage' /> 
+           
       return(
         <div>
           <div className='screenHeader'>

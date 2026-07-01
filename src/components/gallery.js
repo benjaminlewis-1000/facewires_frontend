@@ -185,7 +185,6 @@ class Gallery extends React.Component{
   }
 
   clearImagesSelected(){
-    console.log("Clearing selected")
     this.setState({imgsSelected: []})
   }
 
@@ -212,7 +211,6 @@ class Gallery extends React.Component{
         uniq_selected = uniq_selected.concat(added_id)
     }
 
-    console.log("Got uniques")
     return uniq_selected
   }
 
@@ -228,80 +226,90 @@ class Gallery extends React.Component{
     const uniq_selected = this.get_unique_list(face_id)
 
     this.unselectAll()
+
     
-    if ( ['close_unassigned', 'close_ignored', 'close_assigned'].includes(action_type) ) {
-        // action_type === 'close_unassigned' || action_type == 'close_ignored' || action_type === 'close_assigned' ){
+    var bulk_patch_url = store.get('api_url') + '/faces/bulk_operation/';
+    console.log("Bulk operation in progress " + bulk_patch_url)
+    var data_list = {face_id_list: uniq_selected, 
+                    operation: action_type,
+                    current_person_id: current_person_id};
 
-        function jointAssign(faceId){
-            var api_url = ""
-            var axiosDict = {}
+    axiosInstance.patch(bulk_patch_url, data_list)
+    .then(response => {
+      console.log(response)
+    }).catch(error => {
+      console.log("Error in bulk operation " + action_type + error)
+    })
+    
+    // if ( ['close_unassigned', 'close_ignored', 'close_assigned'].includes(action_type) ) {
+    //     // action_type === 'close_unassigned' || action_type == 'close_ignored' || action_type === 'close_assigned' ){
 
-            if ( action_type === 'close_unassigned' ){
-                api_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
-                axiosDict = {ignore_type: 'soft'}
-                // ignore_type_str = 'soft'
-            }else if ( action_type === 'close_ignored' ){
-                api_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
-                axiosDict = {ignore_type: 'hard'}
-            }
-            else if ( action_type === 'close_assigned' ){
-                api_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
-                axiosDict = {unassociate_id: current_person_id}
-            }
-            // else if ( action_type === 'close_assigned' ){
-            //     api_url = store.get('api_url') + '/faces/' + faceId + '/unassign_face/'
-            //     axiosDict = {}
-            // }
+    //     function jointAssign(faceId){
+    //         var api_url = ""
+    //         var axiosDict = {}
+
+    //         if ( action_type === 'close_unassigned' ){
+    //             api_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
+    //             axiosDict = {ignore_type: 'soft'}
+    //             // ignore_type_str = 'soft'
+    //         }else if ( action_type === 'close_ignored' ){
+    //             api_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
+    //             axiosDict = {ignore_type: 'hard'}
+    //         }
+    //         else if ( action_type === 'close_assigned' ){
+    //             api_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
+    //             axiosDict = {unassociate_id: current_person_id}
+    //         }
             
-            axiosInstance.patch(api_url, axiosDict)
-            .then(response => {
-              console.log(response)
-            }).catch(error => {
-              console.log("Error in jointAssign " + action_type)
-            })
+    //         axiosInstance.patch(api_url, axiosDict)
+    //         .then(response => {
+    //           console.log(response)
+    //         }).catch(error => {
+    //           console.log("Error in jointAssign " + action_type)
+    //         })
 
-            // if ( action_type === 'close_assigned' ){
-            //     // Needs a second step
-            //     var reject_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
-            //     axiosInstance.patch(reject_url, {
-            //         unassociate_id: current_person_id
-            //     })
-            //     .then(response => {
-                  
-            //     }).catch(error => {
-            //       console.log("Error in close_assigned rejection list")
-            //     })
-            // }
-        }
+    //     }
 
-        uniq_selected.forEach(jointAssign)
+    //     // console.log("Bulk operation in progress")
 
-    } else if ( ['confirm_proposed', 'verify_face'].includes(action_type) ){
+    //     // var bulk_patch_url = store.get('api_url') + '/faces/bulk_operation/';
+    //     // var data_list = {selected_list: uniq_selected, operation: action_type};
 
-        function jointAssign(faceId){
-            var api_url = ""
-            var axiosDict = {}
+    //     // axiosInstance.patch(bulk_patch_url, data_list)
+    //     // .then(response => {
+    //     //   console.log(response)
+    //     // }).catch(error => {
+    //     //   console.log("Error in bulk operation " + action_type)
+    //     // })
 
-            if ( action_type === 'confirm_proposed' ){
-                api_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
-                axiosDict = {declared_name_key: current_person_id}
-            }else if ( action_type === 'verify_face' ){
-                api_url = store.get('api_url') + '/faces/' + faceId + '/verify_face/'
-                // axiosDict = {ignore_type: 'hard'}
-            }
+    //     uniq_selected.forEach(jointAssign)
+
+    // } else if ( ['confirm_proposed', 'verify_face'].includes(action_type) ){
+
+    //     function jointAssign(faceId){
+    //         var api_url = ""
+    //         var axiosDict = {}
+
+    //         if ( action_type === 'confirm_proposed' ){
+    //             api_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
+    //             axiosDict = {declared_name_key: current_person_id}
+    //         }else if ( action_type === 'verify_face' ){
+    //             api_url = store.get('api_url') + '/faces/' + faceId + '/verify_face/'
+    //             // axiosDict = {ignore_type: 'hard'}
+    //         }
 
 
-          axiosInstance.patch(api_url, axiosDict )
-          .then(response => {
-            // console.log(response)
-          }).catch(error => {
-            console.log("Error in jointAssign patch " + action_type )
-          })
-        }
+    //       axiosInstance.patch(api_url, axiosDict )
+    //       .then(response => {
+    //         // console.log(response)
+    //       }).catch(error => {
+    //         console.log("Error in jointAssign patch " + action_type )
+    //       })
+    //     }
 
-        uniq_selected.forEach(jointAssign)
+    //     uniq_selected.forEach(jointAssign)
 
-    } 
+    // } 
     
   }
   
@@ -380,7 +388,7 @@ class Gallery extends React.Component{
   setHidden(current_selected_id){
     // console.log("Set hidden", this.state.imgsSelected, current_selected_id)
     var uniq_selected = [...new Set(this.state.imgsSelected.concat(this.state.hidden).concat([current_selected_id]))]
-    console.log(uniq_selected)
+    // console.log("Setting hidden " + uniq_selected)
     this.setState({hidden: uniq_selected})
   }
 
