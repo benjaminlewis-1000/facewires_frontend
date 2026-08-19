@@ -21,15 +21,15 @@ class MainApp extends React.Component {
   }
 
   componentDidMount() {
-    // Run the async cookie validation as soon as the component loads
     isLoggedIn().then(loggedIn => {
       if (loggedIn) {
         this.setState({ authenticated: true, loading: false });
       } else {
         console.log("Not logged in - bouncing to Authelia SSO pipeline");
         
-        // Construct the full destination loop path
-        const returnUrl = "https://facewire.exploretheworld.tech/faces";
+        // Dynamically grabs whichever dev/local domain you are currently on
+        const returnUrl = `${window.location.origin}/faces`;
+        
         window.location.href = `https://picasa.exploretheworld.tech/accounts/oidc/authelia/login/?next=${encodeURIComponent(returnUrl)}`;
       }
     });
@@ -82,12 +82,11 @@ class MainApp extends React.Component {
 
 const handleLogout = history => () => {
   console.log("Logging out globally via Authelia portal");
-  
-  // Clean up any remaining legacy local items
   store.remove('loggedIn');
   
-  // Send the browser to terminate BOTH the local Django session and global Authelia session
-  window.location.href = 'https://picasa.exploretheworld.tech/accounts/logout/?next=https://auth.exploretheworld.tech/logout';
+  // Sends you back to your current dev domain after logout if desired
+  const currentOrigin = window.location.origin;
+  window.location.href = `https://picasa.exploretheworld.tech/accounts/logout/?next=https://auth.exploretheworld.tech/logout?rd=${encodeURIComponent(currentOrigin)}`;
 };
 
 export default MainApp;

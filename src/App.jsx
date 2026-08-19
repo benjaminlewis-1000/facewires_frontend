@@ -10,7 +10,9 @@ import MainApp from "./components/mainApp";
 
 // Helper component that handles bouncing users to Authelia SSO
 const RedirectToSSO = () => {
-  const returnUrl = "https://facewire.exploretheworld.tech/faces";
+  // Automatically detects whichever URL/domain you typed into the browser address bar
+  const returnUrl = `${window.location.origin}/faces`;
+  
   window.location.href = `https://picasa.exploretheworld.tech/accounts/oidc/authelia/login/?next=${encodeURIComponent(returnUrl)}`;
   
   return <div style={{ padding: '20px', textAlign: 'center' }}>Redirecting to secure login...</div>;
