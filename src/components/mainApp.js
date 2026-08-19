@@ -1,45 +1,66 @@
 /* eslint-disable arrow-body-style */
-import React from 'react';
-// import { Sidebar, Menu } from 'semantic-ui-react';
-import { Helmet } from 'react-helmet';
-import store from 'store';
-// import { Redirect } from 'react-router-dom';
-// import styles from './styles.css';
-// import Users from '../Users';
-import PicasaScreen from './picasaScreen'
-// import FolderList from './folderList'
-// import ImageScreen from './imageScreen'
-import isLoggedIn from './isLoggedIn'
 import IdleTimer from 'react-idle-timer'
-
+import isLoggedIn from './isLoggedIn'
+import PicasaScreen from './picasaScreen'
+import React from 'react';
+import store from 'store';
+import { Helmet } from 'react-helmet';
 
 class MainApp extends React.Component {
-
   constructor(props){
     super(props);
 
-    if (!isLoggedIn()) {
-      console.log("Not logged in")
-      window.location = "/login"
-      // return <Redirect to="/login" />;
-    }
+    // Track state to show a loading screen while we wait for Django's response
+    this.state = {
+      loading: true,
+      authenticated: false
+    };
 
-    this.idleTimer = null
-    this.onIdle = this.handleOnIdle.bind(this)
+    this.idleTimer = null;
+    this.onIdle = this.handleOnIdle.bind(this);
+  }
 
-    window.addEventListener('beforeunload', (event) => {
-    //   var {history} = this.props;
-    //   store.remove('loggedIn');
-    //   history.push('/login');
+  componentDidMount() {
+    // Run the async cookie validation as soon as the component loads
+    isLoggedIn().then(loggedIn => {
+      if (loggedIn) {
+        this.setState({ authenticated: true, loading: false });
+      } else {
+        console.log("Not logged in - bouncing to Authelia SSO pipeline");
+        
+        // Construct the full destination loop path
+        const returnUrl = "https://facewire.exploretheworld.tech/faces";
+        window.location.href = `https://picasa.exploretheworld.tech/accounts/oidc/authelia/login/?next=${encodeURIComponent(returnUrl)}`;
+      }
     });
   }
 
-  render() {
+  handleOnIdle(e) {
+    const { history } = this.props;
+    handleLogout(history)();
+    console.log('user is idle');
+  }
 
-    var {history} = this.props;
+  render() {
+    const { loading, authenticated } = this.state;
+
+    // 1. Show a clean placeholder while the background network ping is running
+    if (loading) {
+      return (
+        <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif', color: '#666' }}>
+          Verifying secure SSO session...
+        </div>
+      );
+    }
+
+    // 2. If loading finished but auth failed, render nothing while the browser finishes redirecting
+    if (!authenticated) {
+      return null;
+    }
+
+    // 3. Render your actual application once authenticated is confirmed true
     return (
         <div id="screenWrapper">
-
           <IdleTimer
             ref={ref => { this.idleTimer = ref }}
             element={document}
@@ -52,55 +73,21 @@ class MainApp extends React.Component {
             <title>FaceWires</title>
           </Helmet>
           <div className='Mainbody'>
-            
             <PicasaScreen />
           </div>
-
         </div>
     );
   }
-
-  handleOnIdle(e) {
-    var {history} = this.props
-    handleLogout(history)();
-    console.log('user is idle')
-    // console.log('last active', this.idleTimer.getLastActiveTime())
-  }
-
-};
+}
 
 const handleLogout = history => () => {
-  console.log("Logging out")
+  console.log("Logging out globally via Authelia portal");
+  
+  // Clean up any remaining legacy local items
   store.remove('loggedIn');
-  history.push('/login');
+  
+  // Send the browser to terminate BOTH the local Django session and global Authelia session
+  window.location.href = 'https://picasa.exploretheworld.tech/accounts/logout/?next=https://auth.exploretheworld.tech/logout';
 };
-
-
-/*
-const MainApp = ({history}) => {
-    
-  if (!isLoggedIn()) {
-    return <Redirect to="/login" />;
-  }
-
-  return (
-    <div id="screenWrapper">
-      <Helmet>
-        <title>FaceWires</title>
-      </Helmet>
-      <Sidebar as={Menu} inverted visible vertical width="thin" icon="labeled">
-        <button name="logout" className="menuButton" onClick={handleLogout(history)}>
-        Logout
-        </button>
-      </Sidebar>
-      <div className='Mainbody'>
-        
-        <PicasaScreen />
-      </div>
-
-    </div>
-  );
-};*/
-
 
 export default MainApp;

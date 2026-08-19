@@ -1,166 +1,34 @@
-// import React from 'react';
 import store from 'store';
 import axios from 'axios';
-import createAuthRefreshInterceptor from 'axios-auth-refresh';
 import axiosRetry from 'axios-retry';
 
-var access_token = store.get('access_token')
+// Grab the base API url from your config store
+const apiBaseUrl = store.get('api_url') || 'https://picasa.exploretheworld.tech/api';
+
+// const axiosInstance = axios.create({
+//     baseURL: apiBaseUrl,
+//     timeout: 15000,
+//     withCredentials: true,  // <-- CRUCIAL: Attaches your Django session cookie to cross-domain calls
+//     headers: {
+//         'Content-Type': 'application/json',
+//         'accept': 'application/json',
+//     }
+// });
+
 const axiosInstance = axios.create({
-    // baseURL: store.get('api_url'),
+    baseURL: apiBaseUrl,
     timeout: 15000,
-    mode: 'cors',
+    withCredentials: true,  
+    // Add these two lines:
+    xsrfCookieName: 'csrftoken',      // The name of the cookie Django sets
+    xsrfHeaderName: 'X-CSRFToken',    // The header Django expects to receive
     headers: {
-        'Authorization': "JWT " + access_token,
         'Content-Type': 'application/json',
         'accept': 'application/json',
-        // 'Access-Control-Allow-Origin': '*'
     }
 });
 
-// Solves random CORS failures
-axiosRetry(axiosInstance, {retries: 3});
+// Solves random network glitches / CORS blips by retrying
+axiosRetry(axiosInstance, { retries: 3 });
 
-// axios.interceptors.response.use(response => response)
-// axios.interceptors.response.use(
-//   response => response,
-//   error => {console.log("Error 1")}
-// )
-
-// axiosInstance.interceptors.response.use(response => response)
-// axiosInstance.interceptors.response.use(
-//   response => response,
-//   error => {console.log("Error 2")}
-// )
-
-
-// let authToken = '';
-
-const refreshAuthLogic = (failedRequest) => {
-
-    const bodyParameters = {
-       refresh: store.get('refresh_token')
-    };
-
-    // console.log("Refresh")
-    // console.log(failedRequest)
-    // try{
-    //   console.log("Try")
-    return axiosInstance.post(store.get('api_url') + '/token/refresh/', bodyParameters)
-      .then((tokenRefreshResponse) => {
-        // console.log("Then?")
-        // console.log("Refresh logic", tokenRefreshResponse)
-        console.log(tokenRefreshResponse.data)
-        const access_token = tokenRefreshResponse.data.access
-        localStorage.setItem('access_token', access_token);
-        failedRequest.response.config.headers.Authorization = `JWT ${access_token}`;
-        
-        // failedRequest.response.config.headers.Authorization = 'JWT ${tokenRefreshResponse.data.token}';
-        // console.log("Resolved.")
-        return Promise.resolve();
-    }).catch(
-      () => {
-        console.log("Axios catch")
-      }
-    );
-    // }catch(e){
-    //   console.log("axios error", e)
-    // }finally{
-    //   console.log("Finally")
-    // }
-    // return Promise.resolve(true);
-  }
-
-// function getAuthToken() {
-//     if (authToken) {
-//         console.log(`Token exists: ${authToken}`);
-//         return `Token ${authToken}`;
-//     }
-//     return null;
-// }
-
-// function test(){
-//     console.log("Called")
-// }
-
-function getNewToken(){
-    const bodyParameters = {
-       refresh: store.get('refresh_token')
-    };
-
-    axiosInstance.post(store.get('api_url') + '/token/refresh/', bodyParameters)
-      .then((tokenRefreshResponse) => {
-        // console.log("Then?")
-        // console.log("Refresh logic", tokenRefreshResponse)
-        // console.log(tokenRefreshResponse.data)
-        const access_token = tokenRefreshResponse.data.access
-        // console.log(access_token)
-        store.set('access_token', access_token);
-        // failedRequest.response.config.headers.Authorization = 'JWT ${access_token}';
-        
-        // failedRequest.response.config.headers.Authorization = 'JWT ${tokenRefreshResponse.data.token}';
-        // console.log("Resolved.")
-        // return Promise.resolve();
-    }).catch(
-      () => {
-        console.log("Axios catch")
-      }
-    );
-}
-
-// Set the page to get a new JWT token every 3 minutes (180 seconds). This is well below
-// the 5 minute mark.
-setInterval(getNewToken, 3 * 60 * 1000)
-
-// var st = new Date()
-
-axiosInstance.interceptors.request.use((request) => {
-    // var et = new Date()
-    // var refresh_url = store.get('api_url') + '/token/refresh/'
-    // var elapsed = et - st
-    var access = store.get('access_token')
-    // console.log(access)
-    var token = "JWT " + access
-    // console.log(token)
-    request.headers.Authorization = token;
-
-    return request
-    // if (elapsed > 3000 && request.url !== refresh_url){// 300 seconds - 5 minutes
-    //     console.log("Need to request a new key.", elapsed)
-    //     console.log(request.url)
-    //         // return request
-    //     const bodyParameters = {
-    //        refresh: store.get('refresh_token')
-    //     };
-    //     axiosInstance.post(refresh_url, bodyParameters).then((tokenRefreshResponse) => {
-    //         // console.log("Then?")
-    //         // console.log("Refresh logic", tokenRefreshResponse)
-    //         console.log(tokenRefreshResponse.data)
-    //         // const access_token = tokenRefreshResponse.data.access
-    //         // localStorage.setItem('access_token', access_token);
-    //         // // failedRequest.response.config.headers.Authorization = 'JWT ${access_token}';
-            
-    //         // // failedRequest.response.config.headers.Authorization = 'JWT ${tokenRefreshResponse.data.token}';
-    //         // // console.log("Resolved.")
-    //         // console.log(`Requesting ${request.url}`, et - st);
-    //         // st = new Date()
-    //     })
-    //         return request
-    // } else{
-    //     return request
-    // }
-    // console.log(`Requesting ${request.url}`, et - st);
-    // const token = getAuthToken();
-    // // if (token) {
-    // //     request.headers.Authorization = token;
-    // // }
-    // return request;
-});
-
-const options = {
-  statusCodes: [401, 403]
-}
-
-createAuthRefreshInterceptor(axiosInstance, refreshAuthLogic, options)
-
-
-export default axiosInstance
+export default axiosInstance;
