@@ -1,39 +1,59 @@
-
 # version: "3.3"
 services:
-  # Running via cloudflared tunnel. Service is at facewire.exploretheworld.tech,
-  # running at service http://picasa_frontend:3000
-  picasa_frontend:
+
+  # ==============================================================
+  # PRODUCTION SETUP (COMMENTED OUT FOR FUTURE USE)
+  # ==============================================================
+  # picasa_frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     args:
+  #       buildno: 1
+  #   image:
+  #     picasa_frontend_img
+  #   container_name: picasa_frontend
+  #   env_file:
+  #     - .env
+  #   command:
+  #     sh /start.sh
+  #   environment:
+  #     - DOCKER_HOST_IP=${HOST_IP} 
+  #     - CHOKIDAR_USEPOLLING=true
+  #   ports:
+  #    - 8081:3000
+  #   volumes:
+  #     - '/app/node_modules'
+  #     - /home/benjamin/git_repos/facewires_frontend/:/app
+  #   networks:
+  #     - traefik_proxy
+  #   restart: always
+
+  # ==============================================================
+  # DEVELOPMENT SETUP
+  # ==============================================================
+  picasa_frontend_dev:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        buildno: 1
-    image:
-      picasa_frontend_img
-    container_name: picasa_frontend
+    image: picasa_frontend_dev_img
+    container_name: picasa_frontend_dev
     env_file:
       - .env
-    command:
-      sh /start.sh
-    # entrypoint:
-    #   # serve -s build
-    #   /bin/ # For the dev server
+    # Bypassing the PM2 script for dev, utilizing Vite's native server directly
+    command: npm start
     environment:
-      # Add the following line to your /etc/profile:
-      # HOST_IP=`ip route | grep default | awk '{print $9}'`
       - DOCKER_HOST_IP=${HOST_IP} 
       - CHOKIDAR_USEPOLLING=true
     ports:
-     - 8081:3000
-#     - 8081:5000
+     - 8092:3000
     volumes:
       - '/app/node_modules'
       - /home/benjamin/git_repos/facewires_frontend/:/app
     networks:
       - traefik_proxy
-    restart: always
-
+    # unless-stopped is generally better for dev environments than always
+    restart: unless-stopped
 
 networks:
   default: 
