@@ -5,6 +5,7 @@ import PicasaScreen from './picasaScreen';
 import React from 'react';
 import store from 'store';
 import { Helmet } from 'react-helmet';
+import { FRONTEND_URL, AUTHELIA_LOGIN_URL, AUTHELIA_LOGOUT_URL } from './config';
 
 class MainApp extends React.Component {
   constructor(props){
@@ -29,6 +30,9 @@ class MainApp extends React.Component {
         const returnUrl = `${FRONTEND_URL}/faces`;
         window.location.href = `${AUTHELIA_LOGIN_URL}?next=${encodeURIComponent(returnUrl)}`;
       }
+    }).catch(err => {
+      console.error("SSO check failed:", err);
+      this.setState({ authenticated: false, loading: false });
     });
   }
 

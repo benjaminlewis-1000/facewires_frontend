@@ -216,129 +216,37 @@ class Gallery extends React.Component{
 
 
   api_action(action_type, face_id){
-    console.log(action_type, face_id)
-    var assert = require('assert');
+    console.log("Action Triggered: ", action_type, face_id)
+    
+    // Standard JS validation instead of Node's require('assert')
     var action_valid = ['close_unassigned', 'close_ignored', 'close_assigned', 'confirm_proposed', 'verify_face'].includes(action_type)
-    // console.log(action_valid)
-    assert.equal( action_valid, true);
+    if (!action_valid) {
+      console.error("Invalid action_type passed to api_action: ", action_type);
+      return; 
+    }
+    
     const current_person_id = this.props.current_person_id
 
     const uniq_selected = this.get_unique_list(face_id)
 
     this.unselectAll()
-
     
     var bulk_patch_url = store.get('api_url') + '/faces/bulk_operation/';
     console.log("Bulk operation in progress " + bulk_patch_url)
-    var data_list = {face_id_list: uniq_selected, 
-                    operation: action_type,
-                    current_person_id: current_person_id};
+    
+    var data_list = {
+      face_id_list: uniq_selected, 
+      operation: action_type,
+      current_person_id: current_person_id
+    };
 
     axiosInstance.patch(bulk_patch_url, data_list)
     .then(response => {
       console.log(response)
     }).catch(error => {
-      console.log("Error in bulk operation " + action_type + error)
+      console.log("Error in bulk operation " + action_type + " " + error)
     })
-    
-    // if ( ['close_unassigned', 'close_ignored', 'close_assigned'].includes(action_type) ) {
-    //     // action_type === 'close_unassigned' || action_type == 'close_ignored' || action_type === 'close_assigned' ){
-
-    //     function jointAssign(faceId){
-    //         var api_url = ""
-    //         var axiosDict = {}
-
-    //         if ( action_type === 'close_unassigned' ){
-    //             api_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
-    //             axiosDict = {ignore_type: 'soft'}
-    //             // ignore_type_str = 'soft'
-    //         }else if ( action_type === 'close_ignored' ){
-    //             api_url = store.get('api_url') + '/faces/' + faceId + '/ignore_face/'
-    //             axiosDict = {ignore_type: 'hard'}
-    //         }
-    //         else if ( action_type === 'close_assigned' ){
-    //             api_url = store.get('api_url')  + '/faces/' + faceId + '/reject_association/'
-    //             axiosDict = {unassociate_id: current_person_id}
-    //         }
-            
-    //         axiosInstance.patch(api_url, axiosDict)
-    //         .then(response => {
-    //           console.log(response)
-    //         }).catch(error => {
-    //           console.log("Error in jointAssign " + action_type)
-    //         })
-
-    //     }
-
-    //     // console.log("Bulk operation in progress")
-
-    //     // var bulk_patch_url = store.get('api_url') + '/faces/bulk_operation/';
-    //     // var data_list = {selected_list: uniq_selected, operation: action_type};
-
-    //     // axiosInstance.patch(bulk_patch_url, data_list)
-    //     // .then(response => {
-    //     //   console.log(response)
-    //     // }).catch(error => {
-    //     //   console.log("Error in bulk operation " + action_type)
-    //     // })
-
-    //     uniq_selected.forEach(jointAssign)
-
-    // } else if ( ['confirm_proposed', 'verify_face'].includes(action_type) ){
-
-    //     function jointAssign(faceId){
-    //         var api_url = ""
-    //         var axiosDict = {}
-
-    //         if ( action_type === 'confirm_proposed' ){
-    //             api_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
-    //             axiosDict = {declared_name_key: current_person_id}
-    //         }else if ( action_type === 'verify_face' ){
-    //             api_url = store.get('api_url') + '/faces/' + faceId + '/verify_face/'
-    //             // axiosDict = {ignore_type: 'hard'}
-    //         }
-
-
-    //       axiosInstance.patch(api_url, axiosDict )
-    //       .then(response => {
-    //         // console.log(response)
-    //       }).catch(error => {
-    //         console.log("Error in jointAssign patch " + action_type )
-    //       })
-    //     }
-
-    //     uniq_selected.forEach(jointAssign)
-
-    // } 
-    
   }
-  
-//  dragLog (event, face_id, index) {
-//    var indexIfInList = this.state.imgsSelected.indexOf(face_id)
-    // console.log(indexIfInList, indexIfInList === -1)
-    
-//    var dragState = this.state.imgsSelected
-//    if (indexIfInList === -1){
-//      if (event.ctrlKey) {
-//        dragState = dragState.concat([face_id])
-//        console.log("Ctrl drag")
-//        this.singleClick(event, face_id)
-//        this.setState({imgsSelected: this.state.imgsSelected.concat([face_id])})
-//      }else{
-//        dragState = [face_id]
-//        this.setState({imgsSelected: [face_id]})
-//      }
-//    }
-    // else{
-      // console.log("Not in drag state")
-    // }
-
-    // if (event.ctrlKey) {
-    //   console.log(dragState, this.state.imgsSelected)
-    // }else{
-    //   console.log(dragState, this.state.imgsSelected)
-    // }
-//  }
 
   onDrop(event){
     console.log("Drop")
