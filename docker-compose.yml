@@ -49,7 +49,7 @@ services:
      - 8092:3000
     volumes:
       - '/app/node_modules'
-      - /home/benjamin/git_repos/facewires_frontend/:/app
+      - /home/benjamin/git_repos/dev_facewire/:/app
     networks:
       - traefik_proxy
     # unless-stopped is generally better for dev environments than always

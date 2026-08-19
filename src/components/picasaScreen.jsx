@@ -13,7 +13,7 @@ import store from 'store';
 import { Helmet } from 'react-helmet';
 import { Redirect } from 'react-router-dom';
 
-import MenuExampleTabular from './tabular_menu.js'
+import MenuExampleTabular from './tabular_menu'
 import FolderSidebar from './folderSidebar'
 import PersonSidebar from './personSidebar'
 import ImageScreen from './imageScreen'
