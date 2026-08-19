@@ -27,8 +27,9 @@ class MainApp extends React.Component {
       } else {
         console.log("Not logged in - bouncing to Authelia SSO pipeline");
         
-        // Dynamically grabs whichever dev/local domain you are currently on
-        const returnUrl = `${window.location.origin}/faces`;
+        // Automatically builds the return URL based on your current browser address bar
+        const frontendUrl = `${window.location.protocol}//${window.location.host}`;
+        const returnUrl = `${frontendUrl}/faces`;
         
         window.location.href = `https://picasa.exploretheworld.tech/accounts/oidc/authelia/login/?next=${encodeURIComponent(returnUrl)}`;
       }
@@ -84,8 +85,8 @@ const handleLogout = history => () => {
   console.log("Logging out globally via Authelia portal");
   store.remove('loggedIn');
   
-  // Sends you back to your current dev domain after logout if desired
-  const currentOrigin = window.location.origin;
+  // Sends you back to whichever dev/local domain you initiated the logout from
+  const currentOrigin = `${window.location.protocol}//${window.location.host}`;
   window.location.href = `https://picasa.exploretheworld.tech/accounts/logout/?next=https://auth.exploretheworld.tech/logout?rd=${encodeURIComponent(currentOrigin)}`;
 };
 
