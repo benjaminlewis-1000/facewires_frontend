@@ -1,29 +1,40 @@
 import React from 'react';
 import './App.css';
-// import { Switch, Route, Router } from 'react-router-dom';
 import {
   BrowserRouter as Router,
   Switch,
   Route,
-  // Link,
-  // Redirect
+  Redirect
 } from "react-router-dom";
-// import PicasaScreen from './components/picasaScreen';
-import Login from './components/login';
 import MainApp from "./components/mainApp";
-// import isLoggedIn from './components/isLoggedIn'
-// import Login from './Login';
+
+// Helper component that handles bouncing users to Authelia SSO
+const RedirectToSSO = () => {
+  const returnUrl = "https://facewire.exploretheworld.tech/faces";
+  window.location.href = `https://picasa.exploretheworld.tech/accounts/oidc/authelia/login/?next=${encodeURIComponent(returnUrl)}`;
+  
+  return <div style={{ padding: '20px', textAlign: 'center' }}>Redirecting to secure login...</div>;
+};
 
 const App = () => {
-
-  return(
+  return (
     <Router>
       <div className="app-routes">
         <main>
           <Switch>
-            <Route exact path="/login" component={Login} />
+            {/* 1. Primary dashboard view */}
             <Route exact path="/faces" component={MainApp} />
-            <Route component={Login} />
+
+            {/* 2. Redirect root or explicit login requests to /faces */}
+            <Route exact path="/">
+              <Redirect to="/faces" />
+            </Route>
+            <Route exact path="/login">
+              <Redirect to="/faces" />
+            </Route>
+
+            {/* 3. Catch-all fallback triggers the SSO bounce */}
+            <Route component={RedirectToSSO} />
           </Switch>
         </main>
       </div>
