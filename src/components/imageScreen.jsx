@@ -7,6 +7,27 @@ import store from 'store';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 // import { LazyLoadImage, trackWindowScroll } from 'react-lazy-load-image-component';
 import Gallery from './gallery'
+import { withRetry } from './apiRetry';
+import { useContextMenu, Menu, Item } from 'react-contexify';
+import 'react-contexify/ReactContexify.css';
+
+const PERSON_NAME_MENU_ID = 'menu-person-name';
+
+// Functional wrapper to leverage react-contexify's hook cleanly inside
+// the class component below (same pattern as lazyImg.jsx).
+function PersonNameContextWrapper({ children }) {
+  const { show } = useContextMenu({ id: PERSON_NAME_MENU_ID });
+
+  function handleContextMenu(event) {
+    show({ event });
+  }
+
+  return (
+    <span onContextMenu={handleContextMenu}>
+      {children}
+    </span>
+  );
+}
 
 class ImageScreen extends React.Component{
 
@@ -20,21 +41,27 @@ class ImageScreen extends React.Component{
       imagery_ids: [],
       possible_ids: [],
       access_key: store.get('access_key'),
+      // Bumped whenever a face is set as a person's highlight image, so
+      // the highlight <img> URL below changes and forces a real refetch
+      // instead of silently reusing the browser's cached response for
+      // the (otherwise identical) person id URL.
+      highlightVersion: 0,
     }
 
 
     this.toggle_unlikely = this.toggle_unlikely.bind(this)
     this.handleCheckbox = this.handleCheckbox.bind(this)
+    this.bumpHighlightVersion = this.bumpHighlightVersion.bind(this)
+    this.openRename = this.openRename.bind(this)
 
     // this.ref = React.createRef();
   }
 
   componentDidUpdate(prevProps, prevState, snapshot){
 
-    if (this.props.api_id !== prevProps.api_id || 
-      ( this.props.unlabeled !== prevProps.unlabeled && 
-        this.props.only_unverified !== prevProps.only_unverified && 
-        this.props.api_id !== this.props.unassigned_person_id) ){
+    if (this.props.api_id !== prevProps.api_id ||
+        this.props.unlabeled !== prevProps.unlabeled ||
+        this.props.only_unverified !== prevProps.only_unverified){
       console.log("Update needed")
       this.setState({loading: true})
       this.setState({loading_definite: true})
@@ -149,59 +176,58 @@ class ImageScreen extends React.Component{
   toggle_unlikely(){
     var id_num = this.props.people[this.props.selectedIndex].id
     var toggle_url = store.get('api_url') + '/people/' + id_num + '/toggle_further_unlikely/'
-
     var old_unlikely = this.props.people[this.props.selectedIndex].further_images_unlikely
+
     this.props.people[this.props.selectedIndex].further_images_unlikely = !old_unlikely
-    this.state.active = !this.state.active
-    
-    axiosInstance.put(toggle_url)
-    .then(response => {
-      
-    }).catch(error => {
-      console.log("Error in toggle unlikely")
-    })
+    this.setState(prevState => ({ active: !prevState.active }))
+
+    withRetry(() => axiosInstance.put(toggle_url))
+      .then(response => {})
+      .catch(error => {
+        console.log("Error in toggle unlikely", error)
+        this.props.onApiError && this.props.onApiError("Couldn't toggle 'further images unlikely' — please try again.")
+      })
   }
 
   handleCheckbox(e) {
-    const name = e.target.name;
-    const checked = e.target.checked;
-    this.setState((prevState) => {
-        this.state.active = !prevState.active;
-    });
+    this.setState(prevState => ({ active: !prevState.active }));
+  }
+
+  bumpHighlightVersion() {
+    this.setState(prevState => ({ highlightVersion: prevState.highlightVersion + 1 }))
+  }
+
+  openRename() {
+    if (this.props.selectedIndex === -100) return
+    const currentName = this.props.people[this.props.selectedIndex].person_name
+    const id_num = this.props.people[this.props.selectedIndex].id
+    this.props.onRenamePerson && this.props.onRenamePerson(id_num, currentName)
   }
 
 
   buildScreen() {
-    if (this.state.loading){
-      return(
-          <div className='screenHeader'>
-          </div>
-      );
+    // The header (highlight image + name + "further images unlikely"
+    // checkbox) only depends on the selected person, not on whether the
+    // gallery is mid-refetch - keep it rendered across toggle-triggered
+    // reloads instead of blanking it out while state.loading is true.
+    if ( this.props.selectedIndex === -100 ){
+      var selectedName = 'Unassigned'
+      var further_unlikely = false
+      var highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' alt="highlight" className='highlight_img' />
     }else{
+      further_unlikely = this.props.people[this.props.selectedIndex].further_images_unlikely
+      this.state.active = further_unlikely
+      selectedName = this.props.people[this.props.selectedIndex].person_name
+      var id_num = this.props.people[this.props.selectedIndex].id
+      var id_url = store.get('api_url') + '/keyed_image/face_highlight/?access_key='
+        + this.state.access_key + '&id=' + id_num + '&v=' + this.state.highlightVersion
+      highlight_img = <img src={id_url} className="highlight_img"  alt="highlight" />
+    }
 
-      // var items = []
-      // for (const [index, value] of this.state.imagery_ids.entries()) {
-      //   items.push(this.createImage(index, value))
-      // } 
-      // var index = items.length;
-      // if (this.props.tab === 'People'){
-      //   for (const [index_alt, value] of this.state.possible_ids.entries()) {
-      //     items.push(this.createImage(index + index_alt, value))
-      //   } 
-      // }
-
-      // var urls = []
-      // for (const [index, value] of this.state.imagery_ids.entries()) {
-      //   urls.push(this.createUrl(value))
-      // } 
-      // if (this.props.tab === 'People'){
-      //   for (const [index_alt, value] of this.state.possible_ids.entries()) {
-      //     urls.push(this.createUrl(value))
-      //   } 
-      // }
-      // console.log("Ready",this.state)
-      var gallery = <Gallery
-                    poss_ids = {this.state.possible_ids} 
+    var body = null
+    if (! this.state.loading){
+      body = <Gallery
+                    poss_ids = {this.state.possible_ids}
                     img_ids={this.state.imagery_ids}
                     people={this.props.people}
                     unassigned_person_id={this.props.unassigned_person_id}
@@ -209,52 +235,42 @@ class ImageScreen extends React.Component{
                     current_person_id={this.props.api_id}
                     ready = {this.state.loading}
                     updatePersonList={this.props.updatePersonList}
+                    updatePersonCounts={this.props.updatePersonCounts}
                     unlabeled={this.props.unlabeled}
                     only_unverified={this.props.only_unverified}
+                    onHighlightUpdated={this.bumpHighlightVersion}
                   />
-
-      // console.log("selected index: ", this.props.people)
-      if ( this.props.selectedIndex === -100 ){
-        var selectedName = 'Unassigned'
-        // var id_url = null
-        var further_unlikely = false
-        var highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' alt="highlight" className='highlight_img' />
-        //
-      }else{
-        further_unlikely = this.props.people[this.props.selectedIndex].further_images_unlikely
-        this.state.active = further_unlikely
-        selectedName = this.props.people[this.props.selectedIndex].person_name
-        var id_num = this.props.people[this.props.selectedIndex].id
-        var id_url = store.get('api_url') + '/keyed_image/face_highlight/?access_key=' 
-          + this.state.access_key + '&id=' + id_num
-        highlight_img = <img src={id_url} className="highlight_img"  alt="highlight" />
-      }
-
-
-
-           
-      return(
-        <div>
-          <div className='screenHeader'>
-            {highlight_img} 
-            <span className='header_person_name'>{selectedName}</span>
-            <span className='no_classify_checkbox'>
-                &emsp;&emsp;&emsp;
-                <input type="checkbox" 
-                    checked={this.state.active} 
-                    onClick={this.toggle_unlikely}
-                    onChange={this.handleCheckbox}>
-                </input>
-                &nbsp;
-                Further Images Unlikely
-            </span>
-
-          </div>
-          {gallery}
-        </div>
-      );
-
     }
+
+    return(
+      <div>
+        <div className='screenHeader'>
+          {highlight_img}
+          <PersonNameContextWrapper>
+            <span className='header_person_name'>{selectedName}</span>
+          </PersonNameContextWrapper>
+          <span className='no_classify_checkbox'>
+              &emsp;&emsp;&emsp;
+              <input type="checkbox"
+                  checked={this.state.active}
+                  onClick={this.toggle_unlikely}
+                  onChange={this.handleCheckbox}>
+              </input>
+              &nbsp;
+              Further Images Unlikely
+          </span>
+
+        </div>
+
+        <Menu id={PERSON_NAME_MENU_ID}>
+          <Item onClick={this.openRename}>
+            Rename person
+          </Item>
+        </Menu>
+
+        {body}
+      </div>
+    );
   }
   // handleChange(event) {
   //   this.setState({

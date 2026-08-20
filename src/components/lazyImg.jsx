@@ -4,9 +4,10 @@ import MutableSelect from './mutableSelect';
 import store from 'store';
 import { useContextMenu, Menu, Item } from 'react-contexify';
 import 'react-contexify/ReactContexify.css';
+import { withRetry } from './apiRetry';
 import axiosInstance from './axios_setup';
 
-class LazyImage extends React.Component {
+class LazyImage extends React.PureComponent {
   constructor(props) {
     super(props);
     this.state = {
@@ -17,27 +18,18 @@ class LazyImage extends React.Component {
     this.localClick = this.localClick.bind(this);
     this.otherAssignment = this.otherAssignment.bind(this);
     this.set_as_thumbnail = this.set_as_thumbnail.bind(this);
-    this.get_unique_list = this.get_unique_list.bind(this);
-  }
-
-  get_unique_list() {
-    var uniq_selected = [...new Set(this.props.imgsSelected)];
-    const thisIdx = uniq_selected.indexOf(this.props.face_id);
-    uniq_selected.splice(thisIdx, 1);
-    uniq_selected = uniq_selected.concat(this.props.face_id);
-    this.props.setHidden(this.props.face_id);
-    this.setState({ ignored: true });
-
-    this.props.clearImagesSelected();
-    return uniq_selected;
+    // this.get_unique_list = this.get_unique_list.bind(this);
   }
 
   set_as_thumbnail() {
     var thumbnail_url = store.get('api_url') + '/faces/' + this.props.face_id + '/set_as_person_thumbnail/';
-    axiosInstance.put(thumbnail_url)
-      .then(response => {})
+    withRetry(() => axiosInstance.put(thumbnail_url))
+      .then(response => {
+        this.props.onHighlightUpdated && this.props.onHighlightUpdated();
+      })
       .catch(error => {
-        console.log("Error in set as thumbnail");
+        console.log("Error in set as thumbnail", error);
+        this.props.onApiError && this.props.onApiError("Couldn't set thumbnail — please try again.");
       });
   }
 
@@ -46,7 +38,7 @@ class LazyImage extends React.Component {
   }
 
   localClick(event) {
-    this.props.onClick(event, this.props.face_id, 0);
+    this.props.onClick(event, this.props.face_id, this.props.index);
   }
 
   otherAssignment() {
@@ -57,16 +49,23 @@ class LazyImage extends React.Component {
     // Unique menu id per image instance to avoid collisions
     const menuId = `menu-face-${this.props.face_id}-${this.props.index}`;
 
-    var mutable_select = <MutableSelect 
+    var mutable_select = <MutableSelect
       peopleOptions={this.props.peopleOptions}
+      get_unique_list={this.props.get_unique_list}
       face_id={this.props.face_id}
+      type={this.props.type}
       current_person_id={this.props.current_person_id}
+      unassigned_person_id={this.props.unassigned_person_id}
+      ignore_person_id={this.props.ignore_person_id}
+      ignore_tab={this.props.ignore_tab}
       setInvisible={(e)=>{this.set_invisible()}}
       setHidden={this.props.setHidden}
       updatePersonList={this.props.updatePersonList}
+      updatePersonCounts={this.props.updatePersonCounts}
       imgsSelected={this.props.imgsSelected}
       clearImagesSelected={this.props.clearImagesSelected}
-      get_unique_list={this.get_unique_list}
+      // get_unique_list={this.get_unique_list}
+      onApiError={(msg) => this.setState({ errorMessage: msg })}
     />;
       
     return (
@@ -150,7 +149,7 @@ class LazyImage extends React.Component {
 }
 
 // Functional wrapper to leverage react-contexify's hook cleanly inside a Class Component
-function LazyImageContextWrapper({ menuId, hidden, ignored, selected, url, index, scrollPosition, localClick, onDrop, onDrag, loaded, onLoad }) {
+const LazyImageContextWrapper = React.memo(function LazyImageContextWrapper({ menuId, hidden, ignored, selected, url, index, scrollPosition, localClick, onDrop, onDrag, loaded, onLoad }) {
   const { show } = useContextMenu({ id: menuId });
 
   function handleContextMenu(event) {
@@ -174,9 +173,9 @@ function LazyImageContextWrapper({ menuId, hidden, ignored, selected, url, index
       />
     </div>
   );
-}
+});
 
-function LazyImageComponent({ hidden, ignored, selected, url, index, scrollPosition, localClick, onDrop, onDrag, loaded, onLoad }) {
+const LazyImageComponent = React.memo(function LazyImageComponent({ hidden, ignored, selected, url, index, scrollPosition, localClick, onDrop, onDrag, loaded, onLoad }) {
   return (
     <LazyLoadImage 
       className={(hidden || ignored) ? 'hidden_img' : selected ? 'img_thumb_active' : 'img_thumb'} 
@@ -191,6 +190,6 @@ function LazyImageComponent({ hidden, ignored, selected, url, index, scrollPosit
       afterLoad={onLoad}
     />
   );
-}
+});
 
 export default LazyImage;

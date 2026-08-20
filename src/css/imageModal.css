@@ -26,6 +26,87 @@
   z-index: 100;
 }
 
+/* Rename-person dialog. Reuses .Overlay for the full-screen backdrop
+   (given a semi-transparent scrim + flex centering here, which .Overlay
+   itself doesn't set so the existing image lightbox is unaffected), but
+   its own box - the papayawhip/50px-radius lightbox look doesn't match
+   the app's purple/white palette used elsewhere (e.g. .header_person_name). */
+.RenameOverlay {
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn ease .2s;
+}
+
+.renameModal {
+  background-color: white;
+  border-top: 6px solid #450293;
+  border-radius: 6px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  padding: 24px 28px;
+  width: 360px;
+  max-width: 90vw;
+}
+
+.renameModal h3 {
+  margin: 0 0 16px 0;
+  color: #450293;
+  font-stretch: expanded;
+}
+
+.renameModal input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.renameModal input[type="text"]:focus {
+  outline: none;
+  border-color: #450293;
+}
+
+.renameModalError {
+  color: #c0392b;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.renameModalActions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.renameModalActions button {
+  padding: 7px 16px;
+  border-radius: 4px;
+  border: 1px solid #450293;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.renameModalActions .renameConfirmBtn {
+  background-color: #450293;
+  color: white;
+}
+
+.renameModalActions .renameConfirmBtn:disabled {
+  background-color: #a48ac0;
+  border-color: #a48ac0;
+  cursor: default;
+}
+
+.renameModalActions .renameCancelBtn {
+  background-color: white;
+  color: #450293;
+}
+
 .modalImage{
   
   width: 90%;

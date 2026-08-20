@@ -32,7 +32,11 @@ export default class MenuExampleTabular extends Component {
     return(
       <span >
       <label className={`switch ${classSpecific}`} >
-        <input type="checkbox" onClick={() => this.handleSwitchClick(identifier)}></input>
+        <input
+          type="checkbox"
+          checked={!!this.props.toggleState[identifier]}
+          onChange={() => this.handleSwitchClick(identifier)}
+        ></input>
         <span className={`slider round ${classSpecific}`}></span>
       </label>
       <span className={`switchLabel ${classSpecific}`} >{text}</span>
@@ -99,7 +103,13 @@ export default class MenuExampleTabular extends Component {
           {this.createTabToggle('Tolta', 'total', 'Tools')}
           {this.createTabToggle('t2', 't2', 'Tools')}
         </div>
-        
+
+        <div id='LogoutRemnant' className='contextMenu'>
+          <button className='logoutIconButton' onClick={this.props.onLogout} title='Log out'>
+            <img src='/logout-icon.png' alt='Log out' />
+          </button>
+        </div>
+
         </div>
         
       </Menu>

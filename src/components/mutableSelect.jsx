@@ -2,6 +2,7 @@ import React from 'react';
 import { Dropdown} from 'semantic-ui-react';
 import store from 'store';
 import axiosInstance from './axios_setup'
+import { withRetry } from './apiRetry';
 
 class MutableSelect extends React.Component{
   constructor(props){
@@ -45,63 +46,83 @@ class MutableSelect extends React.Component{
   //   return uniq_selected
   // }
 
+// Which person/count the selected faces are coming FROM, for local
+// bookkeeping. ignore_tab and the Unassigned tab both take priority over
+// the item's own defined/proposed type since they represent a distinct tab
+// context; otherwise the face is being reassigned away from the person
+// whose gallery it's currently shown in.
+sourceCountDelta(n){
+  if (this.props.ignore_tab){
+    return { id: this.props.ignore_person_id, num_faces: -n }
+  }
+  if (this.props.current_person_id === this.props.unassigned_person_id){
+    return { id: this.props.unassigned_person_id, num_possibilities: -n }
+  }
+  if (this.props.type === 'proposed'){
+    return { id: this.props.current_person_id, num_possibilities: -n }
+  }
+  return { id: this.props.current_person_id, num_faces: -n }
+}
+
+// Assign a single face to targetId, independent of the primary
+// face_to_new_person/assign_face_to_person call above. Used for the rest
+// of a bulk selection once the target person id is known.
+confirmFace(faceId, targetId){
+  var confirm_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
+  withRetry(() => axiosInstance.patch(confirm_url, { declared_name_key: targetId }))
+    .then(response => {})
+    .catch(error => {
+      console.log("Error in confirm_proposed", error)
+    })
+}
+
 assignPerson(inputName, api_key, personExists){
-  const uniq_selected = this.props.get_unique_list()
+  const uniq_selected = this.props.get_unique_list(this.props.face_id)
   console.log(uniq_selected)
-  console.log("Assigning person ", inputName, "Exists? " , personExists, "API KEY: ", api_key)
+  const n = uniq_selected.length
+  const restSelected = uniq_selected.filter(faceId => faceId !== this.props.face_id)
 
   this.setState({visible:false})
   this.setState({value: inputName})
 
   if (!personExists){
-    console.log("Propagate new person back to master personList. ")
-    console.error("On the backend, if the person 'doesn''t' exist, need to double check.")
-
     var new_person_url = store.get('api_url') + '/faces/' + this.props.face_id + '/face_to_new_person/'
 
+    withRetry(() => axiosInstance.put(new_person_url, { person_name: inputName }))
+      .then(response => {
+        if (response.data.success){
+          const new_id = response.data.new_id
+          this.props.updatePersonList(inputName, new_id, n)
+          this.props.updatePersonCounts && this.props.updatePersonCounts([this.sourceCountDelta(n)])
 
-    axiosInstance.put(new_person_url, {
-      person_name: inputName
-    })
-    .then(response => {
-      console.log(response)
-      if (response.data.success){
-        this.props.updatePersonList(inputName, response.data.new_id)
-      }
-    }).catch(error => {
-      console.log("Error in confirm_proposed")
-    })
-
+          // face_id itself became the new person via face_to_new_person;
+          // the rest of the bulk selection needs to be assigned to it
+          // explicitly, now that its real id is known.
+          restSelected.forEach(faceId => this.confirmFace(faceId, new_id))
+        }
+      }).catch(error => {
+        console.log("Error in confirm_proposed", error)
+        this.props.onApiError && this.props.onApiError(`Couldn't create new person "${inputName}" — please try again.`)
+      })
   }else{
     var confirm_url = store.get('api_url') + '/faces/' + this.props.face_id + '/assign_face_to_person/'
 
-    axiosInstance.patch(confirm_url, {
-      declared_name_key: api_key
-    })
-    .then(response => {
-      console.log(response)
-    }).catch(error => {
-      console.log("Error in confirm_proposed")
-    })
+    this.props.updatePersonCounts && this.props.updatePersonCounts([
+      this.sourceCountDelta(n),
+      { id: api_key, num_faces: n, num_unverified_faces: n }
+    ])
+
+    withRetry(() => axiosInstance.patch(confirm_url, { declared_name_key: api_key }))
+      .then(response => {
+        console.log(response)
+      }).catch(error => {
+        console.log("Error in confirm_proposed", error)
+        this.props.onApiError && this.props.onApiError(`Couldn't assign face to "${inputName}" — please try again.`)
+      })
+
+    restSelected.forEach(faceId => this.confirmFace(faceId, api_key))
   }
   this.props.setInvisible()
-
-
-  function confirm(faceId){
-
-    var confirm_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
-
-    axiosInstance.patch(confirm_url, {
-      declared_name_key: api_key
-    })
-    .then(response => {
-      // console.log(response)
-    }).catch(error => {
-      console.log("Error in confirm_proposed")
-    })
-  }
-
-  uniq_selected.forEach(confirm)
 }
 
 clickList(event, textValue, api_key){

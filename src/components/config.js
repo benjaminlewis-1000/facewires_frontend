@@ -8,7 +8,6 @@ const FRONTEND_URL = isDev
 
 const API_URL = "https://picasa.exploretheworld.tech/api";
 const AUTHELIA_LOGIN_URL = "https://picasa.exploretheworld.tech/accounts/oidc/authelia/login/";
-const AUTHELIA_LOGOUT_URL = "https://auth.exploretheworld.tech/logout";
 
-export { isDev, FRONTEND_URL, API_URL, AUTHELIA_LOGIN_URL, AUTHELIA_LOGOUT_URL };
+export { isDev, FRONTEND_URL, API_URL, AUTHELIA_LOGIN_URL };
 

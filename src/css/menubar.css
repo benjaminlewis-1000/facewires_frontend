@@ -1,25 +1,80 @@
+/* Semantic UI's Menu component sizes itself off its own internal
+   flex/padding rules, so trying to match its auto height from outside
+   (min-height, guesswork) drifts out of sync with the offsets below.
+   Pin it to one explicit, deterministic height instead and vertically
+   center its content within that height. */
 #menuBar{
-  margin-bottom: 0;  
-  position: fixed; 
+  margin: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--menu-bar-height);
+  overflow: hidden;
   background-color: white;
+  display: flex;
+  /* Let the Menu.Item tabs stretch to the full bar height (Semantic
+     UI's tabular-menu active-tab styling expects this) rather than
+     centering them, which pushed the rounded active-tab highlight down
+     and off-center. #menuRemnant centers its own toggle/logout content
+     independently via its own align-items rule below. */
+  align-items: stretch;
 }
 
 .menu{
   position: fixed;
+  top: 0;
+  left: 0;
   width:100%;
-  height: 42px;;
-  z-index: 100;
+  height: var(--menu-bar-height);
+  z-index: 200;
   background-color: white;
 }
 
 #menuRemnant{
     width: 100%;
     padding: 8px;
+    /* menuRemnant's children are float:right - without a clearfix here,
+       its box collapses to 0 height and the floated toggle switches
+       overflow past the bottom of #menuBar with no background behind
+       them, letting the scrolling gallery show through underneath them. */
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    /* .contextMenu children used to rely on float:right to stack
+       right-to-left (first-in-DOM ends up rightmost, last-in-DOM
+       leftmost - i.e. the logout button, added last, to the left of
+       the toggles). Floats don't apply to flex items, so reproduce
+       that ordering with row-reverse instead. */
+    flex-direction: row-reverse;
 }
 
 .contextMenu{
     width: max-content;
-    float: right;
+}
+
+.menuTab{
+    /* Stretched to the bar's full height (see #menuBar align-items
+       above) - center the tab label within that taller box instead of
+       leaving it pinned to the top via Semantic's default padding.
+       height:100% is explicit here because Semantic gives the active
+       and inactive .item variants slightly different border/box
+       treatments, which was enough to make an align-items:stretch box
+       settle at different heights (inactive tabs sat higher). */
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* Semantic's active tab sits a few px lower than an inactive one -
+   confirmed in devtools as an actual box-position offset, not a
+   padding/content difference, so shift the whole inactive box down
+   with a relative offset rather than nudging its content. */
+.menuTab:not(.active){
+    position: relative;
+    top: var(--menu-tab-baseline-adjust);
 }
 
  /* The switch - the box around the slider */
@@ -105,4 +160,24 @@ input:checked + .slider:before {
 .menu_visible{
   visibility: visible;
   transition: 0s;
+}
+
+.logoutIconButton{
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 12px 0 0;
+  cursor: pointer;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.logoutIconButton img{
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
+.logoutIconButton:hover{
+  opacity: 0.75;
 }

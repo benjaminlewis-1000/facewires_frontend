@@ -8,22 +8,17 @@ import LazyImage from './lazyImg'
 import InfiniteScroll from "react-infinite-scroll-component";
 import axiosInstance from './axios_setup'
 import Modal from "react-modal";
-
-const styleLink = document.createElement("link");
-styleLink.rel = "stylesheet";
-styleLink.href = "https://cdn.jsdelivr.net/npm/semantic-ui/dist/semantic.min.css";
-document.head.appendChild(styleLink);
-
-
-// window.addEventListener("keydown", (event) => {
-//     console.log(event)
-// });
+import { withRetry } from './apiRetry';
+import { Message } from 'semantic-ui-react'; // already a dependency, used elsewhere (login.jsx)
 
 class Gallery extends React.Component{
   
   constructor(props){
     super(props);
     var peopleOptions = []
+
+    this.clickHandler = this.clickHandler.bind(this)
+    this.get_unique_list = this.get_unique_list.bind(this)
 
     for (const [index, value] of this.props.people.entries()) {
       peopleOptions.push({
@@ -57,6 +52,7 @@ class Gallery extends React.Component{
       more_to_load: true,
       combined_list: [],
       imgs_len: 0,
+      errorMessage: null,
       modalOpen: false,
       modalURL: "https://cdn.pixabay.com/photo/2016/05/24/16/48/mountains-1412683__340.png"
     }
@@ -215,37 +211,95 @@ class Gallery extends React.Component{
   }
 
 
+  // Build {id -> deltas} for the local people-count bookkeeping, based on
+  // which action fired and whether the affected faces were 'defined'
+  // (already confirmed to current_person) or 'proposed' (a possible match).
+  // See CLAUDE.md / conversation with the user for the agreed semantics.
+  buildCountDeltas(action_type, faceIds){
+    const current_person_id = this.props.current_person_id
+    const unassigned_person_id = this.props.unassigned_person_id
+    const ignore_person_id = this.props.ignore_person_id
+
+    const typeById = {}
+    this.state.items.forEach(([, id, type]) => { typeById[id] = type })
+
+    let definedCount = 0
+    let proposedCount = 0
+    faceIds.forEach(id => {
+      if (typeById[id] === 'defined') definedCount++
+      else if (typeById[id] === 'proposed') proposedCount++
+    })
+    const n = faceIds.length
+
+    const deltas = []
+    const addDelta = (id, fields) => {
+      if (id === undefined || id === null) return
+      let entry = deltas.find(d => d.id === id)
+      if (!entry) { entry = { id }; deltas.push(entry) }
+      for (const [k, v] of Object.entries(fields)) entry[k] = (entry[k] || 0) + v
+    }
+
+    switch (action_type){
+      case 'confirm_proposed':
+        addDelta(current_person_id, { num_possibilities: -n, num_faces: n, num_unverified_faces: n })
+        break
+      case 'close_assigned':
+        if (definedCount) addDelta(current_person_id, { num_faces: -definedCount })
+        if (proposedCount) addDelta(current_person_id, { num_possibilities: -proposedCount })
+        addDelta(unassigned_person_id, { num_possibilities: n })
+        break
+      case 'close_unassigned':
+        addDelta(unassigned_person_id, { num_possibilities: -n })
+        addDelta(ignore_person_id, { num_faces: n })
+        break
+      case 'close_ignored':
+        addDelta(ignore_person_id, { num_faces: -n })
+        break
+      case 'verify_face':
+        addDelta(current_person_id, { num_unverified_faces: -n })
+        break
+      default:
+        break
+    }
+
+    return deltas
+  }
+
   api_action(action_type, face_id){
     console.log("Action Triggered: ", action_type, face_id)
-    
-    // Standard JS validation instead of Node's require('assert')
+
     var action_valid = ['close_unassigned', 'close_ignored', 'close_assigned', 'confirm_proposed', 'verify_face'].includes(action_type)
     if (!action_valid) {
       console.error("Invalid action_type passed to api_action: ", action_type);
-      return; 
+      return;
     }
-    
-    const current_person_id = this.props.current_person_id
 
+    const current_person_id = this.props.current_person_id
     const uniq_selected = this.get_unique_list(face_id)
 
+    if (this.props.updatePersonCounts){
+      this.props.updatePersonCounts(this.buildCountDeltas(action_type, uniq_selected))
+    }
+
     this.unselectAll()
-    
+
     var bulk_patch_url = store.get('api_url') + '/faces/bulk_operation/';
-    console.log("Bulk operation in progress " + bulk_patch_url)
-    
     var data_list = {
-      face_id_list: uniq_selected, 
+      face_id_list: uniq_selected,
       operation: action_type,
       current_person_id: current_person_id
     };
 
-    axiosInstance.patch(bulk_patch_url, data_list)
-    .then(response => {
-      console.log(response)
-    }).catch(error => {
-      console.log("Error in bulk operation " + action_type + " " + error)
-    })
+    withRetry(() => axiosInstance.patch(bulk_patch_url, data_list), { retries: 3, delayMs: 1000 })
+      .then(response => {
+        console.log(response)
+      })
+      .catch(error => {
+        console.log("Error in bulk operation " + action_type + " " + error)
+        this.setState({
+          errorMessage: `"${action_type.replace('_', ' ')}" didn't go through after a few tries — please try again.`
+        })
+      })
   }
 
   onDrop(event){
@@ -333,8 +387,6 @@ class Gallery extends React.Component{
       }
   };
 
-        // <button onClick={this.toggleModal}>Open modal</button>
-
   render(){
     return(
 
@@ -342,6 +394,15 @@ class Gallery extends React.Component{
       {this.state.ready ? (
 
         <>
+          {this.state.errorMessage && (
+            <Message
+              negative
+              onDismiss={() => this.setState({ errorMessage: null })}
+              header="Action failed"
+              content={this.state.errorMessage}
+              style={{ position: 'fixed', top: 90, right: 20, zIndex: 200, maxWidth: 320 }}
+            />
+          )}
           <Modal
             isOpen={this.state.modalOpen}
             onRequestClose={this.toggleModal}
@@ -366,32 +427,32 @@ class Gallery extends React.Component{
             {this.state.items.map( x_val => 
               <LazyImage 
                 selected={this.state.imgsSelected.indexOf(x_val[1]) >= 0}
-                imgsSelected={this.state.imgsSelected}
+                // imgsSelected={this.state.imgsSelected}
+                get_unique_list={this.get_unique_list}      
                 hidden={this.state.hidden.indexOf(x_val[1]) >= 0}
                 api_action={this.api_action}
-                // close_unassigned={this.close_unassigned}
-                // close_ignored={this.close_ignored}
-                // close_assigned={this.close_assigned}
-                // confirm_proposed={this.confirm_proposed}
+                onApiError={(msg) => this.setState({ errorMessage: msg })}
                 setHidden={this.setHidden}
                 url={store.get('api_url') + '/keyed_image/face_array/?access_key=' 
                     + store.get('access_key') + '&id=' + x_val[1] }
                 index={x_val[0]}
                 key={x_val[1]}
                 scrollPosition={this.props.scrollPosition}
-                onClick={ (e) => this.clickHandler(e,  x_val[1], x_val[0]) }
+                // onClick={ (e) => this.clickHandler(e,  x_val[1], x_val[0]) }
+                onClick={this.clickHandler}
                 clearImagesSelected={this.clearImagesSelected}
-      //          onDoubleClick={ (e) => {console.log("double click")}}
-      //          onDrag={ (e) => this.dragLog(e,  face_id, index) }
-       //         onDrop={(e) => this.onDrop(e)}
                 face_id={x_val[1]}
                 type={x_val[2]}
                 current_person_id={this.props.current_person_id}
+                unassigned_person_id={this.props.unassigned_person_id}
+                ignore_person_id={this.props.ignore_person_id}
                 peopleOptions={this.state.peopleOptions}
                 ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
                 updatePersonList={this.props.updatePersonList}
+                updatePersonCounts={this.props.updatePersonCounts}
                 unselectAll={this.unselectAll}
-              />  
+                onHighlightUpdated={this.props.onHighlightUpdated}
+              />
             )}
           </InfiniteScroll>
         </>
