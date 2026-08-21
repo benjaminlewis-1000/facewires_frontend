@@ -11,14 +11,33 @@ import Modal from "react-modal";
 import { withRetry } from './apiRetry';
 import { Message } from 'semantic-ui-react'; // already a dependency, used elsewhere (login.jsx)
 
+// A rendered .imgDiv tile's width, in px. Measured live off the DOM
+// (see measureTileWidth) instead of hardcoded, so it can't drift out of
+// sync with image_tile.css. Cached at module scope, outside the class,
+// so once any Gallery instance has measured it, later remounts within
+// the same browser session (switching people/folders, etc.) reuse it
+// instead of re-measuring - it can't change without a page reload.
+let cachedTileWidth = null;
+
 class Gallery extends React.Component{
-  
+
   constructor(props){
     super(props);
     var peopleOptions = []
 
     this.clickHandler = this.clickHandler.bind(this)
     this.get_unique_list = this.get_unique_list.bind(this)
+    this.handleRowAction = this.handleRowAction.bind(this)
+    this.runBulkOperation = this.runBulkOperation.bind(this)
+    this.measureTileWidth = this.measureTileWidth.bind(this)
+    this.recomputeColumns = this.recomputeColumns.bind(this)
+    this.ensureGridObserved = this.ensureGridObserved.bind(this)
+    this.gridRef = React.createRef()
+    // Instance copy of the cached width, if one exists yet - not in
+    // state, since changing it shouldn't by itself trigger a re-render
+    // (recomputeColumns, below, is what actually updates state.columnCount).
+    this.tileWidth = cachedTileWidth
+    this.gridObserved = false
 
     for (const [index, value] of this.props.people.entries()) {
       peopleOptions.push({
@@ -54,7 +73,13 @@ class Gallery extends React.Component{
       imgs_len: 0,
       errorMessage: null,
       modalOpen: false,
-      modalURL: "https://cdn.pixabay.com/photo/2016/05/24/16/48/mountains-1412683__340.png"
+      modalURL: "https://cdn.pixabay.com/photo/2016/05/24/16/48/mountains-1412683__340.png",
+      // How many tiles fit per row at the gallery's current width - kept
+      // in state (rather than just an instance field) because it drives
+      // where the row-confirm buttons render, so a change needs to
+      // trigger a re-render. Refined for real once the grid is measured;
+      // 1 is just a safe non-zero placeholder for the first paint.
+      columnCount: 1,
     }
 
 
@@ -73,6 +98,71 @@ class Gallery extends React.Component{
 
   componentDidMount(){
     document.addEventListener("keydown", this._handleKeyDown);
+
+    // Recompute columnCount whenever the grid's own rendered width
+    // changes - window resizes, but also e.g. the sidebar changing width -
+    // ResizeObserver watches the element itself rather than the window,
+    // so it covers both without a separate window 'resize' listener.
+    this.resizeObserver = new ResizeObserver(() => this.recomputeColumns())
+    this.ensureGridObserved()
+
+    if (this.tileWidth){
+      // Already measured in an earlier session, this browser tab -
+      // just need today's container width to get columnCount.
+      this.recomputeColumns()
+    }else{
+      this.measureTileWidth()
+    }
+  }
+
+  componentWillUnmount(){
+    if (this.resizeObserver){
+      this.resizeObserver.disconnect()
+    }
+  }
+
+  // state.ready starts false, so on first mount the grid div (and its
+  // ref) don't exist yet - render() shows a "Loading" placeholder
+  // instead (see below). componentDidMount's observe() call was
+  // therefore silently a no-op on gridRef.current === null, and nothing
+  // ever retried attaching it once the grid actually appeared, which is
+  // why resizing/navigating stopped recalculating columns after the
+  // first successful pass. Re-tried from componentDidUpdate below,
+  // same as measureTileWidth already was, until it succeeds once.
+  ensureGridObserved(){
+    if (this.gridObserved || !this.gridRef.current || !this.resizeObserver) return
+    this.resizeObserver.observe(this.gridRef.current)
+    this.gridObserved = true
+  }
+
+  // Reads the actual rendered width of a live .imgDiv tile off the DOM,
+  // rather than hardcoding a copy of image_tile.css's .imgDiv width -
+  // that way this can't silently drift out of sync with the CSS if the
+  // tile size ever changes there. No-ops if nothing's rendered yet
+  // (state.items starts empty and fills in asynchronously) - re-tried
+  // from componentDidUpdate below once items exist.
+  measureTileWidth(){
+    if (this.tileWidth || !this.gridRef.current) return
+
+    const tile = this.gridRef.current.querySelector('.imgDiv')
+    if (!tile) return
+
+    const width = tile.getBoundingClientRect().width
+    if (width > 0){
+      this.tileWidth = width
+      cachedTileWidth = width
+      this.recomputeColumns()
+    }
+  }
+
+  recomputeColumns(){
+    if (!this.tileWidth || !this.gridRef.current) return
+
+    const containerWidth = this.gridRef.current.getBoundingClientRect().width
+    const columns = Math.max(1, Math.floor(containerWidth / this.tileWidth))
+    if (columns !== this.state.columnCount){
+      this.setState({ columnCount: columns })
+    }
   }
 
   _handleKeyDown = (event) => {
@@ -107,6 +197,16 @@ class Gallery extends React.Component{
       this.fetchMoreData()
 
       // this.forceUpdate()
+    }
+
+    // The grid div (and .imgDiv tiles inside it) render asynchronously -
+    // state.ready starts false and state.items fills in via
+    // fetchMoreData - so the calls made at mount time may have found
+    // nothing yet. Keep retrying on each update until each succeeds
+    // once; both bail out immediately on their own once already done.
+    this.ensureGridObserved()
+    if (!this.tileWidth){
+      this.measureTileWidth()
     }
   }
 
@@ -274,18 +374,34 @@ class Gallery extends React.Component{
       return;
     }
 
-    const current_person_id = this.props.current_person_id
     const uniq_selected = this.get_unique_list(face_id)
+    this.unselectAll()
+    this.runBulkOperation(action_type, uniq_selected)
+  }
+
+  // Shared tail end of every bulk face operation: apply the local
+  // people-count deltas, mark the affected faces hidden so they
+  // disappear from the grid immediately, then fire the real PATCH.
+  // Used both by api_action (single/multi-select actions driven by
+  // click-selection) and handleRowAction below (row-level bulk actions,
+  // which arrive with an explicit face_id list rather than one built
+  // from click-selection state).
+  runBulkOperation(action_type, faceIds){
+    if (!faceIds || faceIds.length === 0) return
+
+    const current_person_id = this.props.current_person_id
 
     if (this.props.updatePersonCounts){
-      this.props.updatePersonCounts(this.buildCountDeltas(action_type, uniq_selected))
+      this.props.updatePersonCounts(this.buildCountDeltas(action_type, faceIds))
     }
 
-    this.unselectAll()
+    this.setState(prevState => ({
+      hidden: [...new Set(prevState.hidden.concat(faceIds))]
+    }))
 
     var bulk_patch_url = store.get('api_url') + '/faces/bulk_operation/';
     var data_list = {
-      face_id_list: uniq_selected,
+      face_id_list: faceIds,
       operation: action_type,
       current_person_id: current_person_id
     };
@@ -300,6 +416,50 @@ class Gallery extends React.Component{
           errorMessage: `"${action_type.replace('_', ' ')}" didn't go through after a few tries — please try again.`
         })
       })
+  }
+
+  // Groups the currently-visible (non-hidden) items into rows the same
+  // way the browser's float-wrap layout does, using state.columnCount
+  // (see recomputeColumns/measureTileWidth above). Shared by render()
+  // (to know where to draw a row-action button) and handleRowAction
+  // (to know which face_ids are "up to and including" a given row).
+  computeVisibleRows(){
+    const hiddenSet = new Set(this.state.hidden)
+    const visible = this.state.items.filter(([, id]) => !hiddenSet.has(id))
+    const columns = Math.max(1, this.state.columnCount)
+
+    const rowEndIds = new Set()
+    visible.forEach((item, i) => {
+      const isLastInRow = (i + 1) % columns === 0 || i === visible.length - 1
+      if (isLastInRow) rowEndIds.add(item[1])
+    })
+
+    return { visible, rowEndIds }
+  }
+
+  // mode is 'confirm' (unlabeled-faces gallery - bulk confirm_proposed)
+  // or 'verify' (unverified-faces gallery - bulk verify_face). Both are
+  // wired to the real API via runBulkOperation.
+  handleRowAction(mode, rowEndFaceId){
+    const { visible } = this.computeVisibleRows()
+    const uptoIndex = visible.findIndex(([, id]) => id === rowEndFaceId)
+    if (uptoIndex === -1) return
+
+    // 'confirm' targets the row's still-proposed (checkmark/x) faces -
+    // 'defined' ones aren't proposals, nothing to confirm. 'verify'
+    // targets its 'defined' faces - only_unverified already scopes the
+    // fetched 'defined' faces server-side to unverified ones, so
+    // type === 'defined' here already means "needs verifying".
+    const relevantType = mode === 'confirm' ? 'proposed' : 'defined'
+    const faceIds = visible
+      .slice(0, uptoIndex + 1)
+      .filter(([, , type]) => type === relevantType)
+      .map(([, id]) => id)
+
+    if (faceIds.length === 0) return
+
+    const action_type = mode === 'confirm' ? 'confirm_proposed' : 'verify_face'
+    this.runBulkOperation(action_type, faceIds)
   }
 
   onDrop(event){
@@ -388,6 +548,22 @@ class Gallery extends React.Component{
   };
 
   render(){
+    const { rowEndIds } = this.computeVisibleRows()
+
+    // Row-action button only makes sense on the two toggle-driven
+    // galleries it's meant for - unlabeled faces (bulk-confirm the
+    // proposed/checkmark-x rows) and unverified faces (bulk-verify the
+    // still-unverified defined rows) - and never on the Unassigned tab,
+    // whose tiles are a different type ('unassigned_tab') entirely.
+    // picasaScreen.jsx already keeps these two toggles mutually
+    // exclusive, so at most one of these is ever true.
+    const isUnassignedTab = this.props.current_person_id === this.props.unassigned_person_id
+    const rowButtonMode = isUnassignedTab ? null
+      : this.props.unlabeled ? 'confirm'
+      : this.props.only_unverified ? 'verify'
+      : null
+    const rowButtonLabel = rowButtonMode === 'confirm' ? 'Confirm row' : 'Verify row'
+
     return(
 
       <div className='imageScreen'>
@@ -411,58 +587,75 @@ class Gallery extends React.Component{
             overlayClassName="Overlay"
             shouldCloseOnOverlayClick={true}
           >
-            <img 
-              src={this.state.modalURL}  
+            <img
+              src={this.state.modalURL}
               alt="Full size"
               className='modalImage'
             />
           </Modal>
-          
+
           <InfiniteScroll
             dataLength={this.state.items.length}
             next={this.fetchMoreData}
             hasMore={this.state.more_to_load}
             loader={<h4>Loading...</h4>}
           >
-            {this.state.items.map( x_val => 
-              <LazyImage 
-                selected={this.state.imgsSelected.indexOf(x_val[1]) >= 0}
-                // imgsSelected={this.state.imgsSelected}
-                get_unique_list={this.get_unique_list}      
-                hidden={this.state.hidden.indexOf(x_val[1]) >= 0}
-                api_action={this.api_action}
-                onApiError={(msg) => this.setState({ errorMessage: msg })}
-                setHidden={this.setHidden}
-                url={store.get('api_url') + '/keyed_image/face_array/?access_key=' 
-                    + store.get('access_key') + '&id=' + x_val[1] }
-                index={x_val[0]}
-                key={x_val[1]}
-                scrollPosition={this.props.scrollPosition}
-                // onClick={ (e) => this.clickHandler(e,  x_val[1], x_val[0]) }
-                onClick={this.clickHandler}
-                clearImagesSelected={this.clearImagesSelected}
-                face_id={x_val[1]}
-                type={x_val[2]}
-                current_person_id={this.props.current_person_id}
-                unassigned_person_id={this.props.unassigned_person_id}
-                ignore_person_id={this.props.ignore_person_id}
-                peopleOptions={this.state.peopleOptions}
-                ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
-                updatePersonList={this.props.updatePersonList}
-                updatePersonCounts={this.props.updatePersonCounts}
-                unselectAll={this.unselectAll}
-                onHighlightUpdated={this.props.onHighlightUpdated}
-              />
-            )}
+            {/* Wraps the floated .imgDiv tiles so their combined height
+                doesn't collapse to 0 (a plain float-clearfix issue) - also
+                doubles as the element measureTileWidth/recomputeColumns
+                observe to figure out row layout. */}
+            <div className='galleryGrid' ref={this.gridRef}>
+              {this.state.items.map( x_val =>
+                <React.Fragment key={x_val[1]}>
+                  <LazyImage
+                    selected={this.state.imgsSelected.indexOf(x_val[1]) >= 0}
+                    // imgsSelected={this.state.imgsSelected}
+                    get_unique_list={this.get_unique_list}
+                    hidden={this.state.hidden.indexOf(x_val[1]) >= 0}
+                    api_action={this.api_action}
+                    onApiError={(msg) => this.setState({ errorMessage: msg })}
+                    setHidden={this.setHidden}
+                    url={store.get('api_url') + '/keyed_image/face_array/?access_key='
+                        + store.get('access_key') + '&id=' + x_val[1] }
+                    index={x_val[0]}
+                    scrollPosition={this.props.scrollPosition}
+                    // onClick={ (e) => this.clickHandler(e,  x_val[1], x_val[0]) }
+                    onClick={this.clickHandler}
+                    clearImagesSelected={this.clearImagesSelected}
+                    face_id={x_val[1]}
+                    type={x_val[2]}
+                    current_person_id={this.props.current_person_id}
+                    unassigned_person_id={this.props.unassigned_person_id}
+                    ignore_person_id={this.props.ignore_person_id}
+                    peopleOptions={this.state.peopleOptions}
+                    ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
+                    updatePersonList={this.props.updatePersonList}
+                    updatePersonCounts={this.props.updatePersonCounts}
+                    unselectAll={this.unselectAll}
+                    onHighlightUpdated={this.props.onHighlightUpdated}
+                  />
+                  {rowButtonMode && rowEndIds.has(x_val[1]) && (
+                    <div className='rowConfirmBreak'>
+                      <button
+                        className='rowConfirmButton'
+                        onClick={() => this.handleRowAction(rowButtonMode, x_val[1])}
+                      >
+                        {rowButtonLabel}
+                      </button>
+                    </div>
+                  )}
+                </React.Fragment>
+              )}
+            </div>
           </InfiniteScroll>
         </>
-        
+
     ):(
       <div> Loading </div>
     )
       }
-        </div>    
-    ); 
+        </div>
+    );
 
     }
 }

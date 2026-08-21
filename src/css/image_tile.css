@@ -95,6 +95,36 @@
   width: 150px;
 }
 
+.galleryGrid{
+  /* .imgDiv tiles are float:left - without this, this wrapper's own
+     height collapses to 0 around them (classic float clearfix issue),
+     which would also throw off its measured width/height for
+     row-layout math in gallery.jsx. */
+  overflow: hidden;
+}
+
+.rowConfirmBreak{
+  clear: both;
+  width: 100%;
+  text-align: right;
+  padding: 2px 10px 6px 0;
+}
+
+.rowConfirmButton{
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #450293;
+  background-color: white;
+  color: #450293;
+  cursor: pointer;
+}
+
+.rowConfirmButton:hover{
+  background-color: #450293;
+  color: white;
+}
+
 input.person_select, div.person_select{
   float: left;
   height:20px;
