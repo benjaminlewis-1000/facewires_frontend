@@ -96,23 +96,41 @@
 }
 
 .galleryGrid{
-  /* .imgDiv tiles are float:left - without this, this wrapper's own
-     height collapses to 0 around them (classic float clearfix issue),
-     which would also throw off its measured width/height for
-     row-layout math in gallery.jsx. */
-  overflow: hidden;
+  /* .imgDiv tiles are float:left - without a clearfix, this wrapper's
+     own height collapses to 0 around them (classic float clearfix
+     issue), which would also throw off its measured width/height for
+     row-layout math in gallery.jsx. Previously used overflow: hidden
+     for this, but that also clipped anything that legitimately needs
+     to overflow the box - e.g. the "send to other person" dropdown
+     (mutableSelect.jsx) opens downward from its input, and on the
+     gallery's last row (or a gallery with only one row) there's no
+     grid height left below it to open into, so it got cut off
+     invisible. A ::after clearfix (below) fixes the same collapse
+     without clipping. */
+  /* Positioning root for .rowConfirmButton, which is placed at a fixed
+     left/top per row (see gallery.jsx render()) rather than floated
+     inline, so it lands in the same spot every row regardless of how
+     many tiles that row actually has. */
+  position: relative;
+}
+
+.galleryGrid::after{
+  content: "";
+  display: table;
+  clear: both;
 }
 
 .rowConfirmButton{
-  /* Floats alongside the .imgDiv tiles (no clear/full-width break) so
-     it stays part of the same continuous float flow as the row it
-     belongs to, instead of forcing every row onto its own block.
+  /* Absolutely positioned (left/top set inline per row in gallery.jsx)
+     rather than floated, so it sits at a fixed slot per row instead of
+     right after however many tiles happen to be in that row - a short/
+     partial row still gets the button in the same place as a full one.
      Narrow and tile-height-tall (rather than a wide horizontal button)
-     so it reads as a strip at the end of the row instead of a block
-     that's prone to spilling onto the next line - its width is also
+     so it reads as a strip at the end of the row. Its width is also
      measured live and reserved for in gallery.jsx's column math (see
-     measureButtonWidth/recomputeColumns), so it always fits. */
-  float: left;
+     measureButtonWidth/recomputeColumns), so it always fits without
+     overlapping the last tile in a full row. */
+  position: absolute;
   box-sizing: border-box;
   height: 150px;
   width: 28px;
@@ -193,16 +211,39 @@ div.ui.selection.dropdown, input.ui.selection.dropdown{
   border-radius: 3px
 }
 
-.mutableMenu{
-  height: 250px;
-  position: relative;
+.personSelectMenu{
+  /* Dedicated class (rather than the old "menu transition" classNames)
+     so this doesn't collide with menubar.css's unrelated global .menu
+     rule (position:fixed, top:0, z-index:200 - meant for the top navbar,
+     but a plain ".menu" class selector matches anywhere) or
+     imageScreen.css's .transition (height:150px). Absolutely positioned
+     off .person_select (position:relative, see below) so it overlays
+     instead of pushing layout around, and can flip to open upward - see
+     mutableSelect.jsx's updateMenuPosition/openUpward. */
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 60;
+  max-height: 250px;
   width: 120px;
   overflow-y: auto;
-  z-index: 50;
-  overflow-x: hidden; 
+  overflow-x: hidden;
   background-color: white;
-  margin-top: 23px;
-  margin-left: -10px;
+  border: 1px solid #d4d4d5;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.personSelectMenu.visible{
+  display: block;
+}
+
+.personSelectMenu.upward{
+  /* Not enough room below the input (near the bottom of the viewport) -
+     open above it instead. */
+  top: auto;
+  bottom: 100%;
 }
 
 .selected{

@@ -49,7 +49,11 @@ class PersonSidebar extends React.Component {
   // Same filtering logic used by render(), but returned as data so
   // componentDidUpdate can check whether the current selection survived
   // a toggle change without having to duplicate the filter conditions.
-  getFilteredEntries() {
+  // applyFilter=false returns every entry in display order (Unassigned
+  // pinned first, then the rest), regardless of the unlabeled/unverified
+  // toggles - used by componentDidUpdate to walk "who comes next" even
+  // for entries the current filter is hiding.
+  getFilteredEntries(applyFilter = true) {
     const people = this.props.people
     const only_unlabeled = this.props.unlabeled
     const only_unverified = this.props.only_unverified
@@ -59,6 +63,7 @@ class PersonSidebar extends React.Component {
     const found_idx = myData.findIndex(element => element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === 'Unassigned')
 
     const passesFilter = (value) => {
+      if (!applyFilter) return true
       if (only_unlabeled && value.num_possibilities === 0) return false
       if (only_unverified && value.num_unverified_faces === 0) return false
       return true
@@ -87,15 +92,35 @@ class PersonSidebar extends React.Component {
     const stillPresent = entries.some(e => e.index === this.state.personSelected)
     if (stillPresent) return
 
-    // The current selection was filtered out by the toggle change - fall
-    // back to the first person still in the list (usually Unassigned).
-    // If literally nothing matches the filter (e.g. every face is
-    // assigned while "Only Unlabeled" is on), leave the selection alone
-    // rather than forcing a pick.
+    // The current selection was filtered out (typically: it was the last
+    // person left under the current toggle, and finishing their last face
+    // just dropped them out of the list). Rather than defaulting back to
+    // the top of the sidebar, walk forward from where the selection was in
+    // the full (unfiltered) display order and land on the next person who
+    // still passes the current filter - wrapping around to the top only if
+    // nothing further down qualifies.
     if (entries.length > 0){
-      const first = entries[0]
-      this.props.setSource('person', first.value.url, first.value.id, first.index)
-      this.setState({ personSelected: first.index })
+      const displayOrder = this.getFilteredEntries(false)
+      const prevPos = displayOrder.findIndex(e => e.index === this.state.personSelected)
+      const stillVisible = new Set(entries.map(e => e.index))
+
+      let next = null
+      if (prevPos !== -1){
+        for (let step = 1; step <= displayOrder.length; step++){
+          const candidate = displayOrder[(prevPos + step) % displayOrder.length]
+          if (stillVisible.has(candidate.index)){
+            next = candidate
+            break
+          }
+        }
+      }
+      // Previously-selected person no longer appears anywhere (e.g. was
+      // removed rather than just filtered) - fall back to the first
+      // visible entry, same as before this change.
+      if (!next) next = entries[0]
+
+      this.props.setSource('person', next.value.url, next.value.id, next.index)
+      this.setState({ personSelected: next.index })
     }
   }
 

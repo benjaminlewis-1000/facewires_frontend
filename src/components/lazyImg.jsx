@@ -17,6 +17,7 @@ class LazyImage extends React.PureComponent {
 
     this.localClick = this.localClick.bind(this);
     this.otherAssignment = this.otherAssignment.bind(this);
+    this.cancelOtherAssignment = this.cancelOtherAssignment.bind(this);
     this.set_as_thumbnail = this.set_as_thumbnail.bind(this);
     // this.get_unique_list = this.get_unique_list.bind(this);
   }
@@ -45,6 +46,14 @@ class LazyImage extends React.PureComponent {
     this.setState({ type: 'unassigned_tab' });
   }
 
+  // Escape in the person-search box (MutableSelect) calls this to back
+  // the tile fully out of "send to other person" mode - reverting to
+  // the original type flips the render switch below back to the tile's
+  // normal confirm/reject buttons, unmounting MutableSelect.
+  cancelOtherAssignment() {
+    this.setState({ type: this.props.type });
+  }
+
   render() {
     // Unique menu id per image instance to avoid collisions
     const menuId = `menu-face-${this.props.face_id}-${this.props.index}`;
@@ -59,6 +68,7 @@ class LazyImage extends React.PureComponent {
       ignore_person_id={this.props.ignore_person_id}
       ignore_tab={this.props.ignore_tab}
       setInvisible={(e)=>{this.set_invisible()}}
+      onCancel={this.cancelOtherAssignment}
       setHidden={this.props.setHidden}
       updatePersonList={this.props.updatePersonList}
       updatePersonCounts={this.props.updatePersonCounts}

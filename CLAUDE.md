@@ -8,6 +8,12 @@ FaceWires — a React frontend for a Picasa-style face-tagging/review tool. User
 detected "people," and assign/confirm/reject face detections against people via a Django REST backend
 (`picasa.exploretheworld.tech/api`). SSO/auth is handled by an external Authelia instance, not by this app.
 
+## Workflow preferences
+
+**Remote Control sessions:** when the user is driving this session via Remote Control (not typing
+directly at this terminal), propose code changes and get explicit approval before making them —
+don't edit/write files autonomously. This applies to any code change, not just git commits.
+
 ## Commands
 
 ```bash
@@ -113,15 +119,17 @@ on prod and dev.
 - Deleted dead files: pcScreenTest.jsx, login.jsx, customContext.jsx.
 
 ### Currently in progress / open
-- Investigating a regression: shift-click range-select in the image
-  gallery (gallery.jsx singleClick) used to work and now doesn't.
-  Need to check console output (face_id, lastClicked, index logged
-  on every click) to see if it's an indexing issue, a state issue
-  (lastClicked not persisting), or the new memoization not
-  re-rendering the "selected" visual state.
-- Known bug to fix: mutableSelect.jsx calls
-  `this.props.get_unique_list()` with no argument, but
-  Gallery.get_unique_list(added_id) requires one — the person-
-  assignment flow silently drops the face_id as a result.
-- Idea (not yet built): a per-row button that runs the confirm
-  action for every image in that row and all rows before it.
+- Known perf issue (low priority, not yet fixed): `Gallery.fetchMoreData`
+  (gallery.jsx) rebuilds `state.items` via `.concat()` on every
+  infinite-scroll page load, copying the whole accumulated list each
+  time — cost grows roughly with the square of total images loaded, so
+  scrolling deep into a large gallery gets progressively slower. Doesn't
+  affect correctness (the "confirm up to this row" bulk action still
+  works on items scrolled out of view — nothing is removed from state).
+- Known perf issue (low priority, not yet fixed): the gallery isn't
+  virtualized — every loaded face tile stays mounted as a live DOM
+  `<img>` (via LazyImage) even after scrolling past it, so long
+  scrolling sessions accumulate real memory/render overhead. Fixing
+  this properly means true windowing (e.g. react-window), which is a
+  bigger change since row-button/column math currently assumes every
+  item is present in the DOM to measure against.

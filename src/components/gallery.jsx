@@ -23,6 +23,12 @@ let cachedTileWidth = null;
 // measureButtonWidth.
 let cachedButtonWidth = null;
 
+// Same idea, for a rendered .imgDiv's height - see measureTileWidth.
+// Kept separate from cachedTileWidth (rather than assumed equal, even
+// though image_tile.css currently makes .imgDiv a 150x150 square) so
+// row-button placement stays correct if that ever changes.
+let cachedTileHeight = null;
+
 class Gallery extends React.Component{
 
   constructor(props){
@@ -43,6 +49,7 @@ class Gallery extends React.Component{
     // state, since changing it shouldn't by itself trigger a re-render
     // (recomputeColumns, below, is what actually updates state.columnCount).
     this.tileWidth = cachedTileWidth
+    this.tileHeight = cachedTileHeight
     this.buttonWidth = cachedButtonWidth
     this.gridObserved = false
 
@@ -167,10 +174,12 @@ class Gallery extends React.Component{
     const tile = this.gridRef.current.querySelector('.imgDiv')
     if (!tile) return
 
-    const width = tile.getBoundingClientRect().width
-    if (width > 0){
-      this.tileWidth = width
-      cachedTileWidth = width
+    const rect = tile.getBoundingClientRect()
+    if (rect.width > 0){
+      this.tileWidth = rect.width
+      cachedTileWidth = rect.width
+      this.tileHeight = rect.height
+      cachedTileHeight = rect.height
       this.recomputeColumns()
     }
   }
@@ -506,13 +515,16 @@ class Gallery extends React.Component{
     const visible = items.filter(([, id]) => !hiddenSet.has(id))
     const columns = Math.max(1, columnCount)
 
-    const rowEndIds = new Set()
-    visible.forEach((item, i) => {
-      const isLastInRow = (i + 1) % columns === 0 || i === visible.length - 1
-      if (isLastInRow) rowEndIds.add(item[1])
-    })
+    // Actual row groupings (chunks of `columns` items each, last row may
+    // be shorter) - used by render() to place the row-action button at a
+    // fixed slot per row (see render()'s button positioning) rather than
+    // right after however many tiles happen to be in that row.
+    const rows = []
+    for (let i = 0; i < visible.length; i += columns){
+      rows.push(visible.slice(i, i + columns))
+    }
 
-    const result = { visible, rowEndIds }
+    const result = { visible, rows }
     this._rowsCache = { items, hidden, columnCount, result }
     return result
   }
@@ -595,6 +607,12 @@ class Gallery extends React.Component{
   }
 
   fetchMoreData = () => {
+      // TODO(perf, low priority): this.state.items.concat(concatItems) below
+      // rebuilds the whole accumulated items array on every page load, so
+      // cost grows ~quadratically with total images loaded (see CLAUDE.md
+      // "Known perf issue" notes). Doesn't affect correctness - confirm/verify
+      // row actions still see every loaded item regardless of scroll position.
+      //
       // Cheap runaway-loop tripwire: fetchMoreData should only fire on
       // real scroll/pagination events, at most a handful of times a
       // second. If something (e.g. InfiniteScroll's own visibility
@@ -641,7 +659,8 @@ class Gallery extends React.Component{
   };
 
   render(){
-    const { rowEndIds } = this.computeVisibleRows()
+    const { rows } = this.computeVisibleRows()
+    const columns = Math.max(1, this.state.columnCount)
 
     // Row-action button only makes sense on the two toggle-driven
     // galleries it's meant for - unlabeled faces (bulk-confirm the
@@ -694,46 +713,64 @@ class Gallery extends React.Component{
                 doesn't collapse to 0 (a plain float-clearfix issue) - also
                 doubles as the element measureTileWidth/recomputeColumns
                 observe to figure out row layout. */}
+            {/* TODO(perf, low priority): no virtualization here - every
+                loaded tile stays mounted as a live <img> even once scrolled
+                far out of view, so long scroll sessions accumulate real
+                memory/render cost. See CLAUDE.md "Known perf issue" notes. */}
             <div className='galleryGrid' ref={this.gridRef}>
               {this.state.items.map( x_val =>
-                <React.Fragment key={x_val[1]}>
-                  <LazyImage
-                    selected={this.state.imgsSelected.indexOf(x_val[1]) >= 0}
-                    // imgsSelected={this.state.imgsSelected}
-                    get_unique_list={this.get_unique_list}
-                    hidden={this.state.hidden.indexOf(x_val[1]) >= 0}
-                    api_action={this.api_action}
-                    onApiError={(msg) => this.setState({ errorMessage: msg })}
-                    setHidden={this.setHidden}
-                    url={store.get('api_url') + '/keyed_image/face_array/?access_key='
-                        + store.get('access_key') + '&id=' + x_val[1] }
-                    index={x_val[0]}
-                    scrollPosition={this.props.scrollPosition}
-                    // onClick={ (e) => this.clickHandler(e,  x_val[1], x_val[0]) }
-                    onClick={this.clickHandler}
-                    clearImagesSelected={this.clearImagesSelected}
-                    face_id={x_val[1]}
-                    type={x_val[2]}
-                    current_person_id={this.props.current_person_id}
-                    unassigned_person_id={this.props.unassigned_person_id}
-                    ignore_person_id={this.props.ignore_person_id}
-                    peopleOptions={this.state.peopleOptions}
-                    ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
-                    updatePersonList={this.props.updatePersonList}
-                    updatePersonCounts={this.props.updatePersonCounts}
-                    unselectAll={this.unselectAll}
-                    onHighlightUpdated={this.props.onHighlightUpdated}
-                  />
-                  {rowButtonMode && rowEndIds.has(x_val[1]) && (
-                      <button
-                        className='rowConfirmButton'
-                        onClick={() => this.handleRowAction(rowButtonMode, x_val[1])}
-                      >
-                        {rowButtonLabel}
-                      </button>
-                  )}
-                </React.Fragment>
+                <LazyImage
+                  key={x_val[1]}
+                  selected={this.state.imgsSelected.indexOf(x_val[1]) >= 0}
+                  // imgsSelected={this.state.imgsSelected}
+                  get_unique_list={this.get_unique_list}
+                  hidden={this.state.hidden.indexOf(x_val[1]) >= 0}
+                  api_action={this.api_action}
+                  onApiError={(msg) => this.setState({ errorMessage: msg })}
+                  setHidden={this.setHidden}
+                  url={store.get('api_url') + '/keyed_image/face_array/?access_key='
+                      + store.get('access_key') + '&id=' + x_val[1] }
+                  index={x_val[0]}
+                  scrollPosition={this.props.scrollPosition}
+                  // onClick={ (e) => this.clickHandler(e,  x_val[1], x_val[0]) }
+                  onClick={this.clickHandler}
+                  clearImagesSelected={this.clearImagesSelected}
+                  face_id={x_val[1]}
+                  type={x_val[2]}
+                  current_person_id={this.props.current_person_id}
+                  unassigned_person_id={this.props.unassigned_person_id}
+                  ignore_person_id={this.props.ignore_person_id}
+                  peopleOptions={this.state.peopleOptions}
+                  ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
+                  updatePersonList={this.props.updatePersonList}
+                  updatePersonCounts={this.props.updatePersonCounts}
+                  unselectAll={this.unselectAll}
+                  onHighlightUpdated={this.props.onHighlightUpdated}
+                />
               )}
+              {/* Row-action buttons are pinned to a fixed slot per row
+                  (same left/top for every row) rather than floated right
+                  after however many tiles that row happens to have - so
+                  the button never moves, even on a short/partial row,
+                  saving the mouse trip. Absolutely positioned within
+                  .galleryGrid (position:relative in image_tile.css),
+                  outside the tiles' float flow - recomputeColumns still
+                  reserves buttonWidth of empty space per row so this
+                  never overlaps the last tile. */}
+              {rowButtonMode && this.tileWidth && this.tileHeight && rows.map((row, rowIndex) => {
+                const lastItem = row[row.length - 1]
+                if (!lastItem) return null
+                return (
+                  <button
+                    key={`row-btn-${lastItem[1]}`}
+                    className='rowConfirmButton'
+                    style={{ left: columns * this.tileWidth, top: rowIndex * this.tileHeight }}
+                    onClick={() => this.handleRowAction(rowButtonMode, lastItem[1])}
+                  >
+                    {rowButtonLabel}
+                  </button>
+                )
+              })}
             </div>
           </InfiniteScroll>
         </>

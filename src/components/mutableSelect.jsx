@@ -13,10 +13,17 @@ class MutableSelect extends React.Component{
       visible: true,
       filterValue: '',
       listOrder: 0,
-      opt_len: 100
+      opt_len: 100,
+      // Whether the dropdown opens above the input instead of below -
+      // see updateMenuPosition, called whenever the dropdown opens.
+      openUpward: false,
     }
 
     this.focusRef = React.createRef();
+    // Positioning root for the dropdown menu (position:relative,
+    // .person_select in image_tile.css) - measured in updateMenuPosition
+    // to decide whether there's room to open downward.
+    this.wrapperRef = React.createRef();
 
     this.makeSearchList=this.makeSearchList.bind(this)
     this.makeSearchListNew=this.makeSearchListNew.bind(this)
@@ -26,11 +33,46 @@ class MutableSelect extends React.Component{
     this.keyDown=this.keyDown.bind(this)
     this.focusInput=this.focusInput.bind(this)
     this.clickList=this.clickList.bind(this)
-    
-  }  
+    this.updateMenuPosition=this.updateMenuPosition.bind(this)
+
+  }
+
+  // The menu actually becomes visible either when `visible` flips true
+  // (reopening after a blur) or when `loaded` flips true while `visible`
+  // is already true (the very first open - `visible` defaults to true in
+  // the constructor, so the first click just reveals it via `loaded`
+  // rather than toggling `visible` itself). Catching both here, rather
+  // than only calling updateMenuPosition from the input's onClick below,
+  // is what makes the very first open of a given tile's dropdown flip
+  // upward correctly instead of only correcting itself on a second open.
+  componentDidUpdate(prevProps, prevState){
+    const wasOpen = prevState.visible && prevState.loaded
+    const isOpen = this.state.visible && this.state.loaded
+    if (isOpen && !wasOpen){
+      this.updateMenuPosition()
+    }
+  }
 
   focusInput(){
     this.focusRef.current.focus()
+  }
+
+  // Decides whether the dropdown should open upward instead of downward,
+  // based on actual room left in the viewport - called right as the
+  // dropdown opens (the input's onClick below). Uses the CSS max-height
+  // (.personSelectMenu, image_tile.css) as a stand-in for the menu's
+  // real height rather than measuring the menu itself, since it may not
+  // have any options rendered yet at the moment it opens.
+  updateMenuPosition(){
+    if (!this.wrapperRef.current) return
+    const MENU_MAX_HEIGHT = 250
+    const rect = this.wrapperRef.current.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    const openUpward = spaceBelow < MENU_MAX_HEIGHT && spaceAbove > spaceBelow
+    if (openUpward !== this.state.openUpward){
+      this.setState({ openUpward })
+    }
   }
 
   // get_unique_list(){
@@ -152,6 +194,19 @@ keyPress(event, option){
 
 keyDown(event){
 
+  if (event.key === "Escape"){
+    event.target.blur()
+    this.setState({visible: false})
+    // Backs the tile all the way out of "send to other person" mode
+    // (LazyImage.cancelOtherAssignment reverts state.type to its
+    // original prop value) rather than just closing the option list -
+    // in contexts where this select is always shown regardless of type
+    // (the ignore tab), there's no mode to back out of, so this is a
+    // harmless no-op there and closing the list is all Escape does.
+    this.props.onCancel && this.props.onCancel()
+    return
+  }
+
   var re = new RegExp(this.state.filterValue, 'gi');
   var options = this.props.peopleOptions.filter(person => person.text.match(re))
 
@@ -204,9 +259,9 @@ makeSearchListNew(){
       //mutableMenu
   return(
 
-    <div className="ui active visible search selection dropdown person_select">
-      <input 
-        className='search' 
+    <div className="ui active visible search selection dropdown person_select" ref={this.wrapperRef}>
+      <input
+        className='search'
         type='text'
         defaultValue=''
         autoFocus
@@ -214,6 +269,7 @@ makeSearchListNew(){
           console.log("Click")
           this.setState({visible: true});
           this.setState({value: ''})
+          this.updateMenuPosition()
         }
         }
         onBlur={() => {this.blur()}}
@@ -226,7 +282,10 @@ makeSearchListNew(){
         onKeyPress={(e)=>{this.keyPress(e, options[this.state.listOrder])}}
       />
 
-      <div className={`${this.state.visible ? 'visible': ''}  menu transition`} role="listbox" >
+      <div
+        className={`personSelectMenu ${this.state.visible ? 'visible' : ''} ${this.state.openUpward ? 'upward' : ''}`}
+        role="listbox"
+      >
         {optionList}
       </div>
     </div>
