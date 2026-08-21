@@ -8,12 +8,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "axios": "^1.19.0",
-    "axios-auth-refresh": "^3.3.0",
-    "axios-auto-refresh-jwt": "^2.0.2",
     "axios-retry": "^3.1.9",
-    "forever": "*",
-    "nodemon": "^3.1.10",
-    "pm2": ">=4.2.3",
     "react": "^18.3.1",
     "react-contexify": "^6.0.0",
     "react-dom": "^18.3.1",
