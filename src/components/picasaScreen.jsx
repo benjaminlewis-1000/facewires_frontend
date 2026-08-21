@@ -343,8 +343,6 @@ class PicasaScreen extends React.Component{
   }
   
   setApiUrl = (childType, childUrl, childId, index) => {
-    // console.debug("API folder: ", childData, childId)
-    console.log(index)
     if (childType === 'folder'){
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})

@@ -121,7 +121,6 @@ class PersonSidebar extends React.Component {
           className={className}
           onClick = {() =>  this.handleClick(index, value.url, value.id)  }
           onDrop = {() => {console.log("Dropped on me!")}}
-          onDragOver={console.log("drag over")}
         >
           {text}
         </button>

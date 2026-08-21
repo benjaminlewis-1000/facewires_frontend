@@ -48,6 +48,13 @@ class ImageScreen extends React.Component{
       highlightVersion: 0,
     }
 
+    // Bumped every time componentDidUpdate kicks off a new pair of
+    // fetches. Each fetch's .then()/.catch() captures the value at
+    // issue time and checks it against this on resolve - if they
+    // don't match, a newer fetch has already superseded this one, so
+    // the (now-stale) response is dropped instead of clobbering state
+    // that a later, faster-resolving request already set correctly.
+    this._fetchGeneration = 0
 
     this.toggle_unlikely = this.toggle_unlikely.bind(this)
     this.handleCheckbox = this.handleCheckbox.bind(this)
@@ -62,11 +69,20 @@ class ImageScreen extends React.Component{
     if (this.props.api_id !== prevProps.api_id ||
         this.props.unlabeled !== prevProps.unlabeled ||
         this.props.only_unverified !== prevProps.only_unverified){
-      console.log("Update needed")
+      const generation = ++this._fetchGeneration
+      const debugTag = `[ImageScreen ${this.props.api_id}]`
       this.setState({loading: true})
       this.setState({loading_definite: true})
       this.setState({loading_poss: true})
-      
+      // Clear out the previous person's ids immediately, rather than
+      // leaving them in state until the new fetches resolve - without
+      // this, if the "possible" fetch below finishes before "definite"
+      // does, loading flips to false and Gallery mounts using whichever
+      // stale imagery_ids happens to still be sitting in state from
+      // the last person, producing a gallery that mixes both people's
+      // images.
+      this.setState({imagery_ids: [], possible_ids: []})
+
       if (this.props.tab === 'People'){
         var req_type = 'face_declared'
         // var api_id = this.props.api_id_person
@@ -75,60 +91,66 @@ class ImageScreen extends React.Component{
         req_type = 'directory'
         // api_id = this.props.api_id_folder
       }else{
-        console.log("Invalid state")
+        console.log(debugTag, "Invalid state")
       }
-
-      console.log("Props: ", this.props)
 
       var imagery_url = ''
       if (! (this.props.unlabeled && this.props.tab === "People") || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
-        console.log(imagery_url)
-        console.log("Only Unverified: ", this.props.only_unverified)
-        try{
-          axiosInstance.get(imagery_url, {
+        axiosInstance.get(imagery_url, {
             params: {
               only_unverified: this.props.only_unverified
             }
           })
           .then( (response) => {
-            
-            this.setState({imagery_ids: response.data.id_list}); 
+            if (generation !== this._fetchGeneration) return
+            this.setState({imagery_ids: response.data.id_list});
             this.setState({loading_definite: false})
-
+            // Only the fetch that finishes last should flip the
+            // overall loading flag - if we did it unconditionally here,
+            // Gallery could mount before the still-in-flight "possible"
+            // fetch (below) has had a chance to populate possible_ids.
+            if (!this.state.loading_poss){
+              this.setState({loading: false})
+            }
+          })
+          .catch( (e) => {
+            if (generation !== this._fetchGeneration) return
+            console.error(debugTag, "GET (definite) FAILED - loading state will stay stuck without this", e)
+            this.setState({loading_definite: false, loading: false})
           });
-        }catch(e){
-          console.log('error', e)
-        }
       }else{
-        this.setState({imagery_ids: []}); 
+        this.setState({imagery_ids: []});
         this.setState({loading_definite: false})
       }
 
       if (this.props.tab === 'People' ){
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
-        console.log(imagery_url)
-        try{
-          axiosInstance.get(imagery_url)
+        axiosInstance.get(imagery_url)
           .then( (response) => {
-            // resolve({data: response.data});
-            // console.log(response)
-            this.setState({possible_ids: response.data.id_list}); 
+            if (generation !== this._fetchGeneration) return
+            this.setState({possible_ids: response.data.id_list});
             this.setState({loading_poss: false})
-
-            if (! this.state.loading_definite){
+            // Same reasoning as the "definite" handler above - only
+            // flip loading once both fetches for this generation are
+            // actually done.
+            if (!this.state.loading_definite){
               this.setState({loading: false})
             }
-
-            this.setState({loading: false})
+          })
+          .catch( (e) => {
+            if (generation !== this._fetchGeneration) return
+            console.error(debugTag, "GET (possible) FAILED - loading state will stay stuck without this", e)
+            this.setState({loading_poss: false, loading: false})
           });
-        }catch(e){
-          console.log('error', e)
-        }
       }
       else{
+        // No "possible" concept outside the People tab (e.g. Folders) -
+        // nothing async to wait on here. Don't flip the overall
+        // loading flag though; the "definite" fetch above (still in
+        // flight for this tab) owns that via its own
+        // !this.state.loading_poss check once it resolves.
         this.setState({loading_poss: false})
-        this.setState({loading: false})
       }
     }
 

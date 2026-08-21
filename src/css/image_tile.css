@@ -103,16 +103,24 @@
   overflow: hidden;
 }
 
-.rowConfirmBreak{
-  clear: both;
-  width: 100%;
-  text-align: right;
-  padding: 2px 10px 6px 0;
-}
-
 .rowConfirmButton{
+  /* Floats alongside the .imgDiv tiles (no clear/full-width break) so
+     it stays part of the same continuous float flow as the row it
+     belongs to, instead of forcing every row onto its own block.
+     Narrow and tile-height-tall (rather than a wide horizontal button)
+     so it reads as a strip at the end of the row instead of a block
+     that's prone to spilling onto the next line - its width is also
+     measured live and reserved for in gallery.jsx's column math (see
+     measureButtonWidth/recomputeColumns), so it always fits. */
+  float: left;
+  box-sizing: border-box;
+  height: 150px;
+  width: 28px;
+  margin: 0;
+  writing-mode: vertical-rl;
+  text-align: center;
   font-size: 12px;
-  padding: 4px 10px;
+  padding: 10px 4px;
   border-radius: 4px;
   border: 1px solid #450293;
   background-color: white;

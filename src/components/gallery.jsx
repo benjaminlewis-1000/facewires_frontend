@@ -19,6 +19,10 @@ import { Message } from 'semantic-ui-react'; // already a dependency, used elsew
 // instead of re-measuring - it can't change without a page reload.
 let cachedTileWidth = null;
 
+// Same idea, for a rendered .rowConfirmButton's width - see
+// measureButtonWidth.
+let cachedButtonWidth = null;
+
 class Gallery extends React.Component{
 
   constructor(props){
@@ -30,13 +34,16 @@ class Gallery extends React.Component{
     this.handleRowAction = this.handleRowAction.bind(this)
     this.runBulkOperation = this.runBulkOperation.bind(this)
     this.measureTileWidth = this.measureTileWidth.bind(this)
+    this.measureButtonWidth = this.measureButtonWidth.bind(this)
     this.recomputeColumns = this.recomputeColumns.bind(this)
     this.ensureGridObserved = this.ensureGridObserved.bind(this)
+    this.getRowButtonMode = this.getRowButtonMode.bind(this)
     this.gridRef = React.createRef()
     // Instance copy of the cached width, if one exists yet - not in
     // state, since changing it shouldn't by itself trigger a re-render
     // (recomputeColumns, below, is what actually updates state.columnCount).
     this.tileWidth = cachedTileWidth
+    this.buttonWidth = cachedButtonWidth
     this.gridObserved = false
 
     for (const [index, value] of this.props.people.entries()) {
@@ -99,6 +106,18 @@ class Gallery extends React.Component{
   componentDidMount(){
     document.addEventListener("keydown", this._handleKeyDown);
 
+    // ImageScreen only ever constructs a <Gallery> once its own fetches
+    // have resolved (see imageScreen.jsx's `!this.state.loading` gate) -
+    // so by the time this instance exists at all, this.props already
+    // has good data. ready otherwise only gets set true from
+    // componentDidUpdate below, which never fires on a first mount -
+    // without this, a Gallery whose person never changes again after
+    // the initial mount would stay stuck showing the "Loading"
+    // placeholder in render() forever, since InfiniteScroll (and so
+    // fetchMoreData) never even gets rendered until ready is true.
+    this.setState({ ready: true })
+    this.fetchMoreData()
+
     // Recompute columnCount whenever the grid's own rendered width
     // changes - window resizes, but also e.g. the sidebar changing width -
     // ResizeObserver watches the element itself rather than the window,
@@ -113,6 +132,7 @@ class Gallery extends React.Component{
     }else{
       this.measureTileWidth()
     }
+    this.measureButtonWidth()
   }
 
   componentWillUnmount(){
@@ -155,11 +175,52 @@ class Gallery extends React.Component{
     }
   }
 
+  // Which row-action label (if any) this gallery shows - shared by
+  // render() (to know whether/what to draw) and recomputeColumns (to
+  // know whether a button's width needs to be reserved in the
+  // per-row column count). See render() below for why the Unassigned
+  // tab is excluded.
+  getRowButtonMode(){
+    if (this.props.current_person_id === this.props.unassigned_person_id) return null
+    if (this.props.unlabeled) return 'confirm'
+    if (this.props.only_unverified) return 'verify'
+    return null
+  }
+
+  // Same idea as measureTileWidth, for a rendered .rowConfirmButton -
+  // only relevant on galleries that actually show one (getRowButtonMode
+  // truthy). Can't measure until a button has actually rendered once,
+  // which itself needs a first (possibly slightly-too-wide) columnCount
+  // guess from recomputeColumns - re-tried from componentDidUpdate below
+  // until it succeeds, at which point recomputeColumns reruns and
+  // self-corrects columnCount to the width-aware value.
+  measureButtonWidth(){
+    if (this.buttonWidth || !this.gridRef.current || !this.getRowButtonMode()) return
+
+    const button = this.gridRef.current.querySelector('.rowConfirmButton')
+    if (!button) return
+
+    const width = button.getBoundingClientRect().width
+    if (width > 0){
+      this.buttonWidth = width
+      cachedButtonWidth = width
+      this.recomputeColumns()
+    }
+  }
+
   recomputeColumns(){
     if (!this.tileWidth || !this.gridRef.current) return
 
+    // Reserve one button's worth of width per row on galleries that
+    // show the row-action button, so the JS-computed row groupings
+    // (computeVisibleRows/rowEndIds) match how many tiles the browser's
+    // own float-wrap layout actually fits before the button - otherwise
+    // the button spills onto its own line and misaligns everything
+    // after it. Until buttonWidth is known, falls back to the
+    // tile-only estimate; self-corrects once measureButtonWidth finds it.
+    const reserved = this.getRowButtonMode() ? (this.buttonWidth || 0) : 0
     const containerWidth = this.gridRef.current.getBoundingClientRect().width
-    const columns = Math.max(1, Math.floor(containerWidth / this.tileWidth))
+    const columns = Math.max(1, Math.floor((containerWidth - reserved) / this.tileWidth))
     if (columns !== this.state.columnCount){
       this.setState({ columnCount: columns })
     }
@@ -207,6 +268,9 @@ class Gallery extends React.Component{
     this.ensureGridObserved()
     if (!this.tileWidth){
       this.measureTileWidth()
+    }
+    if (!this.buttonWidth){
+      this.measureButtonWidth()
     }
   }
 
@@ -423,10 +487,24 @@ class Gallery extends React.Component{
   // (see recomputeColumns/measureTileWidth above). Shared by render()
   // (to know where to draw a row-action button) and handleRowAction
   // (to know which face_ids are "up to and including" a given row).
+  //
+  // Memoized: render() (and therefore this) runs on every scroll event
+  // via trackWindowScroll, but items/hidden/columnCount - the only
+  // things that actually affect the result - change far less often than
+  // that. Caching on those three (items/hidden compared by reference,
+  // since state always replaces them with a new array rather than
+  // mutating in place) skips redoing this O(n) work on the many renders
+  // where none of them changed.
   computeVisibleRows(){
-    const hiddenSet = new Set(this.state.hidden)
-    const visible = this.state.items.filter(([, id]) => !hiddenSet.has(id))
-    const columns = Math.max(1, this.state.columnCount)
+    const { items, hidden, columnCount } = this.state
+    const cache = this._rowsCache
+    if (cache && cache.items === items && cache.hidden === hidden && cache.columnCount === columnCount){
+      return cache.result
+    }
+
+    const hiddenSet = new Set(hidden)
+    const visible = items.filter(([, id]) => !hiddenSet.has(id))
+    const columns = Math.max(1, columnCount)
 
     const rowEndIds = new Set()
     visible.forEach((item, i) => {
@@ -434,7 +512,9 @@ class Gallery extends React.Component{
       if (isLastInRow) rowEndIds.add(item[1])
     })
 
-    return { visible, rowEndIds }
+    const result = { visible, rowEndIds }
+    this._rowsCache = { items, hidden, columnCount, result }
+    return result
   }
 
   // mode is 'confirm' (unlabeled-faces gallery - bulk confirm_proposed)
@@ -515,6 +595,19 @@ class Gallery extends React.Component{
   }
 
   fetchMoreData = () => {
+      // Cheap runaway-loop tripwire: fetchMoreData should only fire on
+      // real scroll/pagination events, at most a handful of times a
+      // second. If something (e.g. InfiniteScroll's own visibility
+      // detection getting confused by the row layout) starts calling it
+      // back-to-back with no gap, this surfaces it immediately instead
+      // of just presenting as "the page is slow."
+      const now = performance.now()
+      const sinceLast = this._lastFetchAt ? Math.round(now - this._lastFetchAt) : null
+      this._lastFetchAt = now
+      if (sinceLast !== null && sinceLast < 16){
+        console.warn(`[Gallery ${this.props.current_person_id}] fetchMoreData firing faster than one frame (${sinceLast}ms) - likely runaway loop`)
+      }
+
       var combined_list = this.props.img_ids.concat(this.props.poss_ids)
 
       var start = this.state.start_idx
@@ -556,12 +649,9 @@ class Gallery extends React.Component{
     // still-unverified defined rows) - and never on the Unassigned tab,
     // whose tiles are a different type ('unassigned_tab') entirely.
     // picasaScreen.jsx already keeps these two toggles mutually
-    // exclusive, so at most one of these is ever true.
-    const isUnassignedTab = this.props.current_person_id === this.props.unassigned_person_id
-    const rowButtonMode = isUnassignedTab ? null
-      : this.props.unlabeled ? 'confirm'
-      : this.props.only_unverified ? 'verify'
-      : null
+    // exclusive, so at most one of these is ever true. (See
+    // getRowButtonMode above, also used by recomputeColumns.)
+    const rowButtonMode = this.getRowButtonMode()
     const rowButtonLabel = rowButtonMode === 'confirm' ? 'Confirm row' : 'Verify row'
 
     return(
@@ -635,14 +725,12 @@ class Gallery extends React.Component{
                     onHighlightUpdated={this.props.onHighlightUpdated}
                   />
                   {rowButtonMode && rowEndIds.has(x_val[1]) && (
-                    <div className='rowConfirmBreak'>
                       <button
                         className='rowConfirmButton'
                         onClick={() => this.handleRowAction(rowButtonMode, x_val[1])}
                       >
                         {rowButtonLabel}
                       </button>
-                    </div>
                   )}
                 </React.Fragment>
               )}
