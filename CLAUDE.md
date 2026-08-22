@@ -133,3 +133,47 @@ on prod and dev.
   this properly means true windowing (e.g. react-window), which is a
   bigger change since row-button/column math currently assumes every
   item is present in the DOM to measure against.
+- Bug to investigate: "Remove from person" (close_assigned action,
+  gallery.jsx/lazyImg.jsx - both the context-menu item and the "x"
+  reject button call `api_action('close_assigned', face_id)`) doesn't
+  actually remove the face from the person. Reproduces in both the
+  verify tab and the main person gallery. Likely (~90% confidence, not
+  yet confirmed) a backend issue rather than frontend - the frontend's
+  PATCH /faces/bulk_operation/ call with operation: 'close_assigned'
+  looks correct and unchanged, but this hasn't been root-caused yet.
+  Needs the backend running locally to actually confirm and debug
+  (wasn't up when this was found).
+- Bug to investigate: after the tab sits in the background for a while
+  (laptop asleep, tab backgrounded, etc.) and the user comes back and
+  clicks to a different person, no images render. Not yet diagnosed -
+  plausible suspects worth checking first: the session cookie/CSRF
+  token expiring while backgrounded (face images are plain `<img src>`
+  tags hitting `/keyed_image/...` directly, not through axiosInstance,
+  so an expired-session redirect there would fail silently with no
+  error banner); the browser throttling background-tab timers, which
+  could stall `PicasaScreen`'s 10-minute people-list refresh interval
+  or `ImageScreen`'s fetch-generation bookkeeping; or `store`
+  (localStorage) losing `access_key`/`api_url` some other way. Needs
+  reproducing with dev tools open (Network tab, and check for console
+  errors) to narrow down.
+- Feature follow-up, blocked on backend: "Merge into..." (personSidebar.jsx
+  context menu -> picasaScreen.jsx's submitMerge) currently only
+  reassigns the source person's *confirmed* faces (num_faces) to the
+  target, via a loop of the existing per-face assign_face_to_person
+  PATCH. It deliberately leaves the source's possible/unconfirmed
+  matches (num_possibilities) alone, since converting them to confirmed
+  faces on the target would be presumptuous. What's actually wanted:
+  reassign those possible matches to the target too, but *still as
+  possible matches* (not auto-confirmed) - there's no backend endpoint
+  for "change which person a proposed/possible match candidate is
+  against" without confirming it. Needs that endpoint built before the
+  frontend can do this; submitMerge is the place to wire it up once it
+  exists.
+- Feature follow-up, blocked on backend: after a merge, the source
+  person's now-empty record isn't actually deleted on the backend -
+  `finishMerge` (picasaScreen.jsx) only removes it from the frontend's
+  local `state.people`. It stays hidden (fetchPeopleList already filters
+  out num_faces===0 people other than the two special names), but sits
+  as an orphan row server-side indefinitely. Needs a delete-person
+  endpoint; once it exists, call it from finishMerge (or right after the
+  reassignment loop in submitMerge) to actually clean up the source.

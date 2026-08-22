@@ -124,7 +124,7 @@ class ImageScreen extends React.Component{
         this.setState({loading_definite: false})
       }
 
-      if (this.props.tab === 'People' ){
+      if (this.props.tab === 'People' && !this.props.only_unverified ){
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
         axiosInstance.get(imagery_url)
           .then( (response) => {
@@ -145,11 +145,16 @@ class ImageScreen extends React.Component{
           });
       }
       else{
-        // No "possible" concept outside the People tab (e.g. Folders) -
-        // nothing async to wait on here. Don't flip the overall
-        // loading flag though; the "definite" fetch above (still in
-        // flight for this tab) owns that via its own
+        // No "possible" concept outside the People tab (e.g. Folders),
+        // and the "verify unverified faces" gallery (only_unverified)
+        // deliberately excludes possible/unlabeled matches too - it
+        // should show only the person's already-assigned faces that
+        // still need verifying, not proposed matches tacked on the end.
+        // Nothing async to wait on here either way. Don't flip the
+        // overall loading flag though; the "definite" fetch above
+        // (still in flight for this tab) owns that via its own
         // !this.state.loading_poss check once it resolves.
+        this.setState({possible_ids: []})
         this.setState({loading_poss: false})
       }
     }
@@ -195,12 +200,28 @@ class ImageScreen extends React.Component{
     return url
   }
 
-  toggle_unlikely(){
-    var id_num = this.props.people[this.props.selectedIndex].id
-    var toggle_url = store.get('api_url') + '/people/' + id_num + '/toggle_further_unlikely/'
-    var old_unlikely = this.props.people[this.props.selectedIndex].further_images_unlikely
+  // Resolves the currently-selected person by stable id rather than by
+  // array position. selectedIndex is only a valid position in `people`
+  // at the moment it's set - operations that remove someone from the
+  // list entirely (e.g. merging a person away, or a refetch that drops
+  // an emptied-out person) shift everyone after them back by one, which
+  // would silently point index-based lookups at the wrong person. Only
+  // meaningful on the People tab - Folders selectedIndex indexes into
+  // the folder list, not `people`.
+  getSelectedPerson(){
+    if (this.props.tab !== 'People') return null
+    if (this.props.api_id === this.props.unassigned_person_id) return null
+    return this.props.people.find(p => p.id === this.props.api_id) || null
+  }
 
-    this.props.people[this.props.selectedIndex].further_images_unlikely = !old_unlikely
+  toggle_unlikely(){
+    const person = this.getSelectedPerson()
+    if (!person) return
+    var id_num = person.id
+    var toggle_url = store.get('api_url') + '/people/' + id_num + '/toggle_further_unlikely/'
+    var old_unlikely = person.further_images_unlikely
+
+    person.further_images_unlikely = !old_unlikely
     this.setState(prevState => ({ active: !prevState.active }))
 
     withRetry(() => axiosInstance.put(toggle_url))
@@ -220,10 +241,9 @@ class ImageScreen extends React.Component{
   }
 
   openRename() {
-    if (this.props.selectedIndex === -100) return
-    const currentName = this.props.people[this.props.selectedIndex].person_name
-    const id_num = this.props.people[this.props.selectedIndex].id
-    this.props.onRenamePerson && this.props.onRenamePerson(id_num, currentName)
+    const person = this.getSelectedPerson()
+    if (!person) return
+    this.props.onRenamePerson && this.props.onRenamePerson(person.id, person.person_name)
   }
 
 
@@ -232,15 +252,16 @@ class ImageScreen extends React.Component{
     // checkbox) only depends on the selected person, not on whether the
     // gallery is mid-refetch - keep it rendered across toggle-triggered
     // reloads instead of blanking it out while state.loading is true.
-    if ( this.props.selectedIndex === -100 ){
+    const selectedPerson = this.getSelectedPerson()
+    if ( !selectedPerson ){
       var selectedName = 'Unassigned'
       var further_unlikely = false
       var highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' alt="highlight" className='highlight_img' />
     }else{
-      further_unlikely = this.props.people[this.props.selectedIndex].further_images_unlikely
+      further_unlikely = selectedPerson.further_images_unlikely
       this.state.active = further_unlikely
-      selectedName = this.props.people[this.props.selectedIndex].person_name
-      var id_num = this.props.people[this.props.selectedIndex].id
+      selectedName = selectedPerson.person_name
+      var id_num = selectedPerson.id
       var id_url = store.get('api_url') + '/keyed_image/face_highlight/?access_key='
         + this.state.access_key + '&id=' + id_num + '&v=' + this.state.highlightVersion
       highlight_img = <img src={id_url} className="highlight_img"  alt="highlight" />

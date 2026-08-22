@@ -35,6 +35,13 @@ class PersonSidebar extends React.Component {
     // this.props.setSource(default_url.url)
     this.state = {
       personSelected: -100,
+      // Stable id of the selected person, tracked alongside the
+      // display-position `personSelected` index - see componentDidUpdate,
+      // which needs id (not position) to reliably tell whether the
+      // selection survived a `people` array change, since removing
+      // someone from the list (e.g. a merge) shifts everyone after them
+      // to a different index.
+      personSelectedId: default_url.id,
     }
 
     this.props.setSource('person', default_url.url, default_url.id, -100)
@@ -43,7 +50,7 @@ class PersonSidebar extends React.Component {
   handleClick(index, url, id) {
     // console.log(index, url)
     this.props.setSource('person', url, id, index)
-    this.setState({ personSelected: index })
+    this.setState({ personSelected: index, personSelectedId: id })
   }
 
   // Same filtering logic used by render(), but returned as data so
@@ -88,8 +95,15 @@ class PersonSidebar extends React.Component {
       return
     }
 
+    // Identity check by id (not array position) - a person's index shifts
+    // whenever someone earlier in the list is removed entirely (e.g. a
+    // merge), which would otherwise make this spuriously match a
+    // different person who happens to now sit at the old index. -100
+    // (Unassigned) is a fixed sentinel rather than a real position, so
+    // it's still safe to compare directly.
+    const isSelected = (e) => this.state.personSelected === -100 ? e.index === -100 : e.value.id === this.state.personSelectedId
     const entries = this.getFilteredEntries()
-    const stillPresent = entries.some(e => e.index === this.state.personSelected)
+    const stillPresent = entries.some(isSelected)
     if (stillPresent) return
 
     // The current selection was filtered out (typically: it was the last
@@ -101,14 +115,15 @@ class PersonSidebar extends React.Component {
     // nothing further down qualifies.
     if (entries.length > 0){
       const displayOrder = this.getFilteredEntries(false)
-      const prevPos = displayOrder.findIndex(e => e.index === this.state.personSelected)
-      const stillVisible = new Set(entries.map(e => e.index))
+      const prevPos = displayOrder.findIndex(isSelected)
+      const stillVisible = new Set(entries.map(e => e.index === -100 ? -100 : e.value.id))
 
       let next = null
       if (prevPos !== -1){
         for (let step = 1; step <= displayOrder.length; step++){
           const candidate = displayOrder[(prevPos + step) % displayOrder.length]
-          if (stillVisible.has(candidate.index)){
+          const candidateKey = candidate.index === -100 ? -100 : candidate.value.id
+          if (stillVisible.has(candidateKey)){
             next = candidate
             break
           }
@@ -120,7 +135,7 @@ class PersonSidebar extends React.Component {
       if (!next) next = entries[0]
 
       this.props.setSource('person', next.value.url, next.value.id, next.index)
-      this.setState({ personSelected: next.index })
+      this.setState({ personSelected: next.index, personSelectedId: next.value.id })
     }
   }
 
@@ -182,6 +197,9 @@ class PersonSidebar extends React.Component {
         <Menu id={SIDEBAR_PERSON_MENU_ID}>
           <Item onClick={({ props }) => this.props.onRenamePerson && this.props.onRenamePerson(props.id, props.name)}>
             Rename person
+          </Item>
+          <Item onClick={({ props }) => this.props.onMergePerson && this.props.onMergePerson(props.id, props.name)}>
+            Merge into...
           </Item>
         </Menu>
       </div>

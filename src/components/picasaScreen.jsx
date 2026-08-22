@@ -83,6 +83,84 @@ class RenameModal extends React.Component {
   }
 }
 
+// Same "own its keystroke state locally" reasoning as RenameModal above.
+// Reuses the .item/.item:hover styling from image_tile.css (already
+// imported by this file) that mutableSelect.jsx's person-search dropdown
+// uses, for a consistent look, though this is a plain always-open list
+// in a modal rather than an absolutely-positioned dropdown - no
+// flip/positioning logic needed here.
+class MergeModal extends React.Component {
+  constructor(props){
+    super(props);
+    this.state = { filterValue: '' };
+    this.handleChange = this.handleChange.bind(this);
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+  }
+
+  handleChange(e){
+    this.setState({ filterValue: e.target.value });
+  }
+
+  handleKeyDown(e){
+    if (e.key === 'Escape') this.props.onCancel();
+  }
+
+  render(){
+    // Escape regex special characters so a stray "(" etc. in the search
+    // box can't throw a SyntaxError out of `new RegExp` and crash the
+    // modal - mutableSelect.jsx's equivalent filter doesn't bother with
+    // this, but there's no reason not to be safe here.
+    const escaped = this.state.filterValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escaped, 'gi');
+    const options = this.props.people
+      .filter(p => p.id !== this.props.sourceId && p.id !== this.props.unassignedId && p.id !== this.props.ignorePersonId)
+      .filter(p => p.person_name.match(re));
+
+    return (
+      <div className='Overlay RenameOverlay' onClick={this.props.onCancel}>
+        <div className='renameModal' onClick={(e) => e.stopPropagation()}>
+          <h3>Merge "{this.props.sourceName}" into...</h3>
+          {this.props.submitting ? (
+            <div>
+              Merging {this.props.progress.total > 0 ? `${this.props.progress.done} of ${this.props.progress.total}` : '...'}
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Search people..."
+                value={this.state.filterValue}
+                onChange={this.handleChange}
+                onKeyDown={this.handleKeyDown}
+              />
+              <div className='mergeModalList'>
+                {options.map(p => (
+                  <div
+                    key={p.id}
+                    className='item'
+                    onClick={() => this.props.onSubmit(p.id, p.person_name)}
+                  >
+                    {p.person_name}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {this.props.error && (
+            <div className='renameModalError'>{this.props.error}</div>
+          )}
+          <div className='renameModalActions'>
+            <button className='renameCancelBtn' disabled={this.props.submitting} onClick={this.props.onCancel}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
 class PicasaScreen extends React.Component{
   
   constructor(props) {
@@ -113,6 +191,13 @@ class PicasaScreen extends React.Component{
       renameInitialValue: '',
       renameError: '',
       renameSubmitting: false,
+
+      showMergeModal: false,
+      mergeSourceId: null,
+      mergeSourceName: '',
+      mergeError: '',
+      mergeSubmitting: false,
+      mergeProgress: { done: 0, total: 0 },
     };
           
     // console.log(this.state.param_url)
@@ -136,6 +221,10 @@ class PicasaScreen extends React.Component{
     this.openRenameModal = this.openRenameModal.bind(this)
     this.closeRenameModal = this.closeRenameModal.bind(this)
     this.submitRename = this.submitRename.bind(this)
+
+    this.openMergeModal = this.openMergeModal.bind(this)
+    this.closeMergeModal = this.closeMergeModal.bind(this)
+    this.submitMerge = this.submitMerge.bind(this)
 
   }
 
@@ -478,6 +567,121 @@ class PicasaScreen extends React.Component{
       })
   }
 
+  // Shared merge trigger, same reasoning as openRenameModal above.
+  // Refuses to open on the two special people (Unassigned/.ignore) -
+  // "merge all their faces into someone else" doesn't make sense for
+  // either of those buckets.
+  openMergeModal(id, currentName){
+    if (id === this.state.unassigned_id || id === this.state.ignore_person_id) return
+    this.setState({
+      showMergeModal: true,
+      mergeSourceId: id,
+      mergeSourceName: currentName,
+      mergeError: '',
+      mergeSubmitting: false,
+      mergeProgress: { done: 0, total: 0 },
+    })
+  }
+
+  closeMergeModal(){
+    // Don't let the modal be dismissed mid-merge - there's no cancel
+    // for in-flight PATCH requests, and closing would just orphan the
+    // progress state with no way to tell if it finished.
+    if (this.state.mergeSubmitting) return
+    this.setState({ showMergeModal: false, mergeError: '' })
+  }
+
+  // There's no bulk person-merge endpoint on the backend - this reassigns
+  // every one of the source person's already-declared faces to the
+  // target, one PATCH per face (same call mutableSelect.jsx's
+  // "send to other person" uses for a single face), concurrency-capped
+  // the same way picasaScreen's own pagination fetches are. Doesn't touch
+  // the source's unconfirmed/possible matches (num_possibilities) -
+  // those are just proposed guesses, not actually the source person's
+  // faces yet, so silently confirming them onto the target as part of a
+  // merge would be presumptuous.
+  //
+  // TODO (blocked on backend): the actually-wanted behavior is to also
+  // reassign the source's possible/unconfirmed matches to the target,
+  // but *still as possible matches* rather than auto-confirming them -
+  // there's no endpoint yet for "repoint a proposed match's candidate
+  // person" without confirming it (assign_face_to_person always
+  // confirms). Once that endpoint exists: fetch the source's face_poss
+  // ids the same way as face_declared below, and reassign them via the
+  // new endpoint in a second mapWithConcurrency pass. See CLAUDE.md.
+  submitMerge(targetId, targetName){
+    const sourceId = this.state.mergeSourceId
+    if (targetId === sourceId) return
+
+    this.setState({ mergeSubmitting: true, mergeError: '' })
+
+    const face_list_url = store.get('api_url') + '/paginate_obj_ids/' + sourceId + '/face_declared'
+
+    axiosInstance.get(face_list_url)
+      .then(response => {
+        const faceIds = response.data.id_list || []
+        this.setState({ mergeProgress: { done: 0, total: faceIds.length } })
+
+        if (faceIds.length === 0){
+          this.finishMerge(sourceId, targetId)
+          return
+        }
+
+        let completed = 0
+        return mapWithConcurrency(faceIds, PAGINATION_CONCURRENCY, (faceId) => {
+          const assign_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
+          return withRetry(() => axiosInstance.patch(assign_url, { declared_name_key: targetId }))
+            .then(() => {
+              completed += 1
+              this.setState({ mergeProgress: { done: completed, total: faceIds.length } })
+            })
+        }).then(() => {
+          this.finishMerge(sourceId, targetId)
+        })
+      })
+      .catch(error => {
+        console.log("Error in merge", error)
+        this.setState({
+          mergeSubmitting: false,
+          mergeError: "Couldn't complete the merge - some faces may have already moved. Check both people before retrying.",
+        })
+      })
+  }
+
+  // Applies the merge locally (moves the source's face counts onto the
+  // target and drops the now-empty source from the sidebar) rather than
+  // waiting on a full people-list refetch, same immediacy reasoning as
+  // updatePersonCounts/updatePersonName. Safe to remove the source
+  // outright here (unlike a generic refetch) since personSidebar.jsx and
+  // imageScreen.jsx both now track the selected person by id rather than
+  // array position, so the removal can't silently point either at the
+  // wrong person.
+  //
+  // TODO (blocked on backend): this only removes the source from the
+  // frontend's list - fetchPeopleList already filters out num_faces===0
+  // people (except the two special names) so it won't reappear, but the
+  // now-empty person record itself is never actually deleted on the
+  // backend and will sit there as an orphan. Needs a delete-person
+  // endpoint; once it exists, call it here (or right after the merge
+  // completes) instead of/alongside this local-only removal. See
+  // CLAUDE.md.
+  finishMerge(sourceId, targetId){
+    this.setState(prevState => {
+      const source = prevState.people.find(p => p.id === sourceId)
+      const movedFaces = source ? source.num_faces : 0
+      const movedUnverified = source ? source.num_unverified_faces : 0
+
+      const people = prevState.people
+        .filter(p => p.id !== sourceId)
+        .map(p => p.id === targetId
+          ? { ...p, num_faces: p.num_faces + movedFaces, num_unverified_faces: p.num_unverified_faces + movedUnverified }
+          : p
+        )
+
+      return { people, showMergeModal: false, mergeSubmitting: false }
+    })
+  }
+
   renderSidebar() {
 
     if ( this.state.tab === "Tools" ){
@@ -487,7 +691,7 @@ class PicasaScreen extends React.Component{
     if ( this.state.tab === "People" ){
       return (
       <div>
-        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} />
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} />
         <ImageScreen
           tab={this.state.tab}
           api_source={this.state.api_source}
@@ -579,6 +783,21 @@ class PicasaScreen extends React.Component{
                   submitting={this.state.renameSubmitting}
                   onCancel={this.closeRenameModal}
                   onSubmit={this.submitRename}
+                />
+              )}
+
+              {this.state.showMergeModal && (
+                <MergeModal
+                  people={this.state.people}
+                  sourceId={this.state.mergeSourceId}
+                  sourceName={this.state.mergeSourceName}
+                  unassignedId={this.state.unassigned_id}
+                  ignorePersonId={this.state.ignore_person_id}
+                  error={this.state.mergeError}
+                  submitting={this.state.mergeSubmitting}
+                  progress={this.state.mergeProgress}
+                  onCancel={this.closeMergeModal}
+                  onSubmit={this.submitMerge}
                 />
               )}
             </div>

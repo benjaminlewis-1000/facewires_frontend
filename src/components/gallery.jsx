@@ -417,7 +417,17 @@ class Gallery extends React.Component{
         addDelta(current_person_id, { num_possibilities: -n, num_faces: n, num_unverified_faces: n })
         break
       case 'close_assigned':
-        if (definedCount) addDelta(current_person_id, { num_faces: -definedCount })
+        if (definedCount) {
+          addDelta(current_person_id, { num_faces: -definedCount })
+          // The verify gallery (only_unverified) only ever shows faces
+          // that are currently unverified, so a 'defined' face removed
+          // from here is guaranteed to be one - decrement the sidebar's
+          // unverified count too. Can't do this unconditionally: the
+          // same action fired from a normal person gallery could be
+          // removing an already-verified face, which shouldn't touch
+          // num_unverified_faces at all.
+          if (this.props.only_unverified) addDelta(current_person_id, { num_unverified_faces: -definedCount })
+        }
         if (proposedCount) addDelta(current_person_id, { num_possibilities: -proposedCount })
         addDelta(unassigned_person_id, { num_possibilities: n })
         break
@@ -742,6 +752,7 @@ class Gallery extends React.Component{
                   ignore_person_id={this.props.ignore_person_id}
                   peopleOptions={this.state.peopleOptions}
                   ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
+                  only_unverified={this.props.only_unverified}
                   updatePersonList={this.props.updatePersonList}
                   updatePersonCounts={this.props.updatePersonCounts}
                   unselectAll={this.unselectAll}

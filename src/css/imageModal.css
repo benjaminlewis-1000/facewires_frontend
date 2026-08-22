@@ -70,6 +70,23 @@
   border-color: #450293;
 }
 
+.mergeModalList {
+  /* Reuses image_tile.css's .item/.item:hover for each row (same look
+     as mutableSelect.jsx's person-search list) but needs its own
+     scrollable, full-width container - .item's own width:100px is sized
+     for the narrow face-tile dropdown, not this wider modal. */
+  margin-top: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+
+.mergeModalList .item {
+  width: auto;
+  cursor: pointer;
+}
+
 .renameModalError {
   color: #c0392b;
   font-size: 13px;

@@ -103,7 +103,16 @@ sourceCountDelta(n){
   if (this.props.type === 'proposed'){
     return { id: this.props.current_person_id, num_possibilities: -n }
   }
-  return { id: this.props.current_person_id, num_faces: -n }
+  const delta = { id: this.props.current_person_id, num_faces: -n }
+  // Same reasoning as gallery.jsx's close_assigned fix: the verify
+  // gallery (only_unverified) only ever shows currently-unverified
+  // 'defined' faces, so sending one to another person here is
+  // guaranteed to remove an unverified face - decrement that sidebar
+  // count too. Can't do this unconditionally, since the same "send to
+  // other person" action from a normal person gallery could be moving
+  // an already-verified face.
+  if (this.props.only_unverified) delta.num_unverified_faces = -n
+  return delta
 }
 
 // Assign a single face to targetId, independent of the primary
