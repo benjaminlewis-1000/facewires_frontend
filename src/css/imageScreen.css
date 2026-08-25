@@ -52,7 +52,15 @@
 }
 
 .infinite-scroll-component {
-    overflow: hidden !important;
+    /* Used to be overflow: hidden !important here - same class of bug as
+       .galleryGrid used to have (image_tile.css), just one level further
+       out: this wrapper sits directly around .galleryGrid, so clipping
+       here can cut off (or, per user report, visually bury under the
+       trigger input) the "send to other person" dropdown the same way,
+       for any row where the dropdown needs to extend past this
+       container's own current box. min-height below already guarantees
+       real height regardless, so nothing here actually depended on
+       overflow:hidden for layout. */
     /* 13px -- .imageScreen padding (top + bottom, see padding above) */
     min-height: calc( 100vh - var(--screen-header-height) - var(--menu-bar-height) - 13px) !important;
 }

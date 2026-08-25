@@ -6,9 +6,8 @@ import store from 'store';
 import '../css/image_tile.css'
 import LazyImage from './lazyImg'
 import InfiniteScroll from "react-infinite-scroll-component";
-import axiosInstance from './axios_setup'
 import Modal from "react-modal";
-import { withRetry } from './apiRetry';
+import { bulkFaceOperation } from './faceActions';
 import { Message } from 'semantic-ui-react'; // already a dependency, used elsewhere (login.jsx)
 
 // A rendered .imgDiv tile's width, in px. Measured live off the DOM
@@ -72,13 +71,33 @@ class Gallery extends React.Component{
     });
 
 
+    // All loaded items, across every infinite-scroll page - append-only,
+    // mutated directly (fetchMoreData pushes new pages onto it) rather
+    // than replaced wholesale in state. See fetchMoreData/computeVisibleRows
+    // for why: state.items.concat(...) used to rebuild (copy) the entire
+    // accumulated array on every single page load, and computeVisibleRows
+    // used to re-filter/re-chunk the entire thing too - both cost grew
+    // with total items loaded, so cost across a whole scroll session grew
+    // ~quadratically. itemsRef only ever grows by appending, and
+    // computeVisibleRows below now only processes the newly-appended tail
+    // on the common path (item count changed, hidden/columnCount didn't).
+    // state.itemsVersion is a plain counter bumped whenever itemsRef
+    // changes, purely to trigger a re-render - React needs *some* state
+    // change to know to re-render, since itemsRef's own identity never
+    // changes.
+    this.itemsRef = []
+    // Mirrors buildCountDeltas' old typeById lookup, but built up
+    // incrementally in fetchMoreData instead of rebuilt from scratch (a
+    // full scan of itemsRef) on every bulk action.
+    this._typeById = {}
+
     this.state = {
       imgsSelected: [],
       hidden: [],
       peopleOptions: peopleOptions,
       shiftOn: false,
       lastClicked: -1,
-      items: [],
+      itemsVersion: 0,
       start_idx: 0,
       items_per_screen: 100,
       ready: false,
@@ -97,13 +116,21 @@ class Gallery extends React.Component{
     }
 
 
-    this.clicks = [];
-    this.last_face_id=-1
+    // Tracks a still-pending single click waiting to see if a second one
+    // follows (see clickHandler) - null when there's nothing pending.
+    this.pendingClick = null
     this.api_action = this.api_action.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
     this.setHidden = this.setHidden.bind(this);
     this.unselectAll = this.unselectAll.bind(this);
     this.clearImagesSelected = this.clearImagesSelected.bind(this);
+    // Bound once (rather than the inline arrow render() used to pass)
+    // so it's a stable reference across renders - LazyImage is a
+    // PureComponent, and a fresh function prop on every render defeated
+    // that memoization for every tile, every render (worse on the
+    // Ignore/Unassigned tabs, where each tile mounts a MutableSelect
+    // instead of a plain button).
+    this.handleApiError = (msg) => this.setState({ errorMessage: msg })
 
       // this.handleKeyPress = useCallback((event) => {
       //   console.log(`Key pressed: ${event.key}`);
@@ -166,7 +193,7 @@ class Gallery extends React.Component{
   // rather than hardcoding a copy of image_tile.css's .imgDiv width -
   // that way this can't silently drift out of sync with the CSS if the
   // tile size ever changes there. No-ops if nothing's rendered yet
-  // (state.items starts empty and fills in asynchronously) - re-tried
+  // (itemsRef starts empty and fills in asynchronously) - re-tried
   // from componentDidUpdate below once items exist.
   measureTileWidth(){
     if (this.tileWidth || !this.gridRef.current) return
@@ -270,7 +297,7 @@ class Gallery extends React.Component{
     }
 
     // The grid div (and .imgDiv tiles inside it) render asynchronously -
-    // state.ready starts false and state.items fills in via
+    // state.ready starts false and itemsRef fills in via
     // fetchMoreData - so the calls made at mount time may have found
     // nothing yet. Keep retrying on each update until each succeeds
     // once; both bail out immediately on their own once already done.
@@ -393,14 +420,11 @@ class Gallery extends React.Component{
     const unassigned_person_id = this.props.unassigned_person_id
     const ignore_person_id = this.props.ignore_person_id
 
-    const typeById = {}
-    this.state.items.forEach(([, id, type]) => { typeById[id] = type })
-
     let definedCount = 0
     let proposedCount = 0
     faceIds.forEach(id => {
-      if (typeById[id] === 'defined') definedCount++
-      else if (typeById[id] === 'proposed') proposedCount++
+      if (this._typeById[id] === 'defined') definedCount++
+      else if (this._typeById[id] === 'proposed') proposedCount++
     })
     const n = faceIds.length
 
@@ -432,7 +456,22 @@ class Gallery extends React.Component{
         addDelta(unassigned_person_id, { num_possibilities: n })
         break
       case 'close_unassigned':
-        addDelta(unassigned_person_id, { num_possibilities: -n })
+        // "Send to ignore" is reachable from any face's context menu, not
+        // just the Unassigned tab - it was always debiting
+        // unassigned_person_id regardless of where the face actually came
+        // from, so sending an already-declared face (e.g. from the verify
+        // gallery) to ignore never touched current_person_id's num_faces/
+        // num_unverified_faces at all. Same source-determination as
+        // close_assigned just above.
+        if (current_person_id === unassigned_person_id) {
+          addDelta(unassigned_person_id, { num_possibilities: -n })
+        } else {
+          if (definedCount) {
+            addDelta(current_person_id, { num_faces: -definedCount })
+            if (this.props.only_unverified) addDelta(current_person_id, { num_unverified_faces: -definedCount })
+          }
+          if (proposedCount) addDelta(current_person_id, { num_possibilities: -proposedCount })
+        }
         addDelta(ignore_person_id, { num_faces: n })
         break
       case 'close_ignored':
@@ -473,23 +512,39 @@ class Gallery extends React.Component{
     if (!faceIds || faceIds.length === 0) return
 
     const current_person_id = this.props.current_person_id
+    const deltas = this.buildCountDeltas(action_type, faceIds)
 
     if (this.props.updatePersonCounts){
-      this.props.updatePersonCounts(this.buildCountDeltas(action_type, faceIds))
+      this.props.updatePersonCounts(deltas)
+    }
+
+    // Only 'close_unassigned' is recorded for undo/redo right now (see
+    // CLAUDE.md / picasaScreen.jsx's undo stack). 'close_assigned' and
+    // 'close_ignored' are themselves used as the *reverse* calls for other
+    // undoable actions. 'confirm_proposed' *was* also recorded - its
+    // reverse is 'close_assigned' - but that's the same operation already
+    // suspected (CLAUDE.md's "Remove from person" bug) to return success
+    // without actually persisting server-side: undoing a confirm looked
+    // like it worked (the local count moved back) but a refresh showed the
+    // face never actually left the person. Pulled from the undo stack
+    // until that backend bug is fixed, same treatment 'verify_face'
+    // already gets for having no trustworthy reverse.
+    if (this.props.onRecordUndo && action_type === 'close_unassigned'){
+      const label = `Sent ${faceIds.length} face${faceIds.length === 1 ? '' : 's'} to ignore`
+      this.props.onRecordUndo({
+        kind: action_type,
+        label,
+        faceIds: [...faceIds],
+        context: { currentPersonId: current_person_id },
+        forwardDeltas: deltas,
+      })
     }
 
     this.setState(prevState => ({
       hidden: [...new Set(prevState.hidden.concat(faceIds))]
     }))
 
-    var bulk_patch_url = store.get('api_url') + '/faces/bulk_operation/';
-    var data_list = {
-      face_id_list: faceIds,
-      operation: action_type,
-      current_person_id: current_person_id
-    };
-
-    withRetry(() => axiosInstance.patch(bulk_patch_url, data_list), { retries: 3, delayMs: 1000 })
+    bulkFaceOperation(action_type, faceIds, current_person_id)
       .then(response => {
         console.log(response)
       })
@@ -507,36 +562,57 @@ class Gallery extends React.Component{
   // (to know where to draw a row-action button) and handleRowAction
   // (to know which face_ids are "up to and including" a given row).
   //
-  // Memoized: render() (and therefore this) runs on every scroll event
-  // via trackWindowScroll, but items/hidden/columnCount - the only
-  // things that actually affect the result - change far less often than
-  // that. Caching on those three (items/hidden compared by reference,
-  // since state always replaces them with a new array rather than
-  // mutating in place) skips redoing this O(n) work on the many renders
-  // where none of them changed.
+  // Incrementally maintained rather than recomputed from scratch every
+  // call: render() (and therefore this) runs on every scroll event via
+  // trackWindowScroll, and itemsRef only ever grows (fetchMoreData
+  // appends, never replaces) - by far the most common reason this needs
+  // updating is "some new items got appended", not "hidden or
+  // columnCount actually changed". Only that common case gets the cheap
+  // path (process just the newly-appended tail, top up the last
+  // possibly-partial row, chunk the rest) - a real change to hidden
+  // (any bulk face action) or columnCount (resize) still does a full
+  // rebuild, since those can affect items already baked into the cache
+  // too. Either way this replaces what used to be an O(current total
+  // items) re-filter/re-chunk on literally every page load - the other
+  // half (alongside fetchMoreData's old items.concat()) of why cost used
+  // to grow ~quadratically with total images loaded over a scroll session.
   computeVisibleRows(){
-    const { items, hidden, columnCount } = this.state
-    const cache = this._rowsCache
-    if (cache && cache.items === items && cache.hidden === hidden && cache.columnCount === columnCount){
-      return cache.result
+    const items = this.itemsRef
+    const hidden = this.state.hidden
+    const columns = Math.max(1, this.state.columnCount)
+    const cache = this._visibleCache
+
+    if (!cache || cache.hidden !== hidden || cache.columns !== columns){
+      const hiddenSet = new Set(hidden)
+      const visible = items.filter(([, id]) => !hiddenSet.has(id))
+      const rows = []
+      for (let i = 0; i < visible.length; i += columns){
+        rows.push(visible.slice(i, i + columns))
+      }
+      this._visibleCache = { hidden, columns, hiddenSet, visible, rows, processedCount: items.length }
+      return { visible, rows }
     }
 
-    const hiddenSet = new Set(hidden)
-    const visible = items.filter(([, id]) => !hiddenSet.has(id))
-    const columns = Math.max(1, columnCount)
+    if (cache.processedCount < items.length){
+      const newVisible = items.slice(cache.processedCount).filter(([, id]) => !cache.hiddenSet.has(id))
+      cache.visible = cache.visible.concat(newVisible)
 
-    // Actual row groupings (chunks of `columns` items each, last row may
-    // be shorter) - used by render() to place the row-action button at a
-    // fixed slot per row (see render()'s button positioning) rather than
-    // right after however many tiles happen to be in that row.
-    const rows = []
-    for (let i = 0; i < visible.length; i += columns){
-      rows.push(visible.slice(i, i + columns))
+      let rows = cache.rows
+      let pool = newVisible
+      const lastRow = rows[rows.length - 1]
+      if (lastRow && lastRow.length < columns){
+        const need = columns - lastRow.length
+        rows = rows.slice(0, -1).concat([lastRow.concat(pool.slice(0, need))])
+        pool = pool.slice(need)
+      }
+      for (let i = 0; i < pool.length; i += columns){
+        rows.push(pool.slice(i, i + columns))
+      }
+      cache.rows = rows
+      cache.processedCount = items.length
     }
 
-    const result = { visible, rows }
-    this._rowsCache = { items, hidden, columnCount, result }
-    return result
+    return { visible: cache.visible, rows: cache.rows }
   }
 
   // mode is 'confirm' (unlabeled-faces gallery - bulk confirm_proposed)
@@ -568,41 +644,56 @@ class Gallery extends React.Component{
     console.log("Drop")
   }
 
+  // Distinguishes a single click (select) from a double click (open the
+  // full-size modal) on the same tile. Previous version tracked this via
+  // a `this.clicks` timestamp array and a `sameFace` flag captured from
+  // `this.last_face_id` at the *first* click of a pair - but the first
+  // click of any double-click necessarily has last_face_id pointing at
+  // whatever was clicked before (a different face, or none), so its own
+  // captured `sameFace` was always false, and its 250ms timeout ran the
+  // single-click branch before the second click's timeout ever got a
+  // chance to fire the double-click branch (which by then also saw an
+  // empty `this.clicks`, from the first timeout resetting it, and fell
+  // through to single-click too). Also, `window.clearTimeout(timeout)`
+  // above cleared a `var timeout` declared fresh on the same line -
+  // always undefined - so it never actually cancelled a still-pending
+  // timeout from a prior click either. Net effect: a real double-click
+  // only opened the modal if the tile had already been separately
+  // single-clicked first (which happened to leave last_face_id already
+  // pointing at it) - exactly the "click once to select, then
+  // double-click to view" behavior reported.
+  //
+  // Fixed by tracking one pending click directly: the first click starts
+  // a timer and remembers which face/when; if a second click on the same
+  // face arrives before that timer fires, it's a double-click - cancel
+  // the pending timer (so the single-click branch never runs at all) and
+  // open the modal immediately.
   clickHandler(event, face_id, index) {
-    
-        event.persist()
-        event.preventDefault();
-        this.clicks.push(new Date().getTime());
-        var timeout
-        window.clearTimeout(timeout);
-        var sameFace = (this.last_face_id === face_id)
-        this.last_face_id = face_id
+    event.persist()
+    event.preventDefault()
 
-        let promiseA = new Promise((resolve, reject) => {
-          timeout = window.setTimeout(() => {
-              if (this.clicks.length > 1 && this.clicks[this.clicks.length - 1] - this.clicks[this.clicks.length - 2] < 250 && sameFace) {
-                // doubleClick(event.target);
-                console.log("double")
-                this.setState({modalURL: store.get('api_url') + '/keyed_image/face_source/?id=' + face_id + '&access_key=' + store.get('access_key') })
-                this.clicks = []
-                this.toggleModal()
-                resolve([])
-              } else {
-                // console.log("singleClick")
-                var imgs_selected = this.singleClick(event, face_id, index);
-                this.clicks = []
-                // console.log('image select: ', imgs_selected)
-                resolve(imgs_selected)
-              }
-              //  else{
-              //   this.clicks = []
-              //   resolve(this.state.imgsSelected)
-              // }
-          }, 250);
-        })
-        return promiseA
-        // return Promise.resolve("asdf");
+    const now = new Date().getTime()
+    const pending = this.pendingClick
+    const isDoubleClick = pending && pending.face_id === face_id && (now - pending.time) < 250
+
+    if (isDoubleClick) {
+      window.clearTimeout(pending.timeoutId)
+      this.pendingClick = null
+      this.unselectAll()
+      this.setState({modalURL: store.get('api_url') + '/keyed_image/face_source/?id=' + face_id + '&access_key=' + store.get('access_key') })
+      this.toggleModal()
+      return Promise.resolve([])
     }
+
+    return new Promise((resolve) => {
+      const timeoutId = window.setTimeout(() => {
+        this.pendingClick = null
+        const imgs_selected = this.singleClick(event, face_id, index)
+        resolve(imgs_selected)
+      }, 250)
+      this.pendingClick = { face_id, time: now, timeoutId }
+    })
+  }
 
 
  toggleModal() {
@@ -617,12 +708,6 @@ class Gallery extends React.Component{
   }
 
   fetchMoreData = () => {
-      // TODO(perf, low priority): this.state.items.concat(concatItems) below
-      // rebuilds the whole accumulated items array on every page load, so
-      // cost grows ~quadratically with total images loaded (see CLAUDE.md
-      // "Known perf issue" notes). Doesn't affect correctness - confirm/verify
-      // row actions still see every loaded item regardless of scroll position.
-      //
       // Cheap runaway-loop tripwire: fetchMoreData should only fire on
       // real scroll/pagination events, at most a handful of times a
       // second. If something (e.g. InfiniteScroll's own visibility
@@ -642,7 +727,6 @@ class Gallery extends React.Component{
       var end = Math.min(start + this.state.items_per_screen, combined_list.length)
       this.setState({start_idx: end})
 
-      var concatItems = [];
       var imgs_len = this.props.img_ids.length
 
       for (var j = start; j < end; j++){
@@ -656,12 +740,11 @@ class Gallery extends React.Component{
             type = 'proposed'
           }
         }
-        concatItems.push([j, value, type])
+        this.itemsRef.push([j, value, type])
+        this._typeById[value] = type
       }
 
-      this.setState({
-        items: this.state.items.concat(concatItems)
-      });
+      this.setState(prevState => ({ itemsVersion: prevState.itemsVersion + 1 }))
 
       if (end === combined_list.length){
         this.setState({more_to_load: false})
@@ -714,7 +797,7 @@ class Gallery extends React.Component{
           </Modal>
 
           <InfiniteScroll
-            dataLength={this.state.items.length}
+            dataLength={this.itemsRef.length}
             next={this.fetchMoreData}
             hasMore={this.state.more_to_load}
             loader={<h4>Loading...</h4>}
@@ -728,7 +811,7 @@ class Gallery extends React.Component{
                 far out of view, so long scroll sessions accumulate real
                 memory/render cost. See CLAUDE.md "Known perf issue" notes. */}
             <div className='galleryGrid' ref={this.gridRef}>
-              {this.state.items.map( x_val =>
+              {this.itemsRef.map( x_val =>
                 <LazyImage
                   key={x_val[1]}
                   selected={this.state.imgsSelected.indexOf(x_val[1]) >= 0}
@@ -736,7 +819,7 @@ class Gallery extends React.Component{
                   get_unique_list={this.get_unique_list}
                   hidden={this.state.hidden.indexOf(x_val[1]) >= 0}
                   api_action={this.api_action}
-                  onApiError={(msg) => this.setState({ errorMessage: msg })}
+                  onApiError={this.handleApiError}
                   setHidden={this.setHidden}
                   url={store.get('api_url') + '/keyed_image/face_array/?access_key='
                       + store.get('access_key') + '&id=' + x_val[1] }
@@ -755,6 +838,7 @@ class Gallery extends React.Component{
                   only_unverified={this.props.only_unverified}
                   updatePersonList={this.props.updatePersonList}
                   updatePersonCounts={this.props.updatePersonCounts}
+                  onRecordUndo={this.props.onRecordUndo}
                   unselectAll={this.unselectAll}
                   onHighlightUpdated={this.props.onHighlightUpdated}
                 />

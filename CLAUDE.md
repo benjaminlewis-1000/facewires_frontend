@@ -82,6 +82,25 @@ client level, `withRetry` covers "surface an error to the user after a few tries
 **Routing:** `react-router-dom` v5 (`Switch`/`Route`/`Redirect`), not v6 — don't introduce v6 APIs
 (`Routes`, `element` prop, etc.).
 
+**Undo/redo (not yet manually verified against the real backend — see "Currently in progress /
+open" below):** `picasaScreen.jsx` owns a plain in-memory undo/redo stack (`state.undoStack`/
+`undoPointer`, capped at 20 entries, never persisted to `store`/localStorage — deliberately,
+since replaying a reversal against faces that moved some other way since the tab was last open
+would be worse than just losing history on reload). Two action *kinds* are recorded right now,
+each as one entry per bulk action (never one per face): `assign_to_person` ("send to other
+person", recorded in `mutableSelect.jsx`'s `assignPerson`) and `close_unassigned` ("send to
+ignore", recorded in `gallery.jsx`'s `runBulkOperation`), via a new `onRecordUndo` prop threaded
+the same route as `updatePersonCounts`/`onApiError`. Undo negates the action's
+originally-computed count deltas and fires the real reverse API call (see `faceActions.js`'s
+`assignFaceToPerson`/`bulkFaceOperation`, shared by `gallery.jsx`, `mutableSelect.jsx`, and
+`picasaScreen.jsx`'s undo/redo execution itself, which has no live `Gallery` instance to call
+back into); redo reapplies the deltas and replays the original call. `confirm_proposed`
+("confirm") and `verify_face` aren't recorded — see backend-blocked follow-ups below, both for
+the same root cause (no trustworthy reverse operation). Toolbar buttons + Ctrl+Z/Ctrl+Y live in
+`tabular_menu.jsx`/`picasaScreen.jsx`; undoing/redoing more than `BULK_CONFIRM_THRESHOLD` (10)
+faces asks for confirmation first, since every reversal here is a real write against the live
+backend.
+
 **Known stale/inconsistent spots** (don't "fix" silently without confirming — some may be work in
 progress): `src/index.jsx` still uses `ReactDOM.render` (not `createRoot`) and hardcodes
 `store.set('api_url', ...)` rather than using `API_URL` from `config.js`; `README.md` is unmodified
@@ -119,13 +138,45 @@ on prod and dev.
 - Deleted dead files: pcScreenTest.jsx, login.jsx, customContext.jsx.
 
 ### Currently in progress / open
-- Known perf issue (low priority, not yet fixed): `Gallery.fetchMoreData`
-  (gallery.jsx) rebuilds `state.items` via `.concat()` on every
-  infinite-scroll page load, copying the whole accumulated list each
-  time — cost grows roughly with the square of total images loaded, so
-  scrolling deep into a large gallery gets progressively slower. Doesn't
-  affect correctness (the "confirm up to this row" bulk action still
-  works on items scrolled out of view — nothing is removed from state).
+- Not yet verified: the undo/redo feature (send-to-other-person, send-to-ignore, confirm —
+  see "Undo/redo" under Architecture above) was built and passes a container build, but hasn't
+  been manually clicked through against the real backend yet (undo/redo round-trips, the
+  >10-face confirm prompt, Ctrl+Z/Ctrl+Y, failure rollback, etc. — see the plan's Verification
+  section for the full checklist). Don't assume it works end-to-end until that's done.
+- Fixed (2026-08-25): `Gallery.fetchMoreData` (gallery.jsx) used to rebuild
+  `state.items` via `.concat()` on every infinite-scroll page load
+  (copying the whole accumulated list each time), and `computeVisibleRows`
+  used to re-filter/re-chunk that entire list on every call too — cost of
+  both grew with total images loaded, so scrolling deep into a large
+  gallery (or the first load of a large `.ignore` bucket) got progressively
+  slower. Fixed by switching to an append-only pattern: `this.itemsRef`
+  is a plain mutable array `fetchMoreData` pushes new pages onto directly
+  (`state.itemsVersion`, a plain counter, is bumped alongside it purely to
+  trigger a re-render — itemsRef's own identity never changes so React
+  needs something else to notice). `computeVisibleRows` now only
+  processes the newly-appended tail on the common path (item count grew,
+  `hidden`/`columnCount` didn't) instead of recomputing from scratch;
+  a real change to `hidden` (any bulk face action) or `columnCount`
+  (resize) still triggers a full rebuild, since those can affect items
+  already baked into the cache too. `buildCountDeltas`'s old `typeById`
+  scan (built fresh from `state.items` on every bulk action) similarly
+  became `this._typeById`, maintained incrementally in `fetchMoreData`
+  instead. Doesn't affect correctness — same behavior as before, just not
+  re-derived from scratch every time.
+- Known perf issue (low priority, not yet fixed — evaluated as a next
+  step 2026-08-25, deferred in favor of the fix above): the gallery still
+  isn't virtualized — every loaded face tile stays mounted as a live DOM
+  `<img>` (via LazyImage) even after scrolling past it, so React still
+  has to walk/diff the whole growing element list on every render (even
+  though memoization means most of it bails out without touching the
+  DOM), and long scrolling sessions still accumulate real memory
+  overhead. This is now the main remaining lever for any further
+  "pause on scroll/large gallery" complaints, since the fix above only
+  addressed the *array bookkeeping* cost, not the render-list-size cost.
+  Fixing this properly means true windowing (e.g. react-window), which
+  is a bigger change since row-button/column math currently assumes
+  every item is present in the DOM to measure against — needs its own
+  design pass, not a quick add.
 - Known perf issue (low priority, not yet fixed): the gallery isn't
   virtualized — every loaded face tile stays mounted as a live DOM
   `<img>` (via LazyImage) even after scrolling past it, so long
@@ -133,16 +184,33 @@ on prod and dev.
   this properly means true windowing (e.g. react-window), which is a
   bigger change since row-button/column math currently assumes every
   item is present in the DOM to measure against.
-- Bug to investigate: "Remove from person" (close_assigned action,
-  gallery.jsx/lazyImg.jsx - both the context-menu item and the "x"
-  reject button call `api_action('close_assigned', face_id)`) doesn't
-  actually remove the face from the person. Reproduces in both the
-  verify tab and the main person gallery. Likely (~90% confidence, not
-  yet confirmed) a backend issue rather than frontend - the frontend's
-  PATCH /faces/bulk_operation/ call with operation: 'close_assigned'
-  looks correct and unchanged, but this hasn't been root-caused yet.
-  Needs the backend running locally to actually confirm and debug
-  (wasn't up when this was found).
+- Bug, root-caused and fixed — but **only on the backend's dev branch, not
+  where this frontend's UI actually points**: "Remove from person"
+  (close_assigned action, gallery.jsx/lazyImg.jsx - both the context-menu
+  item and the "x" reject button call `api_action('close_assigned', face_id)`)
+  never actually removed the face from the person, in both the verify tab
+  and the main person gallery, and (once undo/redo shipped) undoing a
+  "confirm" hit the identical symptom, since its only reverse was calling
+  `close_assigned` too. Root cause, found 2026-08-24 in the backend repo
+  (`django_picasa_dev`, `backend_upgrade` branch): `close_assigned` always
+  called `Face.reject_association()`, which only knows how to decline a
+  *proposed* candidate (asserts the person is in the face's `poss_identN`
+  list) - it was never built to unassign an already-*declared* face, which
+  is what "Remove from person"/undo-of-confirm actually need. The assert
+  raised every time on a declared face, silently swallowed by the backend's
+  own blanket exception handler, so the PATCH always reported success while
+  doing nothing. Fixed in `api/views.py`'s `bulk_thread()` (branches on
+  whether `current_person_id` is a possible-match candidate vs. the face's
+  actual `declared_name`) with two new regression tests - see
+  `django_picasa_dev/CLAUDE.md` for the full writeup.
+  **This frontend talks to the production API (`picasa.exploretheworld.tech/api`,
+  per this file's "Project context" section), not the dev backend the fix
+  landed on** - so nothing changes here yet. Don't re-enable `confirm_proposed`
+  in the undo/redo stack (see the follow-up below) or consider this bug
+  actually resolved from this repo's side until the fix is ported to
+  `master` and deployed to the live `picasa_api` container. Deliberately left
+  as a TODO in the API repo for now rather than deployed immediately - see
+  `django_picasa_dev/CLAUDE.md`.
 - Bug to investigate: after the tab sits in the background for a while
   (laptop asleep, tab backgrounded, etc.) and the user comes back and
   clicks to a different person, no images render. Not yet diagnosed -
@@ -177,3 +245,49 @@ on prod and dev.
   as an orphan row server-side indefinitely. Needs a delete-person
   endpoint; once it exists, call it from finishMerge (or right after the
   reassignment loop in submitMerge) to actually clean up the source.
+- Feature follow-up, blocked on backend: `verify_face` actions aren't part of
+  the undo/redo stack (see "Undo/redo" above) because there's no "un-verify"
+  endpoint - once a face is verified there's currently no way to reverse it.
+  Once such an endpoint exists: record it in `gallery.jsx`'s `runBulkOperation`
+  the same way `close_unassigned` is (new `onRecordUndo` call with
+  `kind: 'verify_face'`), and add a matching case to `picasaScreen.jsx`'s
+  `runUndoRedoCall` (reverse = the new un-verify call, forward = `verify_face`
+  again).
+- Feature follow-up, blocked on backend deploy (fix exists, just not live):
+  `confirm_proposed` ("confirm") is also not part of the undo/redo stack,
+  since its only available reverse (`close_assigned`) was the operation
+  that was broken (see the bug entry above) - undoing a confirm looked like
+  it worked locally but didn't actually persist. The backend fix now exists
+  on `django_picasa_dev`'s `backend_upgrade` branch, but this frontend talks
+  to the production API, which doesn't have it yet. Re-add it (same pattern
+  as `close_unassigned` in `runBulkOperation`, plus a `case 'confirm_proposed'`
+  back in `picasaScreen.jsx`'s `runUndoRedoCall` - see git history around
+  2026-08-24 for the exact code that was removed) once the backend fix is
+  actually deployed to the live `picasa_api` container - not merely fixed on
+  the dev branch.
+- Minor known gap: undoing an "assign to other person" that created a
+  *brand-new* person (via `face_to_new_person`) doesn't delete that new person
+  server-side - same underlying gap as the merge orphan-record issue above
+  (no delete-person endpoint yet). The frontend just decrements its count back
+  to 0 locally; it'll sit as an empty orphan row until that endpoint exists.
+- Future feature, blocked on backend (not started - requested 2026-08-24): upload
+  images to the backend via the API, with:
+  - Drag-and-drop onto the page, plus a button to open the system file dialog,
+    handling any number of files at once with a progress/loading bar.
+  - Uploads should keep going in the background if the user navigates elsewhere
+    in the app while they're in flight (i.e. not tied to whatever component
+    happened to start them - needs to live somewhere that survives navigation,
+    the same reasoning that put the undo/redo stack in `picasaScreen.jsx` rather
+    than `Gallery`).
+  - After each upload, verify the photo actually made it onto the backend/
+    filesystem rather than just trusting a 200 from the initial request.
+  - User-defined sub-directory name at upload time, so uploads land pre-segmented
+    within the larger photo directory rather than all dumped in one place.
+  - Backend currently only has *read* access to the photo filesystem - no upload
+    endpoint exists at all yet. Needs: a new Django endpoint (accepting the
+    file(s) + the target sub-directory name), a defined default upload root in
+    the backend's `settings.py`, and - since the API container currently mounts
+    the photo directory read-only - either mounting a specific writable
+    sub-directory read/write in `docker-compose.yml`, or some other way to grant
+    write access without opening up the whole photo tree. Needs backend design/
+    implementation before any frontend work here can start.

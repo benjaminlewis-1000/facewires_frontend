@@ -68,7 +68,8 @@ class ImageScreen extends React.Component{
 
     if (this.props.api_id !== prevProps.api_id ||
         this.props.unlabeled !== prevProps.unlabeled ||
-        this.props.only_unverified !== prevProps.only_unverified){
+        this.props.only_unverified !== prevProps.only_unverified ||
+        this.props.refreshVersion !== prevProps.refreshVersion){
       const generation = ++this._fetchGeneration
       const debugTag = `[ImageScreen ${this.props.api_id}]`
       this.setState({loading: true})
@@ -282,6 +283,7 @@ class ImageScreen extends React.Component{
                     unlabeled={this.props.unlabeled}
                     only_unverified={this.props.only_unverified}
                     onHighlightUpdated={this.bumpHighlightVersion}
+                    onRecordUndo={this.props.onRecordUndo}
                   />
     }
 

@@ -19,6 +19,15 @@ class LazyImage extends React.PureComponent {
     this.otherAssignment = this.otherAssignment.bind(this);
     this.cancelOtherAssignment = this.cancelOtherAssignment.bind(this);
     this.set_as_thumbnail = this.set_as_thumbnail.bind(this);
+    this.set_invisible = this.set_invisible.bind(this);
+    // Bound once so it's a stable prop reference across renders (mutable_select
+    // is rebuilt inline in render() every time, so anything passed to it needs
+    // to already be stable going in for MutableSelect's own memoization - see
+    // mutableSelect.jsx - to actually do anything). Was previously setting
+    // local state LazyImage never reads/renders anywhere - forwards to the
+    // real error banner in gallery.jsx instead, same as set_as_thumbnail's
+    // catch already does below.
+    this.handleMutableSelectError = (msg) => { this.props.onApiError && this.props.onApiError(msg) };
     // this.get_unique_list = this.get_unique_list.bind(this);
   }
 
@@ -68,15 +77,16 @@ class LazyImage extends React.PureComponent {
       ignore_person_id={this.props.ignore_person_id}
       ignore_tab={this.props.ignore_tab}
       only_unverified={this.props.only_unverified}
-      setInvisible={(e)=>{this.set_invisible()}}
+      setInvisible={this.set_invisible}
       onCancel={this.cancelOtherAssignment}
       setHidden={this.props.setHidden}
       updatePersonList={this.props.updatePersonList}
       updatePersonCounts={this.props.updatePersonCounts}
+      onRecordUndo={this.props.onRecordUndo}
       imgsSelected={this.props.imgsSelected}
       clearImagesSelected={this.props.clearImagesSelected}
       // get_unique_list={this.get_unique_list}
-      onApiError={(msg) => this.setState({ errorMessage: msg })}
+      onApiError={this.handleMutableSelectError}
     />;
       
     return (
@@ -114,46 +124,46 @@ class LazyImage extends React.PureComponent {
           </Item>
         </Menu>
         
+        {/* ignore_tab overrides state.type entirely for both slots, rather
+            than being folded into the type switch below - the ignore
+            person's gallery mixes 'defined' tiles (already-ignored faces,
+            from face_declared) and 'proposed' tiles (possible-match
+            candidates for '.ignore', from face_poss - fetched for every
+            person's gallery whenever only_unverified is off, ignore
+            person included), and both need the same controls here
+            regardless of which one a given tile happens to be. There's no
+            literal 'ignored' type anywhere (gallery.jsx's fetchMoreData
+            only ever assigns 'unassigned_tab' / 'defined' / 'proposed') -
+            an 'ignored' case in the type switch below would just never
+            match. The Unassigned tab doesn't have this mixing problem -
+            fetchMoreData already forces every one of its tiles to type
+            'unassigned_tab', declared or possible alike - so it's fine to
+            stay a normal case in the switch. */}
         {
-          {
+          this.props.ignore_tab ? mutable_select : {
             'proposed': <button className={this.props.hidden ? 'hidden_img' : 'yes'}
                         onClick={ (e) => {this.props.api_action('confirm_proposed', this.props.face_id) } }
                         >
                         &#10003;
                         </button>,
-            'unassigned_tab': mutable_select
+            'unassigned_tab': mutable_select,
           }[this.state.type]
         }
         {
-          {
+          this.props.ignore_tab ? (
+            <button className={this.props.hidden ? 'hidden_img' : 'delete'}
+                    onClick={ (e)=>{this.props.api_action('close_ignored', this.props.face_id) } }
+                    >
+                    x
+                    </button>
+          ) : {
             'proposed': <button className={this.props.hidden ? 'hidden_img' : 'no'}
                         onClick={ (e)=>{this.props.api_action('close_assigned', this.props.face_id) } }
                         >
                         x
                         </button>,
-            'unassigned_tab': <button className={this.props.hidden ? 'hidden_img' : 'delete'}
-                                onClick={ (e)=>{this.props.api_action('close_unassigned', this.props.face_id) } }
-                                >
-                                x
-                                </button>,
-            'ignored': <button className={this.props.hidden ? 'hidden_img' : 'delete'}
-                                onClick={ (e)=>{this.props.api_action('close_ignored', this.props.face_id) } }
-                                >
-                                x
-                                </button>,
           }[this.state.type]
         }
-        {this.props.ignore_tab ? (
-          <React.Fragment>
-            <button 
-              className={this.props.hidden ? 'hidden_img' : 'delete'}
-              onClick={ (e)=>{this.props.api_action('close_ignored', this.props.face_id) } }
-            >
-              x
-            </button>
-            {mutable_select}
-          </React.Fragment> 
-        ) : <span></span>}
       </div>
     );
   }

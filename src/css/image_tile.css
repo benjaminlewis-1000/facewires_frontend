@@ -25,10 +25,16 @@
   position: relative;
   right: 28px;
   top: 4px;
-  border-radius: 6px;
-  width: 15px;
-  height: 15px;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
   border: 1px solid #000;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .delete:hover {
@@ -62,6 +68,38 @@
   z-index: 4;
   background-color: white;
 /*vertical-align: middle;*/
+}
+
+/* Skeuomorphic take on the close button - just for fun. A glossy 3D red
+   circle (gradient fill, inset highlight near the top + inset shadow
+   near the bottom to fake a rounded surface, outer drop shadow to lift
+   it off the tile) instead of the flat white circle above, plus a
+   pressed-in look on :active. Deliberately its own block placed after
+   the shared .yes,.no,.delete rule above (same .delete specificity, so
+   source order decides) rather than edited in there, so this whole look
+   is a single block to delete if it doesn't work out. */
+.delete {
+  background: linear-gradient(to bottom, #ff6b5e 0%, #e0302a 55%, #c11f1f 100%);
+  border: 1px solid #8f1414;
+  color: white;
+  font-weight: bold;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 3px 4px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -6px 8px rgba(0, 0, 0, 0.25);
+  transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.15s ease;
+}
+
+.delete:hover {
+  background: linear-gradient(to bottom, #ff7c70 0%, #e8433d 55%, #c72525 100%);
+}
+
+.delete:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .yes, .no{
@@ -216,15 +254,17 @@ div.ui.selection.dropdown, input.ui.selection.dropdown{
      so this doesn't collide with menubar.css's unrelated global .menu
      rule (position:fixed, top:0, z-index:200 - meant for the top navbar,
      but a plain ".menu" class selector matches anywhere) or
-     imageScreen.css's .transition (height:150px). Absolutely positioned
-     off .person_select (position:relative, see below) so it overlays
-     instead of pushing layout around, and can flip to open upward - see
-     mutableSelect.jsx's updateMenuPosition/openUpward. */
+     imageScreen.css's .transition (height:150px).
+     Positioning (position:fixed, left/top-or-bottom) is set inline in
+     mutableSelect.jsx's render, not here - this element is portaled
+     straight onto document.body (see that file for why: bumping z-index
+     alone didn't fix tiles in lower rows visually ducking under a
+     sibling tile's own trigger box - a portal sidesteps needing to find
+     the ancestor actually responsible by not nesting this inside the
+     tile at all) and needs real viewport coordinates from
+     wrapperRef.getBoundingClientRect(), which only JS can measure. */
   display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 60;
+  z-index: 500;
   max-height: 250px;
   width: 120px;
   overflow-y: auto;
@@ -237,13 +277,6 @@ div.ui.selection.dropdown, input.ui.selection.dropdown{
 
 .personSelectMenu.visible{
   display: block;
-}
-
-.personSelectMenu.upward{
-  /* Not enough room below the input (near the bottom of the viewport) -
-     open above it instead. */
-  top: auto;
-  bottom: 100%;
 }
 
 .selected{

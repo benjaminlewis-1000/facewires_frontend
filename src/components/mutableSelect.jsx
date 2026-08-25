@@ -1,10 +1,19 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Dropdown} from 'semantic-ui-react';
 import store from 'store';
 import axiosInstance from './axios_setup'
 import { withRetry } from './apiRetry';
+import { assignFaceToPerson } from './faceActions';
 
-class MutableSelect extends React.Component{
+// PureComponent so a re-render of the parent LazyImage (e.g. from the
+// gallery-wide re-renders trackWindowScroll forces on scroll) doesn't
+// force this - a real search input + dropdown, mounted on every tile on
+// the Ignore/Unassigned tabs - to redo work when none of its own props
+// actually changed. Only pays off because lazyImg.jsx now passes stable
+// function references in (see its constructor) rather than fresh
+// closures every render.
+class MutableSelect extends React.PureComponent{
   constructor(props){
     super(props);
 
@@ -17,12 +26,17 @@ class MutableSelect extends React.Component{
       // Whether the dropdown opens above the input instead of below -
       // see updateMenuPosition, called whenever the dropdown opens.
       openUpward: false,
+      // Viewport-relative coordinates the portaled menu positions itself
+      // at (position:fixed) - see updateMenuPosition/render. null until
+      // the first time the menu opens.
+      menuRect: null,
     }
 
     this.focusRef = React.createRef();
     // Positioning root for the dropdown menu (position:relative,
     // .person_select in image_tile.css) - measured in updateMenuPosition
-    // to decide whether there's room to open downward.
+    // to decide whether there's room to open downward, and to compute
+    // where the portaled menu (see render) should sit on screen.
     this.wrapperRef = React.createRef();
 
     this.makeSearchList=this.makeSearchList.bind(this)
@@ -45,12 +59,30 @@ class MutableSelect extends React.Component{
   // than only calling updateMenuPosition from the input's onClick below,
   // is what makes the very first open of a given tile's dropdown flip
   // upward correctly instead of only correcting itself on a second open.
+  //
+  // Also adds/removes a window scroll listener while open: the menu is
+  // portaled to document.body and positioned with position:fixed off
+  // wrapperRef's on-screen coordinates (see render/updateMenuPosition) -
+  // since it's no longer a normal descendant of the tile, it needs to be
+  // told explicitly to re-measure as the page scrolls, rather than just
+  // moving along with its old DOM position the way an absolutely
+  // positioned in-tree element would have.
   componentDidUpdate(prevProps, prevState){
     const wasOpen = prevState.visible && prevState.loaded
     const isOpen = this.state.visible && this.state.loaded
     if (isOpen && !wasOpen){
       this.updateMenuPosition()
+      window.addEventListener('scroll', this.updateMenuPosition, true)
+      window.addEventListener('resize', this.updateMenuPosition)
+    } else if (!isOpen && wasOpen){
+      window.removeEventListener('scroll', this.updateMenuPosition, true)
+      window.removeEventListener('resize', this.updateMenuPosition)
     }
+  }
+
+  componentWillUnmount(){
+    window.removeEventListener('scroll', this.updateMenuPosition, true)
+    window.removeEventListener('resize', this.updateMenuPosition)
   }
 
   focusInput(){
@@ -58,11 +90,15 @@ class MutableSelect extends React.Component{
   }
 
   // Decides whether the dropdown should open upward instead of downward,
-  // based on actual room left in the viewport - called right as the
-  // dropdown opens (the input's onClick below). Uses the CSS max-height
-  // (.personSelectMenu, image_tile.css) as a stand-in for the menu's
-  // real height rather than measuring the menu itself, since it may not
-  // have any options rendered yet at the moment it opens.
+  // based on actual room left in the viewport, and records the trigger
+  // input's current on-screen position for the portaled menu (see
+  // render) to place itself against - called whenever the dropdown opens
+  // and, while it's open, on every scroll/resize (see componentDidUpdate)
+  // so a portaled menu doesn't visually detach from its trigger input as
+  // the page moves under it. Uses the CSS max-height (.personSelectMenu,
+  // image_tile.css) as a stand-in for the menu's real height rather than
+  // measuring the menu itself, since it may not have any options
+  // rendered yet at the moment it opens.
   updateMenuPosition(){
     if (!this.wrapperRef.current) return
     const MENU_MAX_HEIGHT = 250
@@ -70,9 +106,10 @@ class MutableSelect extends React.Component{
     const spaceBelow = window.innerHeight - rect.bottom
     const spaceAbove = rect.top
     const openUpward = spaceBelow < MENU_MAX_HEIGHT && spaceAbove > spaceBelow
-    if (openUpward !== this.state.openUpward){
-      this.setState({ openUpward })
-    }
+    this.setState({
+      openUpward,
+      menuRect: { left: rect.left, width: rect.width, top: rect.bottom, bottom: window.innerHeight - rect.top },
+    })
   }
 
   // get_unique_list(){
@@ -119,8 +156,7 @@ sourceCountDelta(n){
 // face_to_new_person/assign_face_to_person call above. Used for the rest
 // of a bulk selection once the target person id is known.
 confirmFace(faceId, targetId){
-  var confirm_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
-  withRetry(() => axiosInstance.patch(confirm_url, { declared_name_key: targetId }))
+  assignFaceToPerson(faceId, targetId)
     .then(response => {})
     .catch(error => {
       console.log("Error in confirm_proposed", error)
@@ -132,6 +168,10 @@ assignPerson(inputName, api_key, personExists){
   console.log(uniq_selected)
   const n = uniq_selected.length
   const restSelected = uniq_selected.filter(faceId => faceId !== this.props.face_id)
+  // Where these faces are coming FROM - reused both for the source-side
+  // count delta below and, for undo/redo purposes, as the person id to
+  // send them back to if this action gets undone.
+  const priorPersonId = this.sourceCountDelta(n).id
 
   this.setState({visible:false})
   this.setState({value: inputName})
@@ -150,20 +190,38 @@ assignPerson(inputName, api_key, personExists){
           // the rest of the bulk selection needs to be assigned to it
           // explicitly, now that its real id is known.
           restSelected.forEach(faceId => this.confirmFace(faceId, new_id))
+
+          this.props.onRecordUndo && this.props.onRecordUndo({
+            kind: 'assign_to_person',
+            label: `Sent ${n} face${n === 1 ? '' : 's'} to ${inputName}`,
+            faceIds: uniq_selected,
+            context: { priorPersonId, targetPersonId: new_id },
+            // updatePersonList already set the new person's counts
+            // directly (rather than via a delta) - this synthetic target
+            // delta exists only so undo/redo has something symmetric to
+            // negate/reapply against the new person's row.
+            forwardDeltas: [this.sourceCountDelta(n), { id: new_id, num_faces: n, num_unverified_faces: n }],
+          })
         }
       }).catch(error => {
         console.log("Error in confirm_proposed", error)
         this.props.onApiError && this.props.onApiError(`Couldn't create new person "${inputName}" — please try again.`)
       })
   }else{
-    var confirm_url = store.get('api_url') + '/faces/' + this.props.face_id + '/assign_face_to_person/'
-
-    this.props.updatePersonCounts && this.props.updatePersonCounts([
+    const forwardDeltas = [
       this.sourceCountDelta(n),
       { id: api_key, num_faces: n, num_unverified_faces: n }
-    ])
+    ]
+    this.props.updatePersonCounts && this.props.updatePersonCounts(forwardDeltas)
+    this.props.onRecordUndo && this.props.onRecordUndo({
+      kind: 'assign_to_person',
+      label: `Sent ${n} face${n === 1 ? '' : 's'} to ${inputName}`,
+      faceIds: uniq_selected,
+      context: { priorPersonId, targetPersonId: api_key },
+      forwardDeltas,
+    })
 
-    withRetry(() => axiosInstance.patch(confirm_url, { declared_name_key: api_key }))
+    assignFaceToPerson(this.props.face_id, api_key)
       .then(response => {
         console.log(response)
       }).catch(error => {
@@ -266,6 +324,28 @@ makeSearchListNew(){
   // this.setState({opt_len: optionList.length})
   //menu transition
       //mutableMenu
+
+  // Portaled straight onto document.body rather than nested in the tile
+  // (its old spot, inside .person_select) - a bumped z-index alone
+  // didn't fix tiles in lower rows visually ducking under a sibling
+  // tile's own trigger box, which means some ancestor along the way was
+  // trapping it inside its own stacking context (position:absolute +
+  // z-index only wins against *siblings sharing that same context* - it
+  // can't escape one). Portaling out to the body sidesteps needing to
+  // find/fix that ancestor: this is now a direct child of <body>, in the
+  // same top-level stacking context as everything else, positioned with
+  // real viewport coordinates (position:fixed off wrapperRef's
+  // getBoundingClientRect() - see updateMenuPosition) instead of
+  // relying on being laid out relative to its old DOM parent.
+  const menuStyle = this.state.menuRect ? {
+    position: 'fixed',
+    left: this.state.menuRect.left,
+    width: this.state.menuRect.width,
+    ...(this.state.openUpward
+      ? { bottom: this.state.menuRect.bottom }
+      : { top: this.state.menuRect.top }),
+  } : { display: 'none' }
+
   return(
 
     <div className="ui active visible search selection dropdown person_select" ref={this.wrapperRef}>
@@ -291,16 +371,20 @@ makeSearchListNew(){
         onKeyPress={(e)=>{this.keyPress(e, options[this.state.listOrder])}}
       />
 
-      <div
-        className={`personSelectMenu ${this.state.visible ? 'visible' : ''} ${this.state.openUpward ? 'upward' : ''}`}
-        role="listbox"
-      >
-        {optionList}
-      </div>
+      {createPortal(
+        <div
+          className={`personSelectMenu ${this.state.visible ? 'visible' : ''}`}
+          style={menuStyle}
+          role="listbox"
+        >
+          {optionList}
+        </div>,
+        document.body
+      )}
     </div>
   )
 
-  
+
 }
 
 

@@ -104,6 +104,25 @@ export default class MenuExampleTabular extends Component {
           {this.createTabToggle('t2', 't2', 'Tools')}
         </div>
 
+        <div id='UndoRedoRemnant' className='contextMenu'>
+          <button
+            className='undoRedoButton'
+            disabled={!this.props.canUndo}
+            title={this.props.undoLabel ? `Undo: ${this.props.undoLabel}` : 'Undo'}
+            onClick={this.props.onUndo}
+          >
+            &#8630; Undo
+          </button>
+          <button
+            className='undoRedoButton'
+            disabled={!this.props.canRedo}
+            title={this.props.redoLabel ? `Redo: ${this.props.redoLabel}` : 'Redo'}
+            onClick={this.props.onRedo}
+          >
+            &#8631; Redo
+          </button>
+        </div>
+
         <div id='LogoutRemnant' className='contextMenu'>
           <button className='logoutIconButton' onClick={this.props.onLogout} title='Log out'>
             <img src='/logout-icon.png' alt='Log out' />

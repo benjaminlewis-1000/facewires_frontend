@@ -16,12 +16,43 @@ import PersonSidebar from './personSidebar'
 import ImageScreen from './imageScreen'
 import axiosInstance from './axios_setup'
 import { withRetry } from './apiRetry';
+import { assignFaceToPerson, bulkFaceOperation } from './faceActions';
+import { Message } from 'semantic-ui-react';
 import CircleLoader from "react-spinners/CircleLoader";
 
 // Cap how many pagination requests are in flight at once. 5 is a
 // reasonable default — enough to get the concurrency win, low enough
 // to not hammer the backend even if the dataset grows a lot.
 const PAGINATION_CONCURRENCY = 5;
+
+// How many undo/redo entries to keep. Bookkeeping is light (each entry is
+// just a handful of ids/numbers) so 20 is generous rather than tight.
+const MAX_UNDO_HISTORY = 20;
+
+// Undoing/redoing an action that touches more than this many faces asks
+// for confirmation first - a misclick both doing and then undoing
+// something this size is exactly the case worth a pause for, since every
+// reversal here is a real write against the live backend.
+const BULK_CONFIRM_THRESHOLD = 10;
+
+// Every numeric people-count field a delta can touch - see
+// updatePersonCounts and negateDeltas below.
+const COUNT_FIELDS = ['num_faces', 'num_possibilities', 'num_unverified_faces'];
+
+// Undo applies the exact inverse of whatever deltas an action originally
+// applied; redo re-applies them as-is. Keeping this as a pure negation
+// (rather than recomputing deltas from current state at undo/redo time)
+// is what lets undo/redo work regardless of whether the Gallery instance
+// that originally fired the action is even still mounted.
+function negateDeltas(deltas){
+  return deltas.map(delta => {
+    const negated = { id: delta.id }
+    for (const field of COUNT_FIELDS){
+      if (delta[field]) negated[field] = -delta[field]
+    }
+    return negated
+  })
+}
 
 // Owns the text input's own keystroke-by-keystroke state locally.
 // PicasaScreen sits above the (large, ~700+ entry) sidebar list, so if
@@ -198,6 +229,23 @@ class PicasaScreen extends React.Component{
       mergeError: '',
       mergeSubmitting: false,
       mergeProgress: { done: 0, total: 0 },
+
+      // Undo/redo history for face actions (send-to-other-person,
+      // send-to-ignore, confirm) - see CLAUDE.md and pushUndoable/
+      // performUndo/performRedo below. Deliberately plain in-memory
+      // state, not persisted to the `store` localStorage helper this
+      // app uses elsewhere - replaying an undo against faces that moved
+      // some other way since the tab was last open (another session, or
+      // the 10-minute background reconciliation) is worse than just
+      // losing the history on reload.
+      undoStack: [],
+      undoPointer: -1,
+      undoBusy: false,
+      undoError: '',
+      // Bumped on every undo/redo so ImageScreen re-fetches the
+      // currently-displayed gallery, in case it was affected - see
+      // imageScreen.jsx's componentDidUpdate.
+      refreshVersion: 0,
     };
           
     // console.log(this.state.param_url)
@@ -225,6 +273,11 @@ class PicasaScreen extends React.Component{
     this.openMergeModal = this.openMergeModal.bind(this)
     this.closeMergeModal = this.closeMergeModal.bind(this)
     this.submitMerge = this.submitMerge.bind(this)
+
+    this.pushUndoable = this.pushUndoable.bind(this)
+    this.performUndo = this.performUndo.bind(this)
+    this.performRedo = this.performRedo.bind(this)
+    this._handleUndoRedoKeyDown = this._handleUndoRedoKeyDown.bind(this)
 
   }
 
@@ -306,10 +359,36 @@ class PicasaScreen extends React.Component{
       () => this.fetchPeopleList(false),
       PicasaScreen.PEOPLE_REFRESH_INTERVAL_MS
     )
+
+    document.addEventListener("keydown", this._handleUndoRedoKeyDown)
   }
 
   componentWillUnmount(){
     clearInterval(this.peopleRefreshInterval)
+    document.removeEventListener("keydown", this._handleUndoRedoKeyDown)
+  }
+
+  // Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) for undo/redo, mirroring gallery.jsx's
+  // existing Delete/Shift+R shortcut pattern. Skipped entirely while a text
+  // input/textarea has focus (rename modal, merge search box, mutableSelect's
+  // person search) so this can't fight with typing or the browser's own
+  // undo in those fields.
+  _handleUndoRedoKeyDown(event){
+    const tag = event.target && event.target.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return
+    if (!(event.ctrlKey || event.metaKey)) return
+
+    if (event.key === 'z' || event.key === 'Z'){
+      event.preventDefault()
+      if (event.shiftKey){
+        this.performRedo()
+      }else{
+        this.performUndo()
+      }
+    }else if (event.key === 'y' || event.key === 'Y'){
+      event.preventDefault()
+      this.performRedo()
+    }
   }
 
   // Fetch the people list and refresh state.people. On the initial call
@@ -682,6 +761,109 @@ class PicasaScreen extends React.Component{
     })
   }
 
+  // Records one undoable action. Called from gallery.jsx's runBulkOperation
+  // (send-to-ignore, confirm) and mutableSelect.jsx's assignPerson
+  // (send-to-other-person), each of which already builds a single
+  // faceIds array covering its whole selection/row before calling this -
+  // so one user action (even a 47-face "confirm row" click) is always
+  // exactly one history entry, never one per face.
+  pushUndoable(record){
+    this.setState(prevState => {
+      const truncated = prevState.undoStack.slice(0, prevState.undoPointer + 1)
+      let undoStack = truncated.concat([{ ...record, id: `${Date.now()}-${Math.random()}` }])
+      if (undoStack.length > MAX_UNDO_HISTORY){
+        undoStack = undoStack.slice(undoStack.length - MAX_UNDO_HISTORY)
+      }
+      return { undoStack, undoPointer: undoStack.length - 1 }
+    })
+  }
+
+  bumpRefreshVersion(){
+    this.setState(prevState => ({ refreshVersion: prevState.refreshVersion + 1 }))
+  }
+
+  // Fires the actual reversing (or, for redo, re-applying) API call(s) for
+  // one action record. Shared by performUndo/performRedo below - `reverse`
+  // picks which direction, since the two are otherwise identical shapes
+  // (apply a count delta, fire a call, roll back on failure).
+  runUndoRedoCall(record, reverse){
+    switch (record.kind){
+      case 'assign_to_person': {
+        const targetId = reverse ? record.context.priorPersonId : record.context.targetPersonId
+        return mapWithConcurrency(record.faceIds, PAGINATION_CONCURRENCY, faceId =>
+          assignFaceToPerson(faceId, targetId))
+      }
+      case 'close_unassigned':
+        return bulkFaceOperation(reverse ? 'close_ignored' : 'close_unassigned', record.faceIds, record.context.currentPersonId)
+      // 'confirm_proposed' isn't recorded by gallery.jsx right now (see the
+      // comment in runBulkOperation) - its reverse would be 'close_assigned',
+      // which is suspected broken server-side. No case needed here unless
+      // that's fixed and recording is turned back on.
+      default:
+        return Promise.reject(new Error(`Unknown undo record kind: ${record.kind}`))
+    }
+  }
+
+  performUndo(){
+    const { undoStack, undoPointer, undoBusy } = this.state
+    if (undoPointer < 0 || undoBusy) return
+    const record = undoStack[undoPointer]
+
+    if (record.faceIds.length > BULK_CONFIRM_THRESHOLD){
+      const ok = window.confirm(`Undo "${record.label}"? This affects ${record.faceIds.length} faces.`)
+      if (!ok) return
+    }
+
+    this.setState({ undoBusy: true, undoError: '' })
+    this.updatePersonCounts(negateDeltas(record.forwardDeltas))
+
+    this.runUndoRedoCall(record, true)
+      .then(() => {
+        this.setState({ undoPointer: undoPointer - 1, undoBusy: false })
+        this.bumpRefreshVersion()
+      })
+      .catch(error => {
+        console.log("Error undoing action", record, error)
+        // Roll all the way back: nothing succeeded (or we can't tell what
+        // did), so leave the stack pointer where it was and undo the
+        // optimistic count delta too, rather than leaving local counts
+        // out of sync with a reversal that may not have actually happened.
+        this.updatePersonCounts(record.forwardDeltas)
+        this.setState({
+          undoBusy: false,
+          undoError: `Couldn't undo "${record.label}" — some faces may have already moved. Check before retrying.`,
+        })
+      })
+  }
+
+  performRedo(){
+    const { undoStack, undoPointer, undoBusy } = this.state
+    if (undoPointer >= undoStack.length - 1 || undoBusy) return
+    const record = undoStack[undoPointer + 1]
+
+    if (record.faceIds.length > BULK_CONFIRM_THRESHOLD){
+      const ok = window.confirm(`Redo "${record.label}"? This affects ${record.faceIds.length} faces.`)
+      if (!ok) return
+    }
+
+    this.setState({ undoBusy: true, undoError: '' })
+    this.updatePersonCounts(record.forwardDeltas)
+
+    this.runUndoRedoCall(record, false)
+      .then(() => {
+        this.setState({ undoPointer: undoPointer + 1, undoBusy: false })
+        this.bumpRefreshVersion()
+      })
+      .catch(error => {
+        console.log("Error redoing action", record, error)
+        this.updatePersonCounts(negateDeltas(record.forwardDeltas))
+        this.setState({
+          undoBusy: false,
+          undoError: `Couldn't redo "${record.label}" — some faces may have already moved. Check before retrying.`,
+        })
+      })
+  }
+
   renderSidebar() {
 
     if ( this.state.tab === "Tools" ){
@@ -702,6 +884,8 @@ class PicasaScreen extends React.Component{
           updatePersonList={this.updatePersonList}
           updatePersonCounts={this.updatePersonCounts}
           onRenamePerson={this.openRenameModal}
+          onRecordUndo={this.pushUndoable}
+          refreshVersion={this.state.refreshVersion}
           unlabeled={this.state.unlabeled_toggle}
           only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}
@@ -771,10 +955,26 @@ class PicasaScreen extends React.Component{
                   total: this.state.total,
                   t2: this.state.t2,
                 }}
+                canUndo={this.state.undoPointer >= 0 && !this.state.undoBusy}
+                canRedo={this.state.undoPointer < this.state.undoStack.length - 1 && !this.state.undoBusy}
+                onUndo={this.performUndo}
+                onRedo={this.performRedo}
+                undoLabel={this.state.undoPointer >= 0 ? this.state.undoStack[this.state.undoPointer].label : ''}
+                redoLabel={this.state.undoPointer < this.state.undoStack.length - 1 ? this.state.undoStack[this.state.undoPointer + 1].label : ''}
               />
               <div>
                 {this.renderSidebar()}
               </div>
+
+              {this.state.undoError && (
+                <Message
+                  negative
+                  onDismiss={() => this.setState({ undoError: '' })}
+                  header="Undo/redo failed"
+                  content={this.state.undoError}
+                  style={{ position: 'fixed', top: 90, right: 20, zIndex: 200, maxWidth: 320 }}
+                />
+              )}
 
               {this.state.showRenameModal && (
                 <RenameModal
