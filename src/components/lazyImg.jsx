@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
 import MutableSelect from './mutableSelect';
 import store from 'store';
@@ -106,24 +107,39 @@ class LazyImage extends React.PureComponent {
           onLoad={() => this.setState({ loaded: true })}
         />
    
-        <Menu id={menuId}>
-          <Item onClick={ () => this.props.api_action('close_assigned', this.props.face_id) }>
-            Remove from person
-          </Item>
-          <Item onClick={ () => this.props.api_action('close_unassigned', this.props.face_id) }>
-            Send to ignore
-          </Item>
-          <Item onClick={ this.otherAssignment }>
-            Send to other person
-          </Item>
-          <Item onClick={ () => this.props.api_action('verify_face', this.props.face_id) }>
-            Verify face
-          </Item>
-          <Item onClick={ this.set_as_thumbnail }>
-            Set as highlight image
-          </Item>
-        </Menu>
-        
+        {/* Portaled straight onto document.body rather than rendered inline -
+            react-contexify positions this with position:fixed computed from
+            the raw click coordinates (viewport-relative), but a fixed
+            descendant's containing block becomes its nearest ancestor with
+            a CSS transform if one exists, per the CSS spec - and every tile
+            here sits inside a react-window row div that has exactly that
+            (transform: translateY(...), for virtualized positioning). Left
+            inline, the menu ends up offset by that row's own translateY and
+            stacked below sibling rows painted later - the same class of bug
+            already fixed once for MutableSelect's dropdown (see there) for
+            the same underlying reason, just a second, unrelated component
+            that assumes plain viewport-relative fixed positioning. */}
+        {createPortal(
+          <Menu id={menuId}>
+            <Item onClick={ () => this.props.api_action('close_assigned', this.props.face_id) }>
+              Remove from person
+            </Item>
+            <Item onClick={ () => this.props.api_action('close_unassigned', this.props.face_id) }>
+              Send to ignore
+            </Item>
+            <Item onClick={ this.otherAssignment }>
+              Send to other person
+            </Item>
+            <Item onClick={ () => this.props.api_action('verify_face', this.props.face_id) }>
+              Verify face
+            </Item>
+            <Item onClick={ this.set_as_thumbnail }>
+              Set as highlight image
+            </Item>
+          </Menu>,
+          document.body
+        )}
+
         {/* ignore_tab overrides state.type entirely for both slots, rather
             than being folded into the type switch below - the ignore
             person's gallery mixes 'defined' tiles (already-ignored faces,
