@@ -83,6 +83,9 @@ class Gallery extends React.Component{
     this.clickHandler = this.clickHandler.bind(this)
     this.get_unique_list = this.get_unique_list.bind(this)
     this.handleRowAction = this.handleRowAction.bind(this)
+    // Imperative handle onto react-window's List - used by handleRowAction
+    // to scroll back to the top after a row confirm/verify (see there).
+    this.listRef = React.createRef()
     this.runBulkOperation = this.runBulkOperation.bind(this)
     this.handleListResize = this.handleListResize.bind(this)
     this.getRowButtonMode = this.getRowButtonMode.bind(this)
@@ -529,6 +532,18 @@ class Gallery extends React.Component{
 
     const action_type = mode === 'confirm' ? 'confirm_proposed' : 'verify_face'
     this.runBulkOperation(action_type, faceIds)
+
+    // Confirming/verifying "up to and including this row" hides everything
+    // from the top of the gallery through the clicked row - the images
+    // that used to be *below* it are now the new top of the list, but the
+    // scroll container's scrollTop doesn't change on its own, so without
+    // this the user would keep looking at whatever now happens to be at
+    // that same pixel offset (a jarring, unrelated set of faces) instead
+    // of picking up where they left off. Scroll back to row 0 so the
+    // newly-topmost (formerly-next) images are immediately visible.
+    if (this.listRef.current){
+      this.listRef.current.scrollToRow({ index: 0, align: 'start', behavior: 'auto' })
+    }
   }
 
   onDrop(event){
@@ -656,6 +671,7 @@ class Gallery extends React.Component{
         </Modal>
 
         <List
+          listRef={this.listRef}
           className='galleryGrid'
           style={{ height: 'calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - 13px)' }}
           rowComponent={GalleryRow}

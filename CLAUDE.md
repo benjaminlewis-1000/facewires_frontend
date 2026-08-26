@@ -231,6 +231,15 @@ on prod and dev.
     whole page scrolling together — a deliberate tradeoff (confirmed with
     the user) since `react-window` needs to own a fixed-height scroll
     container. The sidebar/header stay fixed; only the tile grid scrolls.
+  - `handleRowAction` (Confirm row/Verify row) now scrolls the list back
+    to row 0 (`this.listRef.current.scrollToRow({index: 0, ...})`,
+    `React.createRef()` passed to `<List listRef={...}>`) right after
+    firing the bulk action. Confirming/verifying is "up to and including
+    this row," which hides everything from the top of the gallery through
+    the clicked row — the images that used to be *below* it become the
+    new top of the list, but `scrollTop` doesn't move on its own, so
+    without this the user keeps looking at whatever now happens to sit at
+    that same pixel offset instead of picking up where they left off.
 - Bug, root-caused and fixed — but **only on the backend's dev branch, not
   where this frontend's UI actually points**: "Remove from person"
   (close_assigned action, gallery.jsx/lazyImg.jsx - both the context-menu
