@@ -61,7 +61,7 @@ paginating through DRF-style `{results, next, count}` responses via `compile_api
 `mapWithConcurrency` (`concurrencyPool.jsx`) to fetch remaining pages in parallel (capped at
 `PAGINATION_CONCURRENCY = 5`) rather than serially following `next`.
 
-`Gallery` (`gallery.jsx`) is the core interaction surface: infinite-scroll grid of `LazyImage` tiles
+`Gallery` (`gallery.jsx`) is the core interaction surface: a virtualized (`react-window`) grid of `LazyImage` tiles
 (`lazyImg.jsx`), single/shift/ctrl-click multi-select, double-click to open a full-size modal, and bulk
 face operations (`close_unassigned`, `close_ignored`, `close_assigned`, `confirm_proposed`, `verify_face`)
 sent via `PATCH /faces/bulk_operation/`. Keyboard shortcuts: `Delete` closes ignored faces (when on the
@@ -175,27 +175,62 @@ on prod and dev.
   became `this._typeById`, maintained incrementally in `fetchMoreData`
   instead. Doesn't affect correctness — same behavior as before, just not
   re-derived from scratch every time.
-- Known perf issue (low priority, not yet fixed — evaluated as a next
-  step 2026-08-25, deferred in favor of the fix above): the gallery still
-  isn't virtualized — every loaded face tile stays mounted as a live DOM
-  `<img>` (via LazyImage) even after scrolling past it, so React still
-  has to walk/diff the whole growing element list on every render (even
-  though memoization means most of it bails out without touching the
-  DOM), and long scrolling sessions still accumulate real memory
-  overhead. This is now the main remaining lever for any further
-  "pause on scroll/large gallery" complaints, since the fix above only
-  addressed the *array bookkeeping* cost, not the render-list-size cost.
-  Fixing this properly means true windowing (e.g. react-window), which
-  is a bigger change since row-button/column math currently assumes
-  every item is present in the DOM to measure against — needs its own
-  design pass, not a quick add.
-- Known perf issue (low priority, not yet fixed): the gallery isn't
-  virtualized — every loaded face tile stays mounted as a live DOM
-  `<img>` (via LazyImage) even after scrolling past it, so long
-  scrolling sessions accumulate real memory/render overhead. Fixing
-  this properly means true windowing (e.g. react-window), which is a
-  bigger change since row-button/column math currently assumes every
-  item is present in the DOM to measure against.
+- Fixed (2026-08-26): the gallery grid is now virtualized (`react-window`'s
+  `List`, one row of tiles per list row — `gallery.jsx`). Previously every
+  loaded face tile stayed mounted as a live DOM `<img>` forever (via
+  LazyImage) even once scrolled far out of view, on a `float: left`-based
+  grid where hiding even one face forced the browser to re-layout every
+  floated sibling after it — headless-profiled (Puppeteer, mocked backend)
+  against a synthetic 6,000-item `.ignore` gallery: ~2.0s of continuous
+  main-thread work on a single "send to ignore" click, ~60% of it browser
+  style/layout recalculation, before this fix; ~0.86s after, with the
+  layout-specific cost (`Blink.Layout.UpdateTime`) down roughly 7x. DOM
+  tile count now stays flat (~100-150, viewport-bound) regardless of scroll
+  depth or total dataset size, instead of growing unboundedly.
+  Implementation notes for future changes to `gallery.jsx`:
+  - The old "infinite scroll" (`fetchMoreData`/`itemsRef` pagination,
+    100-at-a-time) is gone entirely — `ImageScreen` already fetches the
+    *complete* `img_ids`/`poss_ids` array before ever mounting a `Gallery`
+    (see "Architecture" above), so there was never real backend pagination
+    to preserve; `buildItems()` now builds the full item list once, up
+    front, and `react-window` alone decides what actually renders.
+  - `.imgDiv` tiles are no longer floated — each row is a CSS grid
+    (`.galleryRow`, `display: grid`, `grid-template-columns` set inline
+    per row from the live-measured column count) built explicitly from
+    `computeVisibleRows()`'s row grouping, with the row-action button
+    (Confirm row/Verify row) as a pinned last grid cell instead of
+    absolutely-positioned math.
+  - Tile size and row-button width are declared once as CSS custom
+    properties (`--tile-size`, `--row-button-width` in `image_tile.css`)
+    and read via `getComputedStyle` (see `readSizeVars` in `gallery.jsx`)
+    rather than measured off a live-rendered DOM node — single source of
+    truth, and avoids a chicken-and-egg "can't size the virtualized list
+    until something's already rendered" problem. If either of those two
+    CSS values ever changes, nothing needs updating in `gallery.jsx` — it
+    reads them live — but if a *third* tile-affecting property is ever
+    added there, it needs its own custom property too, the same way.
+  - Column count is still measured live (matches the container's actual
+    rendered width, same as before) — but now comes from `react-window`'s
+    own `onResize` callback (`handleListResize`) instead of a
+    hand-rolled `ResizeObserver` + `gridRef`.
+  - `hidden` faces are now filtered out of the row list entirely (not
+    just CSS `display:none`'d) — closing/ignoring a face now actually
+    stops it from being a DOM node at all, rather than leaving it mounted
+    forever with `.hidden_img`.
+  - Dropped the `trackWindowScroll`/`scrollPosition` wiring
+    (`react-lazy-load-image-component`) — it existed to gate lazy-loading
+    against *window* scroll position, which no longer applies now that
+    the gallery scrolls in its own internal box (see below) and
+    `react-window` already only mounts tiles that are in view.
+    `mutableSelect.jsx` had a standing comment about working around
+    "gallery-wide re-renders trackWindowScroll forces on scroll" — that
+    workaround is now moot, though harmless to leave in place.
+  - **User-visible change**: the gallery grid now scrolls in its own
+    internal box (height = viewport minus header/menu bar, same formula
+    `.infinite-scroll-component`'s old `min-height` used) instead of the
+    whole page scrolling together — a deliberate tradeoff (confirmed with
+    the user) since `react-window` needs to own a fixed-height scroll
+    container. The sidebar/header stay fixed; only the tile grid scrolls.
 - Bug, root-caused and fixed — but **only on the backend's dev branch, not
   where this frontend's UI actually points**: "Remove from person"
   (close_assigned action, gallery.jsx/lazyImg.jsx - both the context-menu

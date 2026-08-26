@@ -1,4 +1,14 @@
 
+/* Single source of truth for the virtualized gallery's row math
+   (gallery.jsx's GalleryRow/recomputeColumns read these via
+   getComputedStyle rather than hardcoding a copy) - keeps the JS grid
+   layout from silently drifting out of sync with .imgDiv/.rowConfirmButton
+   below if their sizes ever change here. */
+:root {
+  --tile-size: 150px;
+  --row-button-width: 28px;
+}
+
 .img_thumb {
   opacity: 1;
 }
@@ -128,50 +138,44 @@
 
 .imgDiv{
   position: relative;
-  height: 150px;
-  float: left;
-  width: 150px;
+  height: var(--tile-size);
+  width: var(--tile-size);
 }
 
 .galleryGrid{
-  /* .imgDiv tiles are float:left - without a clearfix, this wrapper's
-     own height collapses to 0 around them (classic float clearfix
-     issue), which would also throw off its measured width/height for
-     row-layout math in gallery.jsx. Previously used overflow: hidden
-     for this, but that also clipped anything that legitimately needs
-     to overflow the box - e.g. the "send to other person" dropdown
-     (mutableSelect.jsx) opens downward from its input, and on the
-     gallery's last row (or a gallery with only one row) there's no
-     grid height left below it to open into, so it got cut off
-     invisible. A ::after clearfix (below) fixes the same collapse
-     without clipping. */
-  /* Positioning root for .rowConfirmButton, which is placed at a fixed
-     left/top per row (see gallery.jsx render()) rather than floated
-     inline, so it lands in the same spot every row regardless of how
-     many tiles that row actually has. */
-  position: relative;
+  /* Outer scroll container for the virtualized gallery (react-window's
+     List - see gallery.jsx) - height is set inline (viewport minus
+     header/menu bar, same formula .infinite-scroll-component used to
+     use) since react-window needs an explicit height to know how many
+     rows to render. */
+  overflow-y: auto;
 }
 
-.galleryGrid::after{
-  content: "";
-  display: table;
-  clear: both;
+.galleryRow{
+  /* One row of tiles - react-window mounts/unmounts these as they
+     scroll in and out of view, so only a couple screens' worth of
+     .imgDiv tiles are ever live DOM nodes at once, regardless of how
+     many faces are loaded overall (replacing the old float-wrapped
+     .galleryGrid, where every loaded tile stayed mounted forever and
+     hiding any one of them forced the browser to reflow every floated
+     sibling after it). grid-template-columns is set inline per row
+     (gallery.jsx) since columnCount is measured live from the
+     container's width. */
+  display: grid;
+  align-content: start;
 }
 
 .rowConfirmButton{
-  /* Absolutely positioned (left/top set inline per row in gallery.jsx)
-     rather than floated, so it sits at a fixed slot per row instead of
-     right after however many tiles happen to be in that row - a short/
-     partial row still gets the button in the same place as a full one.
-     Narrow and tile-height-tall (rather than a wide horizontal button)
-     so it reads as a strip at the end of the row. Its width is also
-     measured live and reserved for in gallery.jsx's column math (see
-     measureButtonWidth/recomputeColumns), so it always fits without
-     overlapping the last tile in a full row. */
-  position: absolute;
+  /* A grid cell like any tile (see .galleryRow above), pinned to the
+     row's last column (grid-column set inline in gallery.jsx) so it
+     lands in the same spot every row regardless of how many tiles that
+     particular row actually has - a short/partial last row still gets
+     the button in the same place as a full one. Narrow and
+     tile-height-tall (rather than a wide horizontal button) so it reads
+     as a strip at the end of the row. */
   box-sizing: border-box;
-  height: 150px;
-  width: 28px;
+  height: var(--tile-size);
+  width: var(--row-button-width);
   margin: 0;
   writing-mode: vertical-rl;
   text-align: center;
