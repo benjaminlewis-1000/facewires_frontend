@@ -138,6 +138,18 @@ on prod and dev.
 - Deleted dead files: pcScreenTest.jsx, login.jsx, customContext.jsx.
 
 ### Currently in progress / open
+- Fixed (2026-08-26): `PicasaScreen`'s initial load (params/people/folders fetch, all
+  three fire from the constructor/`componentDidMount`) used to hang on the loading spinner
+  forever instead of failing visibly, in two cases: (1) backend unreachable — `fetchAPIURL`
+  used to swallow axios errors with a `console.log` and never resolve/reject the promise it
+  returned, so the `await` in `compile_api_list` just hung; (2) the people list coming back
+  empty (or missing the special `_NO_FACE_ASSIGNED_`/`.ignore` records) — `fetchPeopleList`
+  did `resp[0].id` unconditionally, which threw inside a `.then` with no `.catch` anywhere
+  in the chain, becoming a silent unhandled rejection. Fixed by having `fetchAPIURL`/
+  `compile_api_list` actually reject on failure, guarding the empty/malformed-people-list
+  case explicitly, and adding a `loadError` state string that all three initial fetch chains
+  set on failure; `render()` shows a "Something went wrong" screen with Retry/Logout buttons
+  instead of the spinner when it's set, instead of spinning indefinitely.
 - Not yet verified: the undo/redo feature (send-to-other-person, send-to-ignore, confirm —
   see "Undo/redo" under Architecture above) was built and passes a container build, but hasn't
   been manually clicked through against the real backend yet (undo/redo round-trips, the

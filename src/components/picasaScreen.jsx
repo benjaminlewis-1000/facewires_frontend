@@ -205,6 +205,12 @@ class PicasaScreen extends React.Component{
       dir_url: store.get('api_url') + '/folder_list/',
       param_url: store.get('api_url') + '/parameters/',
       loading: true,
+      // Set (to a short user-facing message) if the initial params/people/
+      // folder fetches fail outright, or if the people list comes back
+      // empty - both used to leave `loading` stuck true forever (an
+      // unhandled rejection, or a hang inside fetchAPIURL) instead of
+      // surfacing anything. See render() below.
+      loadError: '',
       names_fetched: false,
       dirs_fetched: false,
       params_fetched: false,
@@ -261,11 +267,16 @@ class PicasaScreen extends React.Component{
         this.setState({loading: false})
       }
     })
+    .catch((error) => {
+      console.log('Failed to fetch parameters', error)
+      this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
+    })
 
     this.updatePersonList = this.updatePersonList.bind(this)
     this.updatePersonCounts = this.updatePersonCounts.bind(this)
     this.updatePersonName = this.updatePersonName.bind(this)
     this.fetchPeopleList = this.fetchPeopleList.bind(this)
+    this.retryInitialLoad = this.retryInitialLoad.bind(this)
     this.openRenameModal = this.openRenameModal.bind(this)
     this.closeRenameModal = this.closeRenameModal.bind(this)
     this.submitRename = this.submitRename.bind(this)
@@ -352,7 +363,10 @@ class PicasaScreen extends React.Component{
 
           console.log(this.state)
         }
-      )
+      ).catch((error) => {
+        console.log('Failed to fetch folders', error)
+        this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
+      })
     }
 
     this.peopleRefreshInterval = setInterval(
@@ -403,6 +417,19 @@ class PicasaScreen extends React.Component{
         this.setState({'people': resp})
 
         if (isInitial){
+          var unassigned_person_id = resp.find(element =>element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === 'Unassigned');
+          var ignore_person_id = resp.find(element =>element.person_name === ".ignore" );
+
+          // An empty (or malformed - missing the special Unassigned/.ignore
+          // records) people list used to crash here (resp[0]/.id on
+          // undefined) with no .catch anywhere in the chain, which left
+          // `loading` stuck true forever instead of showing anything.
+          if (resp.length === 0 || !unassigned_person_id || !ignore_person_id){
+            console.log("People list came back empty or missing special records", resp)
+            this.setState({loading: false, loadError: "Couldn't load your people list from the server. Please try again."})
+            return
+          }
+
           this.setState({names_fetched: true});
           this.setState({api_id: resp[0].id})
           console.log("Getting people")
@@ -410,8 +437,6 @@ class PicasaScreen extends React.Component{
           if (this.state.dirs_fetched && this.state.params_fetched){
             this.setState({loading: false})
           }
-          var unassigned_person_id = resp.find(element =>element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === 'Unassigned');
-          var ignore_person_id = resp.find(element =>element.person_name === ".ignore" );
           console.log(unassigned_person_id)
           console.log(ignore_person_id)
           this.setState({unassigned_id: unassigned_person_id.id})
@@ -422,7 +447,19 @@ class PicasaScreen extends React.Component{
           console.log("Reconciled people counts from backend", resp)
         }
       }
-    )
+    ).catch((error) => {
+      console.log('Failed to fetch people list', error)
+      if (isInitial){
+        this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
+      }
+    })
+  }
+
+  // The failed fetches happened during construction/mount, so the
+  // simplest reliable way to retry is a full reload rather than trying
+  // to re-run each of the three initial fetch chains in place.
+  retryInitialLoad(){
+    window.location.reload()
   }
 
 
@@ -462,31 +499,28 @@ class PicasaScreen extends React.Component{
       return data_array;
     } catch (e) {
       console.log('error', e);
-      return [];
+      // Rethrow rather than returning [] - a silent [] here would let
+      // fetchPeopleList/the folder fetch below treat a real backend
+      // failure as "zero results", which used to crash on resp[0].id
+      // (people) or just render an empty gallery with no explanation
+      // (folders). Let callers decide how to surface the failure.
+      throw e;
     }
   };
 
 
   fetchAPIURL = async (url, sort_function) => {
-
-    const names = new Promise((resolve, reject) => {
-        axiosInstance.get(url)
-        .then( (response) => {
-          resolve({data: response.data});
-        }
-        , (namelist_error) => {
-          console.log("CORS ERROR: ", url,  namelist_error)
-        }
-        )
-        .catch(err => {
-            console.log(url, err)
-        });
-    })
-           
-
-    return names
-
-    
+    try {
+      const response = await axiosInstance.get(url);
+      return { data: response.data };
+    } catch (err) {
+      console.log(url, err);
+      // Previously this swallowed the error and just logged it, leaving
+      // the caller's promise pending forever (e.g. backend down/CORS
+      // failure) - compile_api_list's own try/catch below only works if
+      // this actually rejects.
+      throw err;
+    }
   }
 
 ////////////////////////////////////////
@@ -930,7 +964,16 @@ class PicasaScreen extends React.Component{
         
 
         <React.Fragment>
-          { this.state.loading ? (
+          { this.state.loadError ? (
+            <div className='spinBackground'>
+              <div className="loader" style={{textAlign: 'center', color: '#333', maxWidth: '400px'}}>
+                <p style={{fontSize: '18px', fontWeight: 'bold'}}>Something went wrong</p>
+                <p>{this.state.loadError}</p>
+              </div>
+              <button className='logoutButton' onClick={this.retryInitialLoad}>Retry</button>
+              <button className='logoutButton' onClick={this.logoutclick}>Logout</button>
+            </div>
+          ) : this.state.loading ? (
             <div className='spinBackground'>
               <div className="loader">
                 <CircleLoader
