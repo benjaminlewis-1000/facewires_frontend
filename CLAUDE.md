@@ -102,22 +102,51 @@ faces asks for confirmation first, since every reversal here is a real write aga
 backend.
 
 **Known stale/inconsistent spots** (don't "fix" silently without confirming — some may be work in
-progress): `src/index.jsx` still uses `ReactDOM.render` (not `createRoot`) and hardcodes
-`store.set('api_url', ...)` rather than using `API_URL` from `config.js`; `README.md` is unmodified
-Create React App boilerplate and doesn't reflect the Vite/Docker setup actually used.
+progress): `README.md` is unmodified Create React App boilerplate and doesn't reflect the Vite/Docker
+setup actually used. (This note used to also flag `src/index.jsx` for `ReactDOM.render`/hardcoded
+`api_url` — both already fixed as of 2026-08-27; `index.jsx` uses `createRoot` and `API_URL` from
+`config.js`.)
 
 ## Project context (carried over from a chat session)
 
 FaceWires — React 18 / Vite SPA frontend for a Django REST Framework +
-PostgreSQL backend ("picasa"), running in Docker. Recently migrated
-from Create React App to Vite, and from JWT auth to Authelia OIDC +
-Django session-cookie auth. Both migrations are complete and working
-on prod and dev.
+PostgreSQL backend ("picasa"), running in Docker. Migrated from Create
+React App to Vite, and from JWT auth to Authelia OIDC + Django
+session-cookie auth.
 
 - Dev frontend: https://facewire_dev.exploretheworld.tech (container
   picasa_frontend_dev, port 8092)
-- Prod frontend: https://facewire.exploretheworld.tech
+- Prod frontend: https://facewire.exploretheworld.tech (container
+  picasa_frontend, port 8081)
 - Backend API: https://picasa.exploretheworld.tech/api
+
+**Two separate host checkouts of this same repo, same as the backend's
+`django_picasa`/`django_picasa_dev` split** — dev at
+`/home/benjamin/git_repos/dev_facewire` (branch `vite_upgrade` during
+active development), prod at `/home/benjamin/git_repos/facewires_frontend`
+(tracks `master`). `docker-compose.yml` defines both services
+(`picasa_frontend_dev` / `picasa_frontend`) in one file that's checked
+into git and thus identical in both checkouts — `build: context: .`
+resolves relative to wherever the file actually lives, so which service
+you run from which directory is what determines dev vs prod, not the
+file contents. Dev bind-mounts source into a live `vite` dev server
+(`Dockerfile`, `npm start`); prod has no bind mount at all and instead
+builds a static bundle baked into the image (`Dockerfile.prod`: multi-stage
+`vite build` → serve `dist/` with the `serve` npm package on port 3000/8081).
+**A prod deploy is: merge to `master` and push, `git pull` inside the
+`facewires_frontend` checkout, then `docker-compose up -d --build
+picasa_frontend` from there** — there is no automatic deploy-on-push.
+
+As of 2026-08-27: the backend (`django_picasa`, `master`, container
+`picasa_api`) had already been fully migrated to Authelia/session-cookie
+auth and CORS for a while — but the frontend prod checkout was still
+running the *original* pre-migration Create React App app (Node 13, PM2,
+the old JWT login form) until this date, since `vite_upgrade` had never
+been merged to `master` before. A prior note here claiming "both
+migrations are complete... on prod" was wrong for the frontend half of
+that sentence — worth remembering next time prod and dev seem to disagree
+about something: check which commit prod is actually on before assuming
+its behavior, don't assume this file's history describes what's live.
 
 ### Bugs fixed this migration (for context, not to redo)
 - mainApp.jsx was missing a config.js import, causing SSO checks to
