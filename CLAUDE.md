@@ -260,6 +260,21 @@ its behavior, don't assume this file's history describes what's live.
     whole page scrolling together — a deliberate tradeoff (confirmed with
     the user) since `react-window` needs to own a fixed-height scroll
     container. The sidebar/header stay fixed; only the tile grid scrolls.
+  - Fixed (2026-08-27): the per-tile right-click context menu
+    (`react-contexify`'s `<Menu>`, `lazyImg.jsx`) showed up offset by
+    several rows/columns from the tile it was opened on, and behind other
+    tiles. Same root cause and same fix as the `MutableSelect` dropdown
+    fix above, just a second, independent component hitting it:
+    react-contexify positions its menu with `position: fixed` computed
+    from the raw click coordinates, but a `position: fixed` element's
+    containing block becomes its nearest ancestor with a CSS `transform`
+    if one exists (per the CSS spec) — and every tile sits inside a
+    react-window row `<div>` that has exactly that
+    (`transform: translateY(...)`, for virtualized row positioning).
+    Fixed by wrapping the `<Menu>` in `createPortal(..., document.body)`,
+    same as `MutableSelect`'s. Worth remembering for *any* future
+    `position: fixed` UI added inside a gallery tile — it needs a portal
+    too, for the same reason.
   - `handleRowAction` (Confirm row/Verify row) now scrolls the list back
     to row 0 (`this.listRef.current.scrollToRow({index: 0, ...})`,
     `React.createRef()` passed to `<List listRef={...}>`) right after
