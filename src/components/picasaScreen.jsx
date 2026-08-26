@@ -1,0 +1,1064 @@
+import React from 'react';
+import './misc.css';
+import '../css/menubar.css'
+import '../css/sidebar.css'
+import '../css/image_tile.css'
+import '../css/login.css'
+import '../css/imageModal.css'
+import store from 'store';
+import { Helmet } from 'react-helmet';
+import { Redirect } from 'react-router-dom';
+
+import MenuExampleTabular from './tabular_menu'
+import { mapWithConcurrency } from './concurrencyPool';
+import FolderSidebar from './folderSidebar'
+import PersonSidebar from './personSidebar'
+import ImageScreen from './imageScreen'
+import axiosInstance from './axios_setup'
+import { withRetry } from './apiRetry';
+import { assignFaceToPerson, bulkFaceOperation } from './faceActions';
+import { Message } from 'semantic-ui-react';
+import CircleLoader from "react-spinners/CircleLoader";
+
+// Cap how many pagination requests are in flight at once. 5 is a
+// reasonable default — enough to get the concurrency win, low enough
+// to not hammer the backend even if the dataset grows a lot.
+const PAGINATION_CONCURRENCY = 5;
+
+// How many undo/redo entries to keep. Bookkeeping is light (each entry is
+// just a handful of ids/numbers) so 20 is generous rather than tight.
+const MAX_UNDO_HISTORY = 20;
+
+// Undoing/redoing an action that touches more than this many faces asks
+// for confirmation first - a misclick both doing and then undoing
+// something this size is exactly the case worth a pause for, since every
+// reversal here is a real write against the live backend.
+const BULK_CONFIRM_THRESHOLD = 10;
+
+// Every numeric people-count field a delta can touch - see
+// updatePersonCounts and negateDeltas below.
+const COUNT_FIELDS = ['num_faces', 'num_possibilities', 'num_unverified_faces'];
+
+// Undo applies the exact inverse of whatever deltas an action originally
+// applied; redo re-applies them as-is. Keeping this as a pure negation
+// (rather than recomputing deltas from current state at undo/redo time)
+// is what lets undo/redo work regardless of whether the Gallery instance
+// that originally fired the action is even still mounted.
+function negateDeltas(deltas){
+  return deltas.map(delta => {
+    const negated = { id: delta.id }
+    for (const field of COUNT_FIELDS){
+      if (delta[field]) negated[field] = -delta[field]
+    }
+    return negated
+  })
+}
+
+// Owns the text input's own keystroke-by-keystroke state locally.
+// PicasaScreen sits above the (large, ~700+ entry) sidebar list, so if
+// the input's value lived in PicasaScreen's state instead, every
+// keystroke would re-render that whole sidebar along with it - kept
+// this isolated so typing only re-renders this small subtree.
+class RenameModal extends React.Component {
+  constructor(props){
+    super(props);
+    this.state = { value: props.initialValue };
+    this.handleChange = this.handleChange.bind(this);
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.handleConfirm = this.handleConfirm.bind(this);
+  }
+
+  handleChange(e){
+    this.setState({ value: e.target.value });
+  }
+
+  handleConfirm(){
+    this.props.onSubmit(this.state.value);
+  }
+
+  handleKeyDown(e){
+    if (e.key === 'Enter') this.handleConfirm();
+    if (e.key === 'Escape') this.props.onCancel();
+  }
+
+  render(){
+    return (
+      <div className='Overlay RenameOverlay' onClick={this.props.onCancel}>
+        <div className='renameModal' onClick={(e) => e.stopPropagation()}>
+          <h3>Rename person</h3>
+          <input
+            type="text"
+            autoFocus
+            value={this.state.value}
+            onChange={this.handleChange}
+            onKeyDown={this.handleKeyDown}
+          />
+          {this.props.error && (
+            <div className='renameModalError'>{this.props.error}</div>
+          )}
+          <div className='renameModalActions'>
+            <button className='renameCancelBtn' onClick={this.props.onCancel}>
+              Cancel
+            </button>
+            <button
+              className='renameConfirmBtn'
+              disabled={this.props.submitting}
+              onClick={this.handleConfirm}
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
+// Same "own its keystroke state locally" reasoning as RenameModal above.
+// Reuses the .item/.item:hover styling from image_tile.css (already
+// imported by this file) that mutableSelect.jsx's person-search dropdown
+// uses, for a consistent look, though this is a plain always-open list
+// in a modal rather than an absolutely-positioned dropdown - no
+// flip/positioning logic needed here.
+class MergeModal extends React.Component {
+  constructor(props){
+    super(props);
+    this.state = { filterValue: '' };
+    this.handleChange = this.handleChange.bind(this);
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+  }
+
+  handleChange(e){
+    this.setState({ filterValue: e.target.value });
+  }
+
+  handleKeyDown(e){
+    if (e.key === 'Escape') this.props.onCancel();
+  }
+
+  render(){
+    // Escape regex special characters so a stray "(" etc. in the search
+    // box can't throw a SyntaxError out of `new RegExp` and crash the
+    // modal - mutableSelect.jsx's equivalent filter doesn't bother with
+    // this, but there's no reason not to be safe here.
+    const escaped = this.state.filterValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(escaped, 'gi');
+    const options = this.props.people
+      .filter(p => p.id !== this.props.sourceId && p.id !== this.props.unassignedId && p.id !== this.props.ignorePersonId)
+      .filter(p => p.person_name.match(re));
+
+    return (
+      <div className='Overlay RenameOverlay' onClick={this.props.onCancel}>
+        <div className='renameModal' onClick={(e) => e.stopPropagation()}>
+          <h3>Merge "{this.props.sourceName}" into...</h3>
+          {this.props.submitting ? (
+            <div>
+              Merging {this.props.progress.total > 0 ? `${this.props.progress.done} of ${this.props.progress.total}` : '...'}
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Search people..."
+                value={this.state.filterValue}
+                onChange={this.handleChange}
+                onKeyDown={this.handleKeyDown}
+              />
+              <div className='mergeModalList'>
+                {options.map(p => (
+                  <div
+                    key={p.id}
+                    className='item'
+                    onClick={() => this.props.onSubmit(p.id, p.person_name)}
+                  >
+                    {p.person_name}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {this.props.error && (
+            <div className='renameModalError'>{this.props.error}</div>
+          )}
+          <div className='renameModalActions'>
+            <button className='renameCancelBtn' disabled={this.props.submitting} onClick={this.props.onCancel}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
+class PicasaScreen extends React.Component{
+  
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      people : [], 
+      folders: [],
+      // people_url: store.get('api_url') + '/people/?fields=person_name,url,num_faces,id,num_possibilities&limit=1000',
+      people_url: store.get('api_url') + '/person_list/',
+      dir_url: store.get('api_url') + '/folder_list/',
+      param_url: store.get('api_url') + '/parameters/',
+      loading: true,
+      // Set (to a short user-facing message) if the initial params/people/
+      // folder fetches fail outright, or if the people list comes back
+      // empty - both used to leave `loading` stuck true forever (an
+      // unhandled rejection, or a hang inside fetchAPIURL) instead of
+      // surfacing anything. See render() below.
+      loadError: '',
+      names_fetched: false,
+      dirs_fetched: false,
+      params_fetched: false,
+      tab: 'People',
+      unlabeled_toggle: false,
+      only_unverified_toggle: false,
+      face: false,
+      total: false,
+      t2: false,
+      api_id: 0,
+      selectedIndex: -100,
+
+      showRenameModal: false,
+      renamePersonId: null,
+      renameInitialValue: '',
+      renameError: '',
+      renameSubmitting: false,
+
+      showMergeModal: false,
+      mergeSourceId: null,
+      mergeSourceName: '',
+      mergeError: '',
+      mergeSubmitting: false,
+      mergeProgress: { done: 0, total: 0 },
+
+      // Undo/redo history for face actions (send-to-other-person,
+      // send-to-ignore, confirm) - see CLAUDE.md and pushUndoable/
+      // performUndo/performRedo below. Deliberately plain in-memory
+      // state, not persisted to the `store` localStorage helper this
+      // app uses elsewhere - replaying an undo against faces that moved
+      // some other way since the tab was last open (another session, or
+      // the 10-minute background reconciliation) is worse than just
+      // losing the history on reload.
+      undoStack: [],
+      undoPointer: -1,
+      undoBusy: false,
+      undoError: '',
+      // Bumped on every undo/redo so ImageScreen re-fetches the
+      // currently-displayed gallery, in case it was affected - see
+      // imageScreen.jsx's componentDidUpdate.
+      refreshVersion: 0,
+    };
+          
+    // console.log(this.state.param_url)
+    axiosInstance.get(this.state.param_url)    
+    .then( (response) => {
+      // var info = response.data
+      var access_key = response.data.random_access_key;
+
+      this.setState({params_fetched: true})
+      store.set('access_key', access_key);
+
+      if (this.state.names_fetched && this.state.dirs_fetched){
+        this.setState({loading: false})
+      }
+    })
+    .catch((error) => {
+      console.log('Failed to fetch parameters', error)
+      this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
+    })
+
+    this.updatePersonList = this.updatePersonList.bind(this)
+    this.updatePersonCounts = this.updatePersonCounts.bind(this)
+    this.updatePersonName = this.updatePersonName.bind(this)
+    this.fetchPeopleList = this.fetchPeopleList.bind(this)
+    this.retryInitialLoad = this.retryInitialLoad.bind(this)
+    this.openRenameModal = this.openRenameModal.bind(this)
+    this.closeRenameModal = this.closeRenameModal.bind(this)
+    this.submitRename = this.submitRename.bind(this)
+
+    this.openMergeModal = this.openMergeModal.bind(this)
+    this.closeMergeModal = this.closeMergeModal.bind(this)
+    this.submitMerge = this.submitMerge.bind(this)
+
+    this.pushUndoable = this.pushUndoable.bind(this)
+    this.performUndo = this.performUndo.bind(this)
+    this.performRedo = this.performRedo.bind(this)
+    this._handleUndoRedoKeyDown = this._handleUndoRedoKeyDown.bind(this)
+
+  }
+
+  // How often to reconcile locally-bookkept people counts against the
+  // backend's actual numbers (e.g. faces sent back to Unassigned get
+  // reassigned by someone else in the background over time).
+  static PEOPLE_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+
+  compareNames(a, b) {
+    // Use toUpperCase() to ignore character casing
+    const nameA = a.person_name.toUpperCase();
+    const nameB = b.person_name.toUpperCase();
+
+    let comparison = 0;
+    if (nameA > nameB) {
+      comparison = 1;
+    } else if (nameA < nameB) {
+      comparison = -1;
+    }
+    return comparison;
+  }
+
+  componentDidMount(){
+
+    function compareDirectories(a, b) {
+      // Use toUpperCase() to ignore character casing
+      const timeA = a.first_datesec;
+      const timeB = b.first_datesec;
+      const yearA = a.year;
+      const yearB = b.year;
+
+      let comparison = 0;
+      if (yearA > yearB) {
+        comparison = 1;
+      } else if (yearA < yearB) {
+        comparison = -1;
+      } else if (yearA === yearB){
+        if (timeA > timeB) {
+          comparison = 1;
+        } else if (timeA < timeB) {
+          comparison = -1;
+        } 
+      }
+      // Reverse order - multiply by -1
+      return comparison * -1;
+    }
+
+    // console.debug("Picasa screen mounted")
+    var next_url = this.state.people_url;
+    while (next_url !== null){
+      // console.log(next_url, next_url !== null)
+      // let data = this.getNames(next_url);
+      // console.log(data)
+      next_url = null
+      this.fetchPeopleList(true)
+      this.compile_api_list(this.state.dir_url, 'folder_aray').then(
+        (resp) =>{
+          resp.sort(compareDirectories)
+          // console.log("Folder length", resp.length)
+          for (var i = resp.length - 1; i >= 0; i--){
+            if (resp[i].num_images === 0){
+              resp.splice(i, 1)
+            }
+          }
+          // console.log("Folder length after: ", resp.length)
+          this.setState({'folders': resp})
+          this.setState({dirs_fetched: true}); 
+          if (this.state.names_fetched && this.state.params_fetched){
+            this.setState({loading: false})
+          }
+
+          console.log(this.state)
+        }
+      ).catch((error) => {
+        console.log('Failed to fetch folders', error)
+        this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
+      })
+    }
+
+    this.peopleRefreshInterval = setInterval(
+      () => this.fetchPeopleList(false),
+      PicasaScreen.PEOPLE_REFRESH_INTERVAL_MS
+    )
+
+    document.addEventListener("keydown", this._handleUndoRedoKeyDown)
+  }
+
+  componentWillUnmount(){
+    clearInterval(this.peopleRefreshInterval)
+    document.removeEventListener("keydown", this._handleUndoRedoKeyDown)
+  }
+
+  // Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) for undo/redo, mirroring gallery.jsx's
+  // existing Delete/Shift+R shortcut pattern. Skipped entirely while a text
+  // input/textarea has focus (rename modal, merge search box, mutableSelect's
+  // person search) so this can't fight with typing or the browser's own
+  // undo in those fields.
+  _handleUndoRedoKeyDown(event){
+    const tag = event.target && event.target.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return
+    if (!(event.ctrlKey || event.metaKey)) return
+
+    if (event.key === 'z' || event.key === 'Z'){
+      event.preventDefault()
+      if (event.shiftKey){
+        this.performRedo()
+      }else{
+        this.performUndo()
+      }
+    }else if (event.key === 'y' || event.key === 'Y'){
+      event.preventDefault()
+      this.performRedo()
+    }
+  }
+
+  // Fetch the people list and refresh state.people. On the initial call
+  // (isInitial=true) this also does one-time setup: names_fetched/loading
+  // flags and locating the special Unassigned/.ignore person ids. Later
+  // calls (from the periodic refresh) just reconcile the counts.
+  fetchPeopleList(isInitial){
+    return this.compile_api_list(this.state.people_url, 'name_array').then(
+      (resp) => {
+        resp.sort(this.compareNames)
+        resp = resp.filter(element => element.num_faces > 0 || element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === ".ignore")
+        this.setState({'people': resp})
+
+        if (isInitial){
+          var unassigned_person_id = resp.find(element =>element.person_name === "_NO_FACE_ASSIGNED_" || element.person_name === 'Unassigned');
+          var ignore_person_id = resp.find(element =>element.person_name === ".ignore" );
+
+          // An empty (or malformed - missing the special Unassigned/.ignore
+          // records) people list used to crash here (resp[0]/.id on
+          // undefined) with no .catch anywhere in the chain, which left
+          // `loading` stuck true forever instead of showing anything.
+          if (resp.length === 0 || !unassigned_person_id || !ignore_person_id){
+            console.log("People list came back empty or missing special records", resp)
+            this.setState({loading: false, loadError: "Couldn't load your people list from the server. Please try again."})
+            return
+          }
+
+          this.setState({names_fetched: true});
+          this.setState({api_id: resp[0].id})
+          console.log("Getting people")
+          console.log(resp)
+          if (this.state.dirs_fetched && this.state.params_fetched){
+            this.setState({loading: false})
+          }
+          console.log(unassigned_person_id)
+          console.log(ignore_person_id)
+          this.setState({unassigned_id: unassigned_person_id.id})
+          this.setState({ignore_person_id: ignore_person_id.id})
+
+          console.log(this.state)
+        } else {
+          console.log("Reconciled people counts from backend", resp)
+        }
+      }
+    ).catch((error) => {
+      console.log('Failed to fetch people list', error)
+      if (isInitial){
+        this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
+      }
+    })
+  }
+
+  // The failed fetches happened during construction/mount, so the
+  // simplest reliable way to retry is a full reload rather than trying
+  // to re-run each of the three initial fetch chains in place.
+  retryInitialLoad(){
+    window.location.reload()
+  }
+
+
+////////////////////////////////////////
+///  Get all the names or folders, with a linked list.
+////////////////////////////////////////
+  compile_api_list = async (base_url, state_field) => {
+    try {
+      const firstPageResp = await this.fetchAPIURL(base_url);
+      const firstPageData = firstPageResp.data;
+      let data_array = [...firstPageData.results];
+
+      const pageSize = firstPageData.results.length;
+      if (!firstPageData.next || pageSize === 0) {
+        return data_array;
+      }
+
+      const totalPages = Math.ceil(firstPageData.count / pageSize);
+      const remainingUrls = [];
+      for (let page = 1; page < totalPages; page++) {
+        const url = new URL(base_url);
+        url.searchParams.set('limit', pageSize);
+        url.searchParams.set('offset', page * pageSize);
+        remainingUrls.push(url.toString());
+      }
+
+      const remainingResponses = await mapWithConcurrency(
+        remainingUrls,
+        PAGINATION_CONCURRENCY,
+        url => this.fetchAPIURL(url)
+      );
+
+      for (const resp of remainingResponses) {
+        data_array = data_array.concat(resp.data.results);
+      }
+
+      return data_array;
+    } catch (e) {
+      console.log('error', e);
+      // Rethrow rather than returning [] - a silent [] here would let
+      // fetchPeopleList/the folder fetch below treat a real backend
+      // failure as "zero results", which used to crash on resp[0].id
+      // (people) or just render an empty gallery with no explanation
+      // (folders). Let callers decide how to surface the failure.
+      throw e;
+    }
+  };
+
+
+  fetchAPIURL = async (url, sort_function) => {
+    try {
+      const response = await axiosInstance.get(url);
+      return { data: response.data };
+    } catch (err) {
+      console.log(url, err);
+      // Previously this swallowed the error and just logged it, leaving
+      // the caller's promise pending forever (e.g. backend down/CORS
+      // failure) - compile_api_list's own try/catch below only works if
+      // this actually rejects.
+      throw err;
+    }
+  }
+
+////////////////////////////////////////
+///  END of name fetching
+////////////////////////////////////////
+
+
+////////////////////////////////////////
+///  START of callbacks
+////////////////////////////////////////
+
+
+  logoutclick = (childData) => {
+    console.log("Logout")
+    store.set('loggedIn', false);
+    window.location = "/login"
+    return <Redirect to="/login" />;
+  }
+
+  tabSelectCallback = (childData) => {
+    this.setState({tab: childData})
+  }
+  
+  setApiUrl = (childType, childUrl, childId, index) => {
+    if (childType === 'folder'){
+      this.setState({api_source: childUrl})
+      this.setState({api_id: childId})
+      this.setState({selectedIndex: index})
+    }else if (childType === 'person'){
+      this.setState({api_source: childUrl})
+      this.setState({api_id: childId})
+      this.setState({selectedIndex: index})
+    }
+    // console.log(this.state.image_api_id)
+  }
+
+  setToggle = (childField) => {
+    console.debug( "Child field: ", childField)
+    // 'unlabeled_toggle' and 'only_unverified_toggle' are mutually exclusive -
+    // turning one on flips the other off. Both can be off at once.
+    const exclusiveToggles = ['unlabeled_toggle', 'only_unverified_toggle']
+    if (exclusiveToggles.includes(childField)){
+      this.setState(prevState => {
+        const turningOn = !prevState[childField]
+        const next = { [childField]: turningOn }
+        if (turningOn){
+          for (const other of exclusiveToggles){
+            if (other !== childField) next[other] = false
+          }
+        }
+        return next
+      })
+    }else{
+      this.setState(prevState => ({
+        [childField] : !prevState[childField]
+      }))
+    }
+  }
+
+////////////////////////////////////////
+///  END of callbacks
+////////////////////////////////////////
+
+  updatePersonList(person_name, api_key, count){
+    count = count || 1
+    console.log("Updating person list in PicasaScreen", person_name, api_key, this.state.people)
+    var new_object = {'id': api_key,
+                      'num_faces' : count,
+                      'num_possibilities': 0,
+                      'num_unverified_faces': count,
+                      'person_name': person_name,
+                      'url': store.get('api_url') + '/people/' + api_key + '/'}
+
+    var person_list = this.state.people.concat(new_object)
+    person_list.sort(this.compareNames)
+    this.setState({people: person_list})
+
+    console.log(new_object)
+  }
+
+  // Apply local count deltas to state.people so the sidebar reflects
+  // face operations immediately, without waiting on a refetch. deltas is
+  // an array of {id, num_faces?, num_possibilities?, num_unverified_faces?}
+  // where each present field is a signed delta to add (not an absolute value).
+  // Reconciled against the backend periodically by fetchPeopleList.
+  updatePersonCounts(deltas){
+    if (!deltas || deltas.length === 0) return
+    this.setState(prevState => {
+      const people = prevState.people.map(person => {
+        const delta = deltas.find(d => d.id === person.id)
+        if (!delta) return person
+
+        const updated = { ...person }
+        for (const field of ['num_faces', 'num_possibilities', 'num_unverified_faces']){
+          if (delta[field]){
+            updated[field] = Math.max(0, (updated[field] || 0) + delta[field])
+          }
+        }
+        return updated
+      })
+      return { people }
+    })
+  }
+
+  // Applies a rename locally so the header and sidebar update
+  // immediately, without waiting on a refetch. The sidebar re-sorts by
+  // name on every render, so this also fixes list ordering.
+  updatePersonName(id, newName){
+    this.setState(prevState => ({
+      people: prevState.people.map(person =>
+        person.id === id ? { ...person, person_name: newName } : person
+      )
+    }))
+  }
+
+  // Shared rename trigger for both the sidebar list buttons
+  // (personSidebar.jsx) and the selected person's name in the header
+  // (imageScreen.jsx) - lives here since both are siblings under this
+  // component and need to open the same modal.
+  openRenameModal(id, currentName){
+    this.setState({
+      showRenameModal: true,
+      renamePersonId: id,
+      renameInitialValue: currentName,
+      renameError: '',
+      renameSubmitting: false,
+    })
+  }
+
+  closeRenameModal(){
+    this.setState({ showRenameModal: false, renameError: '', renameSubmitting: false })
+  }
+
+  submitRename(rawValue){
+    const newName = rawValue.trim()
+    if (!newName){
+      this.setState({ renameError: 'Name cannot be empty.' })
+      return
+    }
+
+    const id_num = this.state.renamePersonId
+    const rename_url = store.get('api_url') + '/people/' + id_num + '/rename/'
+
+    this.setState({ renameSubmitting: true, renameError: '' })
+
+    withRetry(() => axiosInstance.put(rename_url, { person_name: newName }))
+      .then(response => {
+        this.updatePersonName(id_num, newName)
+        this.setState({ showRenameModal: false, renameSubmitting: false })
+      })
+      .catch(error => {
+        const backendError = error.response && error.response.data && error.response.data.error
+        this.setState({
+          renameSubmitting: false,
+          renameError: backendError || "Couldn't rename — please try again.",
+        })
+      })
+  }
+
+  // Shared merge trigger, same reasoning as openRenameModal above.
+  // Refuses to open on the two special people (Unassigned/.ignore) -
+  // "merge all their faces into someone else" doesn't make sense for
+  // either of those buckets.
+  openMergeModal(id, currentName){
+    if (id === this.state.unassigned_id || id === this.state.ignore_person_id) return
+    this.setState({
+      showMergeModal: true,
+      mergeSourceId: id,
+      mergeSourceName: currentName,
+      mergeError: '',
+      mergeSubmitting: false,
+      mergeProgress: { done: 0, total: 0 },
+    })
+  }
+
+  closeMergeModal(){
+    // Don't let the modal be dismissed mid-merge - there's no cancel
+    // for in-flight PATCH requests, and closing would just orphan the
+    // progress state with no way to tell if it finished.
+    if (this.state.mergeSubmitting) return
+    this.setState({ showMergeModal: false, mergeError: '' })
+  }
+
+  // There's no bulk person-merge endpoint on the backend - this reassigns
+  // every one of the source person's already-declared faces to the
+  // target, one PATCH per face (same call mutableSelect.jsx's
+  // "send to other person" uses for a single face), concurrency-capped
+  // the same way picasaScreen's own pagination fetches are. Doesn't touch
+  // the source's unconfirmed/possible matches (num_possibilities) -
+  // those are just proposed guesses, not actually the source person's
+  // faces yet, so silently confirming them onto the target as part of a
+  // merge would be presumptuous.
+  //
+  // TODO (blocked on backend): the actually-wanted behavior is to also
+  // reassign the source's possible/unconfirmed matches to the target,
+  // but *still as possible matches* rather than auto-confirming them -
+  // there's no endpoint yet for "repoint a proposed match's candidate
+  // person" without confirming it (assign_face_to_person always
+  // confirms). Once that endpoint exists: fetch the source's face_poss
+  // ids the same way as face_declared below, and reassign them via the
+  // new endpoint in a second mapWithConcurrency pass. See CLAUDE.md.
+  submitMerge(targetId, targetName){
+    const sourceId = this.state.mergeSourceId
+    if (targetId === sourceId) return
+
+    this.setState({ mergeSubmitting: true, mergeError: '' })
+
+    const face_list_url = store.get('api_url') + '/paginate_obj_ids/' + sourceId + '/face_declared'
+
+    axiosInstance.get(face_list_url)
+      .then(response => {
+        const faceIds = response.data.id_list || []
+        this.setState({ mergeProgress: { done: 0, total: faceIds.length } })
+
+        if (faceIds.length === 0){
+          this.finishMerge(sourceId, targetId)
+          return
+        }
+
+        let completed = 0
+        return mapWithConcurrency(faceIds, PAGINATION_CONCURRENCY, (faceId) => {
+          const assign_url = store.get('api_url') + '/faces/' + faceId + '/assign_face_to_person/'
+          return withRetry(() => axiosInstance.patch(assign_url, { declared_name_key: targetId }))
+            .then(() => {
+              completed += 1
+              this.setState({ mergeProgress: { done: completed, total: faceIds.length } })
+            })
+        }).then(() => {
+          this.finishMerge(sourceId, targetId)
+        })
+      })
+      .catch(error => {
+        console.log("Error in merge", error)
+        this.setState({
+          mergeSubmitting: false,
+          mergeError: "Couldn't complete the merge - some faces may have already moved. Check both people before retrying.",
+        })
+      })
+  }
+
+  // Applies the merge locally (moves the source's face counts onto the
+  // target and drops the now-empty source from the sidebar) rather than
+  // waiting on a full people-list refetch, same immediacy reasoning as
+  // updatePersonCounts/updatePersonName. Safe to remove the source
+  // outright here (unlike a generic refetch) since personSidebar.jsx and
+  // imageScreen.jsx both now track the selected person by id rather than
+  // array position, so the removal can't silently point either at the
+  // wrong person.
+  //
+  // TODO (blocked on backend): this only removes the source from the
+  // frontend's list - fetchPeopleList already filters out num_faces===0
+  // people (except the two special names) so it won't reappear, but the
+  // now-empty person record itself is never actually deleted on the
+  // backend and will sit there as an orphan. Needs a delete-person
+  // endpoint; once it exists, call it here (or right after the merge
+  // completes) instead of/alongside this local-only removal. See
+  // CLAUDE.md.
+  finishMerge(sourceId, targetId){
+    this.setState(prevState => {
+      const source = prevState.people.find(p => p.id === sourceId)
+      const movedFaces = source ? source.num_faces : 0
+      const movedUnverified = source ? source.num_unverified_faces : 0
+
+      const people = prevState.people
+        .filter(p => p.id !== sourceId)
+        .map(p => p.id === targetId
+          ? { ...p, num_faces: p.num_faces + movedFaces, num_unverified_faces: p.num_unverified_faces + movedUnverified }
+          : p
+        )
+
+      return { people, showMergeModal: false, mergeSubmitting: false }
+    })
+  }
+
+  // Records one undoable action. Called from gallery.jsx's runBulkOperation
+  // (send-to-ignore, confirm) and mutableSelect.jsx's assignPerson
+  // (send-to-other-person), each of which already builds a single
+  // faceIds array covering its whole selection/row before calling this -
+  // so one user action (even a 47-face "confirm row" click) is always
+  // exactly one history entry, never one per face.
+  pushUndoable(record){
+    this.setState(prevState => {
+      const truncated = prevState.undoStack.slice(0, prevState.undoPointer + 1)
+      let undoStack = truncated.concat([{ ...record, id: `${Date.now()}-${Math.random()}` }])
+      if (undoStack.length > MAX_UNDO_HISTORY){
+        undoStack = undoStack.slice(undoStack.length - MAX_UNDO_HISTORY)
+      }
+      return { undoStack, undoPointer: undoStack.length - 1 }
+    })
+  }
+
+  bumpRefreshVersion(){
+    this.setState(prevState => ({ refreshVersion: prevState.refreshVersion + 1 }))
+  }
+
+  // Fires the actual reversing (or, for redo, re-applying) API call(s) for
+  // one action record. Shared by performUndo/performRedo below - `reverse`
+  // picks which direction, since the two are otherwise identical shapes
+  // (apply a count delta, fire a call, roll back on failure).
+  runUndoRedoCall(record, reverse){
+    switch (record.kind){
+      case 'assign_to_person': {
+        const targetId = reverse ? record.context.priorPersonId : record.context.targetPersonId
+        return mapWithConcurrency(record.faceIds, PAGINATION_CONCURRENCY, faceId =>
+          assignFaceToPerson(faceId, targetId))
+      }
+      case 'close_unassigned':
+        return bulkFaceOperation(reverse ? 'close_ignored' : 'close_unassigned', record.faceIds, record.context.currentPersonId)
+      // 'confirm_proposed' isn't recorded by gallery.jsx right now (see the
+      // comment in runBulkOperation) - its reverse would be 'close_assigned',
+      // which is suspected broken server-side. No case needed here unless
+      // that's fixed and recording is turned back on.
+      default:
+        return Promise.reject(new Error(`Unknown undo record kind: ${record.kind}`))
+    }
+  }
+
+  performUndo(){
+    const { undoStack, undoPointer, undoBusy } = this.state
+    if (undoPointer < 0 || undoBusy) return
+    const record = undoStack[undoPointer]
+
+    if (record.faceIds.length > BULK_CONFIRM_THRESHOLD){
+      const ok = window.confirm(`Undo "${record.label}"? This affects ${record.faceIds.length} faces.`)
+      if (!ok) return
+    }
+
+    this.setState({ undoBusy: true, undoError: '' })
+    this.updatePersonCounts(negateDeltas(record.forwardDeltas))
+
+    this.runUndoRedoCall(record, true)
+      .then(() => {
+        this.setState({ undoPointer: undoPointer - 1, undoBusy: false })
+        this.bumpRefreshVersion()
+      })
+      .catch(error => {
+        console.log("Error undoing action", record, error)
+        // Roll all the way back: nothing succeeded (or we can't tell what
+        // did), so leave the stack pointer where it was and undo the
+        // optimistic count delta too, rather than leaving local counts
+        // out of sync with a reversal that may not have actually happened.
+        this.updatePersonCounts(record.forwardDeltas)
+        this.setState({
+          undoBusy: false,
+          undoError: `Couldn't undo "${record.label}" — some faces may have already moved. Check before retrying.`,
+        })
+      })
+  }
+
+  performRedo(){
+    const { undoStack, undoPointer, undoBusy } = this.state
+    if (undoPointer >= undoStack.length - 1 || undoBusy) return
+    const record = undoStack[undoPointer + 1]
+
+    if (record.faceIds.length > BULK_CONFIRM_THRESHOLD){
+      const ok = window.confirm(`Redo "${record.label}"? This affects ${record.faceIds.length} faces.`)
+      if (!ok) return
+    }
+
+    this.setState({ undoBusy: true, undoError: '' })
+    this.updatePersonCounts(record.forwardDeltas)
+
+    this.runUndoRedoCall(record, false)
+      .then(() => {
+        this.setState({ undoPointer: undoPointer + 1, undoBusy: false })
+        this.bumpRefreshVersion()
+      })
+      .catch(error => {
+        console.log("Error redoing action", record, error)
+        this.updatePersonCounts(negateDeltas(record.forwardDeltas))
+        this.setState({
+          undoBusy: false,
+          undoError: `Couldn't redo "${record.label}" — some faces may have already moved. Check before retrying.`,
+        })
+      })
+  }
+
+  renderSidebar() {
+
+    if ( this.state.tab === "Tools" ){
+      return <p>Tools</p>
+    }
+      
+    if ( this.state.tab === "People" ){
+      return (
+      <div>
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} />
+        <ImageScreen
+          tab={this.state.tab}
+          api_source={this.state.api_source}
+          api_id={this.state.api_id}
+          people={this.state.people}
+          unassigned_person_id={this.state.unassigned_id}
+          ignore_person_id={this.state.ignore_person_id}
+          updatePersonList={this.updatePersonList}
+          updatePersonCounts={this.updatePersonCounts}
+          onRenamePerson={this.openRenameModal}
+          onRecordUndo={this.pushUndoable}
+          refreshVersion={this.state.refreshVersion}
+          unlabeled={this.state.unlabeled_toggle}
+          only_unverified={this.state.only_unverified_toggle}
+          selectedIndex={this.state.selectedIndex}
+        />
+      </div>
+      );
+    }
+
+    if ( this.state.tab === "Folders" ){
+      return (
+      <div>
+        <FolderSidebar folders={this.state.folders} setSource={this.setApiUrl} />
+        <ImageScreen 
+          tab={this.state.tab} 
+          api_source={this.state.api_source} 
+          api_id={this.state.api_id} 
+          people={this.state.people}
+          unlabeled={this.state.unlabeled_toggle}
+          only_unverified={this.state.only_unverified_toggle}
+          selectedIndex={this.state.selectedIndex}
+        />
+      </div>
+      );
+    }
+      
+    return <p>Unknown state</p>
+    
+  }
+
+  render() {
+
+    var {history} = this.props;
+    return(
+
+      
+      <div>
+
+        <Helmet>
+          <title>Face Classifier</title>
+        </Helmet>
+
+        
+
+        <React.Fragment>
+          { this.state.loadError ? (
+            <div className='spinBackground'>
+              <div className="loader" style={{textAlign: 'center', color: '#333', maxWidth: '400px'}}>
+                <p style={{fontSize: '18px', fontWeight: 'bold'}}>Something went wrong</p>
+                <p>{this.state.loadError}</p>
+              </div>
+              <button className='logoutButton' onClick={this.retryInitialLoad}>Retry</button>
+              <button className='logoutButton' onClick={this.logoutclick}>Logout</button>
+            </div>
+          ) : this.state.loading ? (
+            <div className='spinBackground'>
+              <div className="loader">
+                <CircleLoader
+                // css={override}
+                size={250}
+                color={"#993333"}
+                loading={this.state.loading}
+                />
+              </div>
+              <button className='logoutButton' onClick = {this.logoutclick} >Abort and Logout</button>
+            </div>
+            ) : (
+            <div>
+              <MenuExampleTabular
+                tabSelectCallback = {this.tabSelectCallback}
+                setToggle={this.setToggle}
+                onLogout={this.props.onLogout}
+                toggleState={{
+                  unlabeled_toggle: this.state.unlabeled_toggle,
+                  only_unverified_toggle: this.state.only_unverified_toggle,
+                  face: this.state.face,
+                  total: this.state.total,
+                  t2: this.state.t2,
+                }}
+                canUndo={this.state.undoPointer >= 0 && !this.state.undoBusy}
+                canRedo={this.state.undoPointer < this.state.undoStack.length - 1 && !this.state.undoBusy}
+                onUndo={this.performUndo}
+                onRedo={this.performRedo}
+                undoLabel={this.state.undoPointer >= 0 ? this.state.undoStack[this.state.undoPointer].label : ''}
+                redoLabel={this.state.undoPointer < this.state.undoStack.length - 1 ? this.state.undoStack[this.state.undoPointer + 1].label : ''}
+              />
+              <div>
+                {this.renderSidebar()}
+              </div>
+
+              {this.state.undoError && (
+                <Message
+                  negative
+                  onDismiss={() => this.setState({ undoError: '' })}
+                  header="Undo/redo failed"
+                  content={this.state.undoError}
+                  style={{ position: 'fixed', top: 90, right: 20, zIndex: 200, maxWidth: 320 }}
+                />
+              )}
+
+              {this.state.showRenameModal && (
+                <RenameModal
+                  initialValue={this.state.renameInitialValue}
+                  error={this.state.renameError}
+                  submitting={this.state.renameSubmitting}
+                  onCancel={this.closeRenameModal}
+                  onSubmit={this.submitRename}
+                />
+              )}
+
+              {this.state.showMergeModal && (
+                <MergeModal
+                  people={this.state.people}
+                  sourceId={this.state.mergeSourceId}
+                  sourceName={this.state.mergeSourceName}
+                  unassignedId={this.state.unassigned_id}
+                  ignorePersonId={this.state.ignore_person_id}
+                  error={this.state.mergeError}
+                  submitting={this.state.mergeSubmitting}
+                  progress={this.state.mergeProgress}
+                  onCancel={this.closeMergeModal}
+                  onSubmit={this.submitMerge}
+                />
+              )}
+            </div>
+            )
+          }
+        </React.Fragment>
+
+      </div>
+    );
+  }
+}
+
+
+const handleLogout = history => () => {
+  console.log("Logging out")
+  store.remove('loggedIn');
+  // history.push('/login');
+  window.location = "/login"
+};
+
+export default PicasaScreen;

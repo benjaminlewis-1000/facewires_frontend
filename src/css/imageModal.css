@@ -1,62 +1,140 @@
-  .Modal {
-    position: fixed;
-   /* top: 40px;
-    left: 40px;
-    right: 40px;
-    bottom: 40px;*/
-    left: 50%;
-    top: 50%;
-    height: 80vh;
-    width: 80vw;
-    margin-left: -40vw;
-    margin-top: -40vh;
-    background-color: papayawhip;
-    z-index: 100;
+.Modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  height: 80vh;
+  width: 80vw;
+  margin-left: -40vw;
+  margin-top: -40vh;
+  background-color: papayawhip;
+  z-index: 100;
 
-    animation: fadeIn ease .5s;
-    -webkit-animation: fadeIn ease .5s;
-    -moz-animation: fadeIn ease .5s;
-    -o-animation: fadeIn ease .5s;
-    -ms-animation: fadeIn ease .5s;
-    border-radius: 50px;
-  }
+  animation: fadeIn ease .5s;
+  -webkit-animation: fadeIn ease .5s;
+  -moz-animation: fadeIn ease .5s;
+  -o-animation: fadeIn ease .5s;
+  -ms-animation: fadeIn ease .5s;
+  border-radius: 50px;
+}
 
-  .Overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    /*filter: blur(5px);*/
-    /*background-color: rebeccapurple;*/
-    z-index: 100;
-  }
-/*
-  .modalImage{
-    max-width: 90%;
-    max-height: 90%;
-    height: auto;
-    width: auto;
-    display: block;
-    position: relative;
-    margin-left: auto;
-    margin-right: auto;
-    top: 50%;
-    -ms-transform: translateY(-50%);
-    transform: translateY(-50%);
-  }*/
+.Overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+}
 
-  .modalImage{
-    
-    width: 90%;
-    height: 90%;
-    object-fit: contain;
-    margin-left: auto;
-    margin-right: auto;
-    display: block;
-    -ms-transform: translateY(5%);
-    transform: translateY(5%);
-  }
+/* Rename-person dialog. Reuses .Overlay for the full-screen backdrop
+   (given a semi-transparent scrim + flex centering here, which .Overlay
+   itself doesn't set so the existing image lightbox is unaffected), but
+   its own box - the papayawhip/50px-radius lightbox look doesn't match
+   the app's purple/white palette used elsewhere (e.g. .header_person_name). */
+.RenameOverlay {
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn ease .2s;
+}
+
+.renameModal {
+  background-color: white;
+  border-top: 6px solid #450293;
+  border-radius: 6px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  padding: 24px 28px;
+  width: 360px;
+  max-width: 90vw;
+}
+
+.renameModal h3 {
+  margin: 0 0 16px 0;
+  color: #450293;
+  font-stretch: expanded;
+}
+
+.renameModal input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.renameModal input[type="text"]:focus {
+  outline: none;
+  border-color: #450293;
+}
+
+.mergeModalList {
+  /* Reuses image_tile.css's .item/.item:hover for each row (same look
+     as mutableSelect.jsx's person-search list) but needs its own
+     scrollable, full-width container - .item's own width:100px is sized
+     for the narrow face-tile dropdown, not this wider modal. */
+  margin-top: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+
+.mergeModalList .item {
+  width: auto;
+  cursor: pointer;
+}
+
+.renameModalError {
+  color: #c0392b;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.renameModalActions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.renameModalActions button {
+  padding: 7px 16px;
+  border-radius: 4px;
+  border: 1px solid #450293;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.renameModalActions .renameConfirmBtn {
+  background-color: #450293;
+  color: white;
+}
+
+.renameModalActions .renameConfirmBtn:disabled {
+  background-color: #a48ac0;
+  border-color: #a48ac0;
+  cursor: default;
+}
+
+.renameModalActions .renameCancelBtn {
+  background-color: white;
+  color: #450293;
+}
+
+.modalImage{
+  
+  width: 90%;
+  height: 90%;
+  object-fit: contain;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  -ms-transform: translateY(5%);
+  transform: translateY(5%);
+}
 
 @keyframes fadeIn {
   0% {

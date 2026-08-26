@@ -16,7 +16,7 @@
     left: -1px;
     padding: 10px 7px 5px;
     scroll-behavior: smooth;
-    margin-top: 120px
+    margin-top: calc(var(--menu-bar-height) + var(--screen-header-height) - 2px)
 }
 
 .imageScreen, .img_thumb, .img_thumb_active, #screenWrapper{
@@ -24,7 +24,11 @@
 }
 
 .sidebarList, .screenHeader {
-    margin-top:42px;
+    /* position:fixed elements with no explicit top/left fall back to
+       their static-flow offset instead of sitting flush under #menuBar -
+       pin them explicitly rather than relying on margin-top. */
+    top: var(--menu-bar-height);
+    margin-top: 0;
 }
 
 .screenHeader, .imageScreen{
@@ -37,10 +41,10 @@
     z-index: 100;
     position: fixed;
     margin-left: 10%;
-    height: 80px;
-    line-height: 80px;
+    height: var(--screen-header-height);
+    line-height: var(--screen-header-height);
     padding: 4px;
-    
+
 }
 
 .transition{
@@ -48,18 +52,27 @@
 }
 
 .infinite-scroll-component {
-    overflow: hidden !important;
-    /* 80 px - screenHeader height
-    42px -- menu height
-    13 px -- padding
-    */
-    min-height: calc( 100vh - 80px - 42px - 13px) !important;
+    /* Used to be overflow: hidden !important here - same class of bug as
+       .galleryGrid used to have (image_tile.css), just one level further
+       out: this wrapper sits directly around .galleryGrid, so clipping
+       here can cut off (or, per user report, visually bury under the
+       trigger input) the "send to other person" dropdown the same way,
+       for any row where the dropdown needs to extend past this
+       container's own current box. min-height below already guarantees
+       real height regardless, so nothing here actually depended on
+       overflow:hidden for layout. */
+    /* 13px -- .imageScreen padding (top + bottom, see padding above) */
+    min-height: calc( 100vh - var(--screen-header-height) - var(--menu-bar-height) - 13px) !important;
 }
 
 .highlight_img{
     height: 70px;
     margin: 0 15px 0 15px;
     border-radius: 50%;
+    /* .screenHeader centers inline content via line-height == height,
+       but <img> defaults to vertical-align:baseline, not middle, so it
+       was sitting off the true center of the line box. */
+    vertical-align: middle;
 }
 
 .header_person_name, .no_classify_checkbox{
@@ -76,7 +89,15 @@
 
 .header_person_name{
     font-size: 25px;
-    height: 90px;
+    /* Was taller (90px) than .screenHeader's line-height (80px, see
+       --screen-header-height), which overflowed the line box and threw
+       off the vertical-align:middle centering above. */
+    height: var(--screen-header-height);
+    /* The shared line-height:normal above centers this span within
+       .screenHeader, but doesn't center the text *inside* the span
+       itself - match line-height to height so the text's own line box
+       fills it. */
+    line-height: var(--screen-header-height);
 }
 
 .no_classify_checkbox{

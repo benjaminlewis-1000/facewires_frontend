@@ -1,4 +1,14 @@
 
+/* Single source of truth for the virtualized gallery's row math
+   (gallery.jsx's GalleryRow/recomputeColumns read these via
+   getComputedStyle rather than hardcoding a copy) - keeps the JS grid
+   layout from silently drifting out of sync with .imgDiv/.rowConfirmButton
+   below if their sizes ever change here. */
+:root {
+  --tile-size: 150px;
+  --row-button-width: 28px;
+}
+
 .img_thumb {
   opacity: 1;
 }
@@ -25,25 +35,24 @@
   position: relative;
   right: 28px;
   top: 4px;
-  border-radius: 6px;
-  width: 15px;
-  height: 15px;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
   border: 1px solid #000;
-  /*right: 32px;*/
-  /*top: 32px;*/
- /* width: 32px;
-  height: 32px;*/
-  /*opacity: 0.3;*/
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
 .delete:hover {
   opacity: 1;
 }
+
 .delete:before, .delete:after {
   position: relative;
- /* left: 15px;
-  content: ' ';
-  height: 33px;
-  width: 2px;*/
   background-color: #333;
 }
 .delete:before {
@@ -62,8 +71,6 @@
   visibility: hidden;
 }
 
-/*.yes ~ .loaded, .no ~ .loaded, .delete ~ .loaded {*/
-/*.loaded ~ .yes , .loaded ~ .no , .loaded ~ .delete  {*/
 .yes , .no , .delete  {
   position: absolute;
   text-align: center;
@@ -71,6 +78,38 @@
   z-index: 4;
   background-color: white;
 /*vertical-align: middle;*/
+}
+
+/* Skeuomorphic take on the close button - just for fun. A glossy 3D red
+   circle (gradient fill, inset highlight near the top + inset shadow
+   near the bottom to fake a rounded surface, outer drop shadow to lift
+   it off the tile) instead of the flat white circle above, plus a
+   pressed-in look on :active. Deliberately its own block placed after
+   the shared .yes,.no,.delete rule above (same .delete specificity, so
+   source order decides) rather than edited in there, so this whole look
+   is a single block to delete if it doesn't work out. */
+.delete {
+  background: linear-gradient(to bottom, #ff6b5e 0%, #e0302a 55%, #c11f1f 100%);
+  border: 1px solid #8f1414;
+  color: white;
+  font-weight: bold;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 3px 4px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -6px 8px rgba(0, 0, 0, 0.25);
+  transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.15s ease;
+}
+
+.delete:hover {
+  background: linear-gradient(to bottom, #ff7c70 0%, #e8433d 55%, #c72525 100%);
+}
+
+.delete:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .yes, .no{
@@ -99,9 +138,59 @@
 
 .imgDiv{
   position: relative;
-  height: 150px;
-  float: left;
-  width: 150px;
+  height: var(--tile-size);
+  width: var(--tile-size);
+}
+
+.galleryGrid{
+  /* Outer scroll container for the virtualized gallery (react-window's
+     List - see gallery.jsx) - height is set inline (viewport minus
+     header/menu bar, same formula .infinite-scroll-component used to
+     use) since react-window needs an explicit height to know how many
+     rows to render. */
+  overflow-y: auto;
+}
+
+.galleryRow{
+  /* One row of tiles - react-window mounts/unmounts these as they
+     scroll in and out of view, so only a couple screens' worth of
+     .imgDiv tiles are ever live DOM nodes at once, regardless of how
+     many faces are loaded overall (replacing the old float-wrapped
+     .galleryGrid, where every loaded tile stayed mounted forever and
+     hiding any one of them forced the browser to reflow every floated
+     sibling after it). grid-template-columns is set inline per row
+     (gallery.jsx) since columnCount is measured live from the
+     container's width. */
+  display: grid;
+  align-content: start;
+}
+
+.rowConfirmButton{
+  /* A grid cell like any tile (see .galleryRow above), pinned to the
+     row's last column (grid-column set inline in gallery.jsx) so it
+     lands in the same spot every row regardless of how many tiles that
+     particular row actually has - a short/partial last row still gets
+     the button in the same place as a full one. Narrow and
+     tile-height-tall (rather than a wide horizontal button) so it reads
+     as a strip at the end of the row. */
+  box-sizing: border-box;
+  height: var(--tile-size);
+  width: var(--row-button-width);
+  margin: 0;
+  writing-mode: vertical-rl;
+  text-align: center;
+  font-size: 12px;
+  padding: 10px 4px;
+  border-radius: 4px;
+  border: 1px solid #450293;
+  background-color: white;
+  color: #450293;
+  cursor: pointer;
+}
+
+.rowConfirmButton:hover{
+  background-color: #450293;
+  color: white;
 }
 
 input.person_select, div.person_select{
@@ -163,99 +252,38 @@ div.ui.selection.dropdown, input.ui.selection.dropdown{
   background-color: gray;
   border-radius: 3px
 }
-/*
-  background-color: white;*/
-/*margin: 10px;*/
-    /*cursor: pointer;
-    color: rgba(0,0,0,.87);
-position: relative;
-    padding: 10px 10px !important;*/
-/*       
- border-top-color: currentcolor;
-        border-top-style: none;
-        border-top-width: medium;
-    border-top: none;
-    font-size: 1rem;
-    text-transform: none;
-    -webkit-box-shadow: none;
-    box-shadow: none;
-        border-top: 1px solid #fafafa;
-    font-weight: 400;
-    word-wrap: normal;*/
-    /*background-color: #cce2ff;*/
- /*   white-space: normal;
-  color: rgba(0,0,0,.87);
-}*/
 
-.mutableMenu{
-  height: 250px;
-  position: relative;
+.personSelectMenu{
+  /* Dedicated class (rather than the old "menu transition" classNames)
+     so this doesn't collide with menubar.css's unrelated global .menu
+     rule (position:fixed, top:0, z-index:200 - meant for the top navbar,
+     but a plain ".menu" class selector matches anywhere) or
+     imageScreen.css's .transition (height:150px).
+     Positioning (position:fixed, left/top-or-bottom) is set inline in
+     mutableSelect.jsx's render, not here - this element is portaled
+     straight onto document.body (see that file for why: bumping z-index
+     alone didn't fix tiles in lower rows visually ducking under a
+     sibling tile's own trigger box - a portal sidesteps needing to find
+     the ancestor actually responsible by not nesting this inside the
+     tile at all) and needs real viewport coordinates from
+     wrapperRef.getBoundingClientRect(), which only JS can measure. */
+  display: none;
+  z-index: 500;
+  max-height: 250px;
   width: 120px;
   overflow-y: auto;
-  z-index: 50;
-  overflow-x: hidden; 
+  overflow-x: hidden;
   background-color: white;
-  margin-top: 23px;
-  margin-left: -10px;
+  border: 1px solid #d4d4d5;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.personSelectMenu.visible{
+  display: block;
 }
 
 .selected{
   background-color: gray;
   border-radius: 3px
 }
-/*
-
-.mutableMenu{
-  z-index: 100;
-  background-color: #cce2ff;
-  color: rgba(0, 0, 0, .87);
-  border-color:  #96c8da;
-  box-shadow: 0 2px 3px 0 rgba(34,36, 38, 0.15);
-  overflow-x: hidden;
-  overflow-y: auto;
-  backface-visibility: hidden;
-  border-top-width: 0 !important;
-  outline: 0;
-  margin: 0 -1px;
-  width: 100px;
-  height: 150px;
-  min-width: calc(100% + 2px);
-  width: calc(100% +_2px);
-  border-radius: 0 0 .28571429rem 0.28571429rem;
-  transition: opacity .1s ease;
-    font-family: Lato,'Helvetica Neue',Arial,Helvetica,sans-serif;
-
-    font-weight: bold;
-line-height: 1em;
-white-space: normal;
-cursor: auto;
-position: absolute;
-    word-wrap: break-word;
-color: rgba(0,0,0,.87);
-outline: 0;
-top: 100%;
-min-width: -webkit-max-content;
-min-width: -moz-max-content;
-min-width: max-content;
-margin: 0;
-padding: 0 0;
-background: #fff;
-font-size: 1em;
-text-shadow: none;
-text-align: left;
--webkit-box-shadow: 0 2px 3px 0 rgba(34,36,38,.15);
-box-shadow: 0 2px 3px 0 rgba(34,36,38,.15);
-border: 1px solid rgba(34,36,38,.15);
-    border-top-color: rgba(34, 36, 38, 0.15);
-    border-top-width: 1px;
-    border-right-color: rgba(34, 36, 38, 0.15);
-    border-bottom-color: rgba(34, 36, 38, 0.15);
-    border-left-color: rgba(34, 36, 38, 0.15);
-border-radius: .28571429rem;
--webkit-transition: opacity .1s ease;
-transition: opacity .1s ease;
-will-change: transform,opacity;
-}
-
-
-*/

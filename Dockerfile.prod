@@ -1,0 +1,26 @@
+# Production image: compile the Vite production bundle, then serve the
+# static output with a lightweight file server. Unlike Dockerfile (used by
+# the picasa_frontend_dev service), there is no bind-mounted source and no
+# live dev server here - the built dist/ is baked into the image at build
+# time, so a deploy means rebuilding this image from whatever's currently
+# checked out, not editing files in a running container.
+FROM node:22-alpine AS build
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+FROM node:22-alpine
+
+WORKDIR /app
+# `serve` is already a package.json dependency (carried over from the
+# pre-Vite CRA setup) but installed fresh here rather than copied from the
+# build stage, so the runtime image doesn't also drag in Vite/devDependencies.
+RUN npm install -g serve@14
+
+COPY --from=build /app/dist ./dist
+
+EXPOSE 3000
+CMD ["serve", "-s", "dist", "-l", "3000"]
