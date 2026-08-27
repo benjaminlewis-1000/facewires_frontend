@@ -668,10 +668,17 @@ class Gallery extends React.Component{
   }
 
   // Folder tiles are ImageFile ids, not Face ids - face_source (which does
-  // Face.objects.get(id=...)) would show an unrelated photo. full_big is
-  // the same "largest available preview" concept for a whole image.
+  // Face.objects.get(id=...)) would show an unrelated photo. full_big/
+  // medium/small are pre-generated thumbnails capped at 500x500
+  // (FILEPOPULATOR_THUMBNAIL_SIZE_BIG, picasa/settings.py) - too small for
+  // a "full size" modal view. slideshow is the one KeyedImageView type
+  // that actually opens the original file on disk (img_obj.filename, not
+  // a pre-generated thumbnail) and live-resizes it, defaulting to
+  // DEFAULT_RESOLUTION_HEIGHT (2160px/4K) rather than 500px - the closest
+  // equivalent to face_source's live 700px resize of the source image,
+  // just for a whole ImageFile instead of a single face.
   buildModalUrl(id){
-    const modalType = this.props.tab === 'Folders' ? 'full_big' : 'face_source'
+    const modalType = this.props.tab === 'Folders' ? 'slideshow' : 'face_source'
     return store.get('api_url') + '/keyed_image/' + modalType + '/?id=' + id + '&access_key=' + store.get('access_key')
   }
 
