@@ -215,6 +215,13 @@ class ImageScreen extends React.Component{
     return this.props.people.find(p => p.id === this.props.api_id) || null
   }
 
+  // Mirrors getSelectedPerson above, for the Folders tab - api_id holds
+  // the selected Directory's id there instead of a Person's.
+  getSelectedFolder(){
+    if (this.props.tab !== 'Folders') return null
+    return (this.props.folders || []).find(f => f.id === this.props.api_id) || null
+  }
+
   toggle_unlikely(){
     const person = this.getSelectedPerson()
     if (!person) return
@@ -254,10 +261,18 @@ class ImageScreen extends React.Component{
     // gallery is mid-refetch - keep it rendered across toggle-triggered
     // reloads instead of blanking it out while state.loading is true.
     const selectedPerson = this.getSelectedPerson()
-    if ( !selectedPerson ){
-      var selectedName = 'Unassigned'
+    const selectedFolder = this.getSelectedFolder()
+    if ( selectedFolder ){
+      // Folders don't have a highlight image concept (that's person-only) -
+      // fall back to the same "no photo" placeholder Unassigned already
+      // uses, rather than adding a second one.
+      var selectedName = `${selectedFolder.top_level_name} (${selectedFolder.year})`
       var further_unlikely = false
       var highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' alt="highlight" className='highlight_img' />
+    }else if ( !selectedPerson ){
+      selectedName = 'Unassigned'
+      further_unlikely = false
+      highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' alt="highlight" className='highlight_img' />
     }else{
       further_unlikely = selectedPerson.further_images_unlikely
       this.state.active = further_unlikely
@@ -271,6 +286,7 @@ class ImageScreen extends React.Component{
     var body = null
     if (! this.state.loading){
       body = <Gallery
+                    tab={this.props.tab}
                     poss_ids = {this.state.possible_ids}
                     img_ids={this.state.imagery_ids}
                     people={this.props.people}

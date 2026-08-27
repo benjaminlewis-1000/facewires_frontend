@@ -933,11 +933,12 @@ class PicasaScreen extends React.Component{
       return (
       <div>
         <FolderSidebar folders={this.state.folders} setSource={this.setApiUrl} />
-        <ImageScreen 
-          tab={this.state.tab} 
-          api_source={this.state.api_source} 
-          api_id={this.state.api_id} 
+        <ImageScreen
+          tab={this.state.tab}
+          api_source={this.state.api_source}
+          api_id={this.state.api_id}
           people={this.state.people}
+          folders={this.state.folders}
           unlabeled={this.state.unlabeled_toggle}
           only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}

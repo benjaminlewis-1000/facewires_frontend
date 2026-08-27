@@ -39,7 +39,7 @@ function readSizeVars(){
 // fresh function identity every render would remount every row, every
 // render.
 function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize, rowButtonWidth,
-  rowButtonMode, rowButtonLabel, handleRowAction, imgsSelected, apiUrl, accessKey,
+  rowButtonMode, rowButtonLabel, handleRowAction, imgsSelected, apiUrl, accessKey, imageKeyedType,
   ...tileProps }){
   const row = rows[index] || []
   const lastItem = row[row.length - 1]
@@ -54,7 +54,7 @@ function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize,
         <LazyImage
           key={face_id}
           selected={imgsSelected.indexOf(face_id) >= 0}
-          url={apiUrl + '/keyed_image/face_array/?access_key=' + accessKey + '&id=' + face_id}
+          url={apiUrl + '/keyed_image/' + imageKeyedType + '/?access_key=' + accessKey + '&id=' + face_id}
           index={itemIndex}
           face_id={face_id}
           type={type}
@@ -201,6 +201,13 @@ class Gallery extends React.Component{
   // whether a button's width needs to be reserved in the per-row column
   // count). See render() below for why the Unassigned tab is excluded.
   getRowButtonMode(){
+    // Folder tiles are whole photos (ImageFile ids), not faces - Confirm
+    // row/Verify row both fire face-specific bulk operations
+    // (confirm_proposed/verify_face) that would silently misapply to
+    // whatever unrelated Face row happens to share that numeric id. The
+    // unlabeled/only_unverified toggle state is People-tab UI that simply
+    // doesn't get reset on tab switch, so this can't be relied on alone.
+    if (this.props.tab === 'Folders') return null
     if (this.props.current_person_id === this.props.unassigned_person_id) return null
     if (this.props.unlabeled) return 'confirm'
     if (this.props.only_unverified) return 'verify'
@@ -611,7 +618,12 @@ class Gallery extends React.Component{
       window.clearTimeout(pending.timeoutId)
       this.pendingClick = null
       this.unselectAll()
-      this.setState({modalURL: store.get('api_url') + '/keyed_image/face_source/?id=' + face_id + '&access_key=' + store.get('access_key') })
+      // Folder tiles are ImageFile ids, not Face ids - face_source (which
+      // does Face.objects.get(id=...)) would show an unrelated photo.
+      // full_big is the same "largest available preview" concept for a
+      // whole image.
+      const modalType = this.props.tab === 'Folders' ? 'full_big' : 'face_source'
+      this.setState({modalURL: store.get('api_url') + '/keyed_image/' + modalType + '/?id=' + face_id + '&access_key=' + store.get('access_key') })
       this.toggleModal()
       return Promise.resolve([])
     }
@@ -667,6 +679,19 @@ class Gallery extends React.Component{
       imgsSelected: this.state.imgsSelected,
       apiUrl: store.get('api_url'),
       accessKey: store.get('access_key'),
+      // Folder tiles are ImageFile ids (whole photos), not Face ids -
+      // face_array would do Face.objects.get(id=<image_id>) and show
+      // whatever unrelated face happens to share that number. full_small
+      // is a pre-generated 100x100 thumbnail, matching .img_thumb's own
+      // 100px display width (image_tile.css) with no live resizing needed
+      // server-side either.
+      imageKeyedType: this.props.tab === 'Folders' ? 'full_small' : 'face_array',
+      // Every face-specific bulk action (right-click menu, checkmark/x,
+      // mutable_select) operates on what folder tiles actually hold - an
+      // ImageFile id - as if it were a Face id. Rather than track down
+      // every individual control, LazyImage suppresses all of them at
+      // once behind this single flag.
+      isFolderTile: this.props.tab === 'Folders',
       get_unique_list: this.get_unique_list,
       api_action: this.api_action,
       onApiError: this.handleApiError,
