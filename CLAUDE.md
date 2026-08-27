@@ -167,6 +167,33 @@ its behavior, don't assume this file's history describes what's live.
 - Deleted dead files: pcScreenTest.jsx, login.jsx, customContext.jsx.
 
 ### Currently in progress / open
+- Fixed (2026-08-27): a brand-new person created via one tile's "send to
+  other person" search (`MutableSelect.assignPerson`'s no-existing-match
+  path, `face_to_new_person`) didn't show up as an option in any *other*
+  tile's search until a full page refresh. Cause: `Gallery`'s
+  `peopleOptions` (what `MutableSelect` actually searches/filters) was
+  built once in the constructor from `this.props.people` and never
+  rebuilt - `PicasaScreen.updatePersonList` correctly appended the new
+  person to `state.people` (confirmed already correct - the sidebar count
+  updated fine), but that updated prop never made it into Gallery's own
+  `state.peopleOptions`. Fixed by pulling the build logic into
+  `buildPeopleOptions(people)` and calling it again from
+  `componentDidUpdate` - but only when `people.length` actually changes,
+  not on every prop update: `PicasaScreen.updatePersonCounts` creates a
+  new `state.people` array (via `.map()`) on *every* bulk face action
+  (confirm/ignore/verify/etc.) to update in-place count fields, without
+  changing how many people there are, and rebuilding+re-sorting the full
+  option list (O(people count log people count)) on every one of those -
+  the single hottest action in the app - for a library with hundreds or
+  thousands of people would be real, unnecessary overhead. Keying on
+  length instead means the rebuild only fires on an actual add (or a
+  merge removing someone), which are already rare, deliberate,
+  network-round-trip-bound actions - the extra local rebuild cost is
+  invisible next to that. A person being *renamed* has the same staleness
+  (other tiles' dropdowns won't show the new name until remount either),
+  left unfixed since it wasn't reported - would need the same treatment,
+  keyed on something cheaper to detect than a full deep-compare (e.g. a
+  version counter bumped by `updatePersonName`) if wanted later.
 - Fixed (2026-08-27): `buildCountDeltas`'s `close_assigned` case
   (`gallery.jsx`) always credited Unassigned's sidebar count with every
   rejected face, including ones rejected as a candidate for `.ignore`
