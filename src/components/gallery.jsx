@@ -76,25 +76,14 @@ function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize,
 
 class Gallery extends React.Component{
 
-  constructor(props){
-    super(props);
+  // Builds the {value, text, api_key, num_images} option list MutableSelect
+  // searches through for "send to other person" - sorted most-to-least
+  // photos, same as before. Pulled out into its own method (rather than
+  // just constructor-local code) so componentDidUpdate below can rebuild
+  // it when a new person shows up in this.props.people, not just at mount.
+  buildPeopleOptions(people){
     var peopleOptions = []
-
-    this.clickHandler = this.clickHandler.bind(this)
-    this.get_unique_list = this.get_unique_list.bind(this)
-    this.handleRowAction = this.handleRowAction.bind(this)
-    // Imperative handle onto react-window's List - used by handleRowAction
-    // to scroll back to the top after a row confirm/verify (see there).
-    this.listRef = React.createRef()
-    this.runBulkOperation = this.runBulkOperation.bind(this)
-    this.handleListResize = this.handleListResize.bind(this)
-    this.getRowButtonMode = this.getRowButtonMode.bind(this)
-
-    const { tileSize, rowButtonWidth } = readSizeVars()
-    this.tileSize = tileSize
-    this.rowButtonWidth = rowButtonWidth
-
-    for (const [index, value] of this.props.people.entries()) {
+    for (const [index, value] of people.entries()) {
       peopleOptions.push({
         key: index,
         value: value.person_name,
@@ -111,6 +100,26 @@ class Gallery extends React.Component{
       return b.num_images - a.num_images
     });
 
+    return peopleOptions
+  }
+
+  constructor(props){
+    super(props);
+
+    this.clickHandler = this.clickHandler.bind(this)
+    this.get_unique_list = this.get_unique_list.bind(this)
+    this.handleRowAction = this.handleRowAction.bind(this)
+    // Imperative handle onto react-window's List - used by handleRowAction
+    // to scroll back to the top after a row confirm/verify (see there).
+    this.listRef = React.createRef()
+    this.runBulkOperation = this.runBulkOperation.bind(this)
+    this.handleListResize = this.handleListResize.bind(this)
+    this.getRowButtonMode = this.getRowButtonMode.bind(this)
+
+    const { tileSize, rowButtonWidth } = readSizeVars()
+    this.tileSize = tileSize
+    this.rowButtonWidth = rowButtonWidth
+
     // Every loaded item across img_ids/poss_ids, as [combinedIndex, faceId,
     // type] triples - built once up front (buildItems) rather than trickled
     // in via infinite-scroll pagination, since ImageScreen already fetched
@@ -124,7 +133,7 @@ class Gallery extends React.Component{
     this.state = {
       imgsSelected: [],
       hidden: [],
-      peopleOptions: peopleOptions,
+      peopleOptions: this.buildPeopleOptions(this.props.people),
       lastClicked: -1,
       itemsVersion: 0,
       errorMessage: null,
@@ -239,6 +248,25 @@ class Gallery extends React.Component{
         prevProps.current_person_id !== this.props.current_person_id){
       this.buildItems()
       this.setState(prevState => ({ itemsVersion: prevState.itemsVersion + 1 }))
+    }
+
+    // Rebuild peopleOptions when someone new shows up (or a merge removes
+    // one) so a brand-new person created via one tile's "send to other
+    // person" search immediately becomes searchable from every other
+    // tile's, instead of only after a refetch/remount. Keyed on length,
+    // not on props.people's own reference: PicasaScreen.updatePersonCounts
+    // creates a new state.people array (via .map()) on every single bulk
+    // face action - confirm, ignore, verify, all of it - to update
+    // in-place count fields, without changing how many people there are.
+    // Rebuilding+re-sorting peopleOptions (O(people count log people count))
+    // on every one of those, for a library with hundreds/thousands of
+    // people, would be real, unnecessary overhead on the single hottest
+    // action in the app. A person being renamed still won't show its new
+    // name in other tiles' dropdowns until remount either, for the same
+    // reason - not fixed here since it wasn't reported and rebuilding on
+    // every rename is cheap anyway (renames are rare) if that's wanted later.
+    if (prevProps.people.length !== this.props.people.length){
+      this.setState({ peopleOptions: this.buildPeopleOptions(this.props.people) })
     }
   }
 
