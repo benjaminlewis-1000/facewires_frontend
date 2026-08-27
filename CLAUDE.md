@@ -167,6 +167,21 @@ its behavior, don't assume this file's history describes what's live.
 - Deleted dead files: pcScreenTest.jsx, login.jsx, customContext.jsx.
 
 ### Currently in progress / open
+- Fixed (2026-08-27): `buildCountDeltas`'s `close_assigned` case
+  (`gallery.jsx`) always credited Unassigned's sidebar count with every
+  rejected face, including ones rejected as a candidate for `.ignore`
+  specifically. `reject_association()` (the backend method behind the
+  `proposed`/possible-match sub-case) never touches `declared_name` — a
+  face with `.ignore` as a possible match already has `declared_name ===
+  Unassigned`, so it was already sitting in Unassigned's count before the
+  action, not newly added by it. Only the `defined` sub-case (a face
+  actually declared to `.ignore`, moved to Unassigned via
+  `associate_person(blank_person.id)`) is a real transition into
+  Unassigned's queue. Fixed by only counting `definedCount` toward
+  Unassigned when `current_person_id === ignore_person_id`, vs. the full
+  `n` (both defined + proposed) for every other person, where rejecting a
+  possible-match candidate is still the case this delta was originally
+  written for.
 - Changed (2026-08-27): the red X on the `.ignore` screen (`lazyImg.jsx`'s
   ignore-tab delete button) now fires `close_assigned` instead of
   `close_ignored`, per explicit user request. Previously it called
