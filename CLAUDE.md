@@ -55,6 +55,16 @@ changing URLs/environment logic, or consolidate them if doing a larger refactor.
 `MainApp` → `PicasaScreen` (`picasaScreen.jsx`, the real root component) → tab switch between:
 - **People tab:** `PersonSidebar` (list of tagged people) + `ImageScreen` → `Gallery` (grid of face crops)
 - **Folders tab:** `FolderSidebar` (photo folders/albums by year) + `ImageScreen` → `Gallery`
+- **Tools tab:** `ToolsScreen` (`toolsScreen.jsx`, added 2026-08-27) — **mocked scaffolding, not a real
+  feature yet.** Self-contained (owns its own `selectedToolId`/mock form state internally, no props from
+  `PicasaScreen`, no API calls) so it's a one-file add/remove: delete `toolsScreen.jsx` and the single
+  `<ToolsScreen />` line in `picasaScreen.jsx`'s `renderSidebar()` to fully revert. Reuses the existing
+  `.sidebarList`/`.base-state`/`.click-state` (sidebar) and `.screenHeader`/`.imageScreen` (content pane)
+  CSS classes so it visually matches People/Folders without new CSS. Sidebar lists 3 placeholder tool
+  names; the panel shows the selected tool's name/blurb plus an unwired dropdown and two checkboxes -
+  purely to demonstrate the two-pane layout, not real functionality. Whatever real tools eventually go
+  here will need actual design (their own state shape, likely real props/API calls) - don't build on this
+  file's specific mock content, just its layout shape.
 
 `PicasaScreen` fetches the full people list (`/person_list/`) and folder list (`/folder_list/`) on mount,
 paginating through DRF-style `{results, next, count}` responses via `compile_api_list` +
@@ -167,6 +177,53 @@ its behavior, don't assume this file's history describes what's live.
 - Deleted dead files: pcScreenTest.jsx, login.jsx, customContext.jsx.
 
 ### Currently in progress / open
+- Added (2026-08-27): prev/next paging through the full-size modal on the
+  Folders tab (`gallery.jsx`). `state.modalItemIndex` tracks the open
+  image's position in `this.itemsRef` (set from `itemsRef.findIndex(...)`
+  when the modal opens via double-click); `showAdjacentModalImage(delta)`
+  walks it by ±1 and rebuilds the modal URL via a new `buildModalUrl(id)`
+  helper (factored out of the same face_source-vs-full_big logic the
+  double-click handler already had). Wired to on-screen prev/next buttons
+  (`.modalNavButton`, `imageModal.css`) and the Left/Right arrow keys while
+  the modal is open, both disabled/no-op at the folder's first/last image.
+  Folders-tab only, gated on `this.props.tab === 'Folders'` - the People
+  tab's modal is unaffected. While touching `_handleKeyDown` for the arrow
+  keys, also closed a gap the earlier Folders-tab context-menu/row-button
+  fix (below) had missed: the `Delete`/`Shift+R` keyboard shortcuts
+  (`close_ignored`/`close_assigned`) were still live on the Folders tab
+  too, same face-vs-ImageFile-id risk, now suppressed there the same way.
+- Fixed (2026-08-27): the Folders tab showed random, unrelated people's
+  face crops instead of photo thumbnails, and its header always read
+  "Unassigned". Root cause: `paginate_obj_ids/{folder_id}/directory`
+  (backend) returns **`ImageFile` ids**, not `Face` ids — but `Gallery`
+  unconditionally built every tile's image URL as `/keyed_image/
+  face_array/?id=<id>` (`Face.objects.get(id=id_key)`), so on the Folders
+  tab an `ImageFile` id got fed straight into a `Face` lookup and returned
+  whatever unrelated face happened to share that number. Fixed by making
+  `Gallery` tab-aware (`Gallery` now takes a `tab` prop, threaded from
+  `ImageScreen`): on the Folders tab it uses `full_small` instead (a
+  pre-generated 100x100 thumbnail matching `.img_thumb`'s own 100px
+  display width exactly, no live PIL resize needed), and the double-click
+  full-size modal uses `full_big` instead of `face_source`.
+  Header fix: `getSelectedFolder()` (mirrors `getSelectedPerson()`) looks
+  up the selected folder from a newly-threaded `folders` prop
+  (`PicasaScreen` → `ImageScreen`, wasn't passed before at all) and shows
+  `"{top_level_name} ({year})"`.
+  **Also disabled, not just cosmetic**: the right-click context menu
+  (Remove from person, Send to ignore, Verify face, etc.) and the
+  Confirm/Verify row-action button were *also* unconditionally active on
+  folder tiles before this fix, and every one of those calls a
+  face-specific bulk operation with what's actually an `ImageFile` id -
+  a real (if rare) risk of silently misapplying an action to an unrelated
+  `Face` row. Both are now suppressed via `isFolderTile`/`getRowButtonMode`
+  checking `props.tab === 'Folders'` (confirmed via headless test: no
+  `.contexify` element appears on right-click, no `.rowConfirmButton`
+  renders). The "Further Images Unlikely" checkbox and "Rename person"
+  context menu in `ImageScreen`'s header are still shown on the Folders
+  tab too (pre-existing, not part of what was reported) - both already
+  no-op safely (`toggle_unlikely`/`openRename` guard on `getSelectedPerson()`
+  being null) but are dead/confusing UI there; worth the same treatment
+  later if it comes up.
 - Fixed (2026-08-27): a brand-new person created via one tile's "send to
   other person" search (`MutableSelect.assignPerson`'s no-existing-match
   path, `face_to_new_person`) didn't show up as an option in any *other*

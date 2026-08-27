@@ -14,6 +14,7 @@ import { mapWithConcurrency } from './concurrencyPool';
 import FolderSidebar from './folderSidebar'
 import PersonSidebar from './personSidebar'
 import ImageScreen from './imageScreen'
+import ToolsScreen from './toolsScreen'
 import axiosInstance from './axios_setup'
 import { withRetry } from './apiRetry';
 import { assignFaceToPerson, bulkFaceOperation } from './faceActions';
@@ -901,7 +902,7 @@ class PicasaScreen extends React.Component{
   renderSidebar() {
 
     if ( this.state.tab === "Tools" ){
-      return <p>Tools</p>
+      return <ToolsScreen />
     }
       
     if ( this.state.tab === "People" ){
@@ -932,11 +933,12 @@ class PicasaScreen extends React.Component{
       return (
       <div>
         <FolderSidebar folders={this.state.folders} setSource={this.setApiUrl} />
-        <ImageScreen 
-          tab={this.state.tab} 
-          api_source={this.state.api_source} 
-          api_id={this.state.api_id} 
+        <ImageScreen
+          tab={this.state.tab}
+          api_source={this.state.api_source}
+          api_id={this.state.api_id}
           people={this.state.people}
+          folders={this.state.folders}
           unlabeled={this.state.unlabeled_toggle}
           only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}

@@ -39,7 +39,7 @@ function readSizeVars(){
 // fresh function identity every render would remount every row, every
 // render.
 function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize, rowButtonWidth,
-  rowButtonMode, rowButtonLabel, handleRowAction, imgsSelected, apiUrl, accessKey,
+  rowButtonMode, rowButtonLabel, handleRowAction, imgsSelected, apiUrl, accessKey, imageKeyedType,
   ...tileProps }){
   const row = rows[index] || []
   const lastItem = row[row.length - 1]
@@ -54,7 +54,7 @@ function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize,
         <LazyImage
           key={face_id}
           selected={imgsSelected.indexOf(face_id) >= 0}
-          url={apiUrl + '/keyed_image/face_array/?access_key=' + accessKey + '&id=' + face_id}
+          url={apiUrl + '/keyed_image/' + imageKeyedType + '/?access_key=' + accessKey + '&id=' + face_id}
           index={itemIndex}
           face_id={face_id}
           type={type}
@@ -139,6 +139,11 @@ class Gallery extends React.Component{
       errorMessage: null,
       modalOpen: false,
       modalURL: "https://cdn.pixabay.com/photo/2016/05/24/16/48/mountains-1412683__340.png",
+      // Position of the currently-open modal image within this.itemsRef -
+      // lets the modal page back/forward through the folder without
+      // closing (Folders tab only - see showAdjacentModalImage/render).
+      // -1 means "nothing open"/not applicable.
+      modalItemIndex: -1,
       // How many tiles fit per row at the gallery's current width - kept
       // in state (rather than just an instance field) because it drives
       // the row layout, so a change needs to trigger a re-render. Refined
@@ -153,6 +158,7 @@ class Gallery extends React.Component{
     this.pendingClick = null
     this.api_action = this.api_action.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
+    this.showAdjacentModalImage = this.showAdjacentModalImage.bind(this);
     this.setHidden = this.setHidden.bind(this);
     this.unselectAll = this.unselectAll.bind(this);
     this.clearImagesSelected = this.clearImagesSelected.bind(this);
@@ -201,6 +207,13 @@ class Gallery extends React.Component{
   // whether a button's width needs to be reserved in the per-row column
   // count). See render() below for why the Unassigned tab is excluded.
   getRowButtonMode(){
+    // Folder tiles are whole photos (ImageFile ids), not faces - Confirm
+    // row/Verify row both fire face-specific bulk operations
+    // (confirm_proposed/verify_face) that would silently misapply to
+    // whatever unrelated Face row happens to share that numeric id. The
+    // unlabeled/only_unverified toggle state is People-tab UI that simply
+    // doesn't get reset on tab switch, so this can't be relied on alone.
+    if (this.props.tab === 'Folders') return null
     if (this.props.current_person_id === this.props.unassigned_person_id) return null
     if (this.props.unlabeled) return 'confirm'
     if (this.props.only_unverified) return 'verify'
@@ -222,6 +235,26 @@ class Gallery extends React.Component{
   }
 
   _handleKeyDown = (event) => {
+    // Page the open modal with the arrow keys - Folders tab only, same
+    // scoping as the prev/next buttons themselves (see render).
+    if (this.state.modalOpen && this.props.tab === 'Folders'){
+      if (event.key === 'ArrowLeft'){
+        event.preventDefault()
+        this.showAdjacentModalImage(-1)
+      }
+      if (event.key === 'ArrowRight'){
+        event.preventDefault()
+        this.showAdjacentModalImage(1)
+      }
+      return
+    }
+
+    // Same reasoning as getRowButtonMode/isFolderTile above - Delete and
+    // Shift+R both fire face-specific bulk operations, which would
+    // silently misapply to an unrelated Face row if fired against a
+    // folder tile's ImageFile id.
+    if (this.props.tab === 'Folders') return
+
     const cp = this.props.current_person_id
     const ip = this.props.ignore_person_id
     if (event.key == 'Delete'){
@@ -611,7 +644,10 @@ class Gallery extends React.Component{
       window.clearTimeout(pending.timeoutId)
       this.pendingClick = null
       this.unselectAll()
-      this.setState({modalURL: store.get('api_url') + '/keyed_image/face_source/?id=' + face_id + '&access_key=' + store.get('access_key') })
+      this.setState({
+        modalURL: this.buildModalUrl(face_id),
+        modalItemIndex: this.itemsRef.findIndex(([, id]) => id === face_id),
+      })
       this.toggleModal()
       return Promise.resolve([])
     }
@@ -629,6 +665,33 @@ class Gallery extends React.Component{
 
  toggleModal() {
     this.setState({modalOpen: !this.state.modalOpen});
+  }
+
+  // Folder tiles are ImageFile ids, not Face ids - face_source (which does
+  // Face.objects.get(id=...)) would show an unrelated photo. full_big/
+  // medium/small are pre-generated thumbnails capped at 500x500
+  // (FILEPOPULATOR_THUMBNAIL_SIZE_BIG, picasa/settings.py) - too small for
+  // a "full size" modal view. slideshow is the one KeyedImageView type
+  // that actually opens the original file on disk (img_obj.filename, not
+  // a pre-generated thumbnail) and live-resizes it, defaulting to
+  // DEFAULT_RESOLUTION_HEIGHT (2160px/4K) rather than 500px - the closest
+  // equivalent to face_source's live 700px resize of the source image,
+  // just for a whole ImageFile instead of a single face.
+  buildModalUrl(id){
+    const modalType = this.props.tab === 'Folders' ? 'slideshow' : 'face_source'
+    return store.get('api_url') + '/keyed_image/' + modalType + '/?id=' + id + '&access_key=' + store.get('access_key')
+  }
+
+  // Pages the open modal to the previous/next image in this.itemsRef
+  // (delta -1/+1) without closing it. Folders-tab only (see render) -
+  // itemsRef there is just the folder's photos in a fixed order (no
+  // hidden/selection concept to account for, unlike the People tab), so
+  // walking it directly by index is enough.
+  showAdjacentModalImage(delta){
+    const newIndex = this.state.modalItemIndex + delta
+    if (newIndex < 0 || newIndex >= this.itemsRef.length) return
+    const [, id] = this.itemsRef[newIndex]
+    this.setState({ modalURL: this.buildModalUrl(id), modalItemIndex: newIndex })
   }
 
   setHidden(current_selected_id){
@@ -667,6 +730,19 @@ class Gallery extends React.Component{
       imgsSelected: this.state.imgsSelected,
       apiUrl: store.get('api_url'),
       accessKey: store.get('access_key'),
+      // Folder tiles are ImageFile ids (whole photos), not Face ids -
+      // face_array would do Face.objects.get(id=<image_id>) and show
+      // whatever unrelated face happens to share that number. full_small
+      // is a pre-generated 100x100 thumbnail, matching .img_thumb's own
+      // 100px display width (image_tile.css) with no live resizing needed
+      // server-side either.
+      imageKeyedType: this.props.tab === 'Folders' ? 'full_small' : 'face_array',
+      // Every face-specific bulk action (right-click menu, checkmark/x,
+      // mutable_select) operates on what folder tiles actually hold - an
+      // ImageFile id - as if it were a Face id. Rather than track down
+      // every individual control, LazyImage suppresses all of them at
+      // once behind this single flag.
+      isFolderTile: this.props.tab === 'Folders',
       get_unique_list: this.get_unique_list,
       api_action: this.api_action,
       onApiError: this.handleApiError,
@@ -706,11 +782,31 @@ class Gallery extends React.Component{
           overlayClassName="Overlay"
           shouldCloseOnOverlayClick={true}
         >
+          {this.props.tab === 'Folders' && (
+            <button
+              className='modalNavButton prev'
+              disabled={this.state.modalItemIndex <= 0}
+              onClick={() => this.showAdjacentModalImage(-1)}
+              aria-label='Previous image'
+            >
+              &#8592;
+            </button>
+          )}
           <img
             src={this.state.modalURL}
             alt="Full size"
             className='modalImage'
           />
+          {this.props.tab === 'Folders' && (
+            <button
+              className='modalNavButton next'
+              disabled={this.state.modalItemIndex < 0 || this.state.modalItemIndex >= this.itemsRef.length - 1}
+              onClick={() => this.showAdjacentModalImage(1)}
+              aria-label='Next image'
+            >
+              &#8594;
+            </button>
+          )}
         </Modal>
 
         <List

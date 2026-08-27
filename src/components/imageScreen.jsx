@@ -46,6 +46,12 @@ class ImageScreen extends React.Component{
       // instead of silently reusing the browser's cached response for
       // the (otherwise identical) person id URL.
       highlightVersion: 0,
+      // Folders tab only - the backend already returns imagery_ids
+      // newest-first (paginate_obj_ids' directory field, order_by
+      // -dateTaken), so "newest first" needs no work here and "oldest
+      // first" is just that same array reversed client-side (see
+      // buildScreen below) - no new API/fixture needed.
+      folderSortNewestFirst: true,
     }
 
     // Bumped every time componentDidUpdate kicks off a new pair of
@@ -60,6 +66,7 @@ class ImageScreen extends React.Component{
     this.handleCheckbox = this.handleCheckbox.bind(this)
     this.bumpHighlightVersion = this.bumpHighlightVersion.bind(this)
     this.openRename = this.openRename.bind(this)
+    this.setFolderSort = this.setFolderSort.bind(this)
 
     // this.ref = React.createRef();
   }
@@ -215,6 +222,13 @@ class ImageScreen extends React.Component{
     return this.props.people.find(p => p.id === this.props.api_id) || null
   }
 
+  // Mirrors getSelectedPerson above, for the Folders tab - api_id holds
+  // the selected Directory's id there instead of a Person's.
+  getSelectedFolder(){
+    if (this.props.tab !== 'Folders') return null
+    return (this.props.folders || []).find(f => f.id === this.props.api_id) || null
+  }
+
   toggle_unlikely(){
     const person = this.getSelectedPerson()
     if (!person) return
@@ -247,6 +261,10 @@ class ImageScreen extends React.Component{
     this.props.onRenamePerson && this.props.onRenamePerson(person.id, person.person_name)
   }
 
+  setFolderSort(newestFirst) {
+    this.setState({ folderSortNewestFirst: newestFirst })
+  }
+
 
   buildScreen() {
     // The header (highlight image + name + "further images unlikely"
@@ -254,10 +272,18 @@ class ImageScreen extends React.Component{
     // gallery is mid-refetch - keep it rendered across toggle-triggered
     // reloads instead of blanking it out while state.loading is true.
     const selectedPerson = this.getSelectedPerson()
-    if ( !selectedPerson ){
-      var selectedName = 'Unassigned'
+    const selectedFolder = this.getSelectedFolder()
+    if ( selectedFolder ){
+      // Folders don't have a highlight image concept (that's person-only) -
+      // fall back to the same "no photo" placeholder Unassigned already
+      // uses, rather than adding a second one.
+      var selectedName = `${selectedFolder.top_level_name} (${selectedFolder.year})`
       var further_unlikely = false
       var highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' alt="highlight" className='highlight_img' />
+    }else if ( !selectedPerson ){
+      selectedName = 'Unassigned'
+      further_unlikely = false
+      highlight_img = <img src='https://peoplefacts.com/wp-content/uploads/2014/06/mystery-person.png' alt="highlight" className='highlight_img' />
     }else{
       further_unlikely = selectedPerson.further_images_unlikely
       this.state.active = further_unlikely
@@ -268,11 +294,24 @@ class ImageScreen extends React.Component{
       highlight_img = <img src={id_url} className="highlight_img"  alt="highlight" />
     }
 
+    // Backend already returns imagery_ids newest-first for the Folders
+    // tab (paginate_obj_ids' directory field) - "oldest first" is just
+    // that same array reversed here, not a second fetch. Slicing first
+    // so this is always a fresh array reference: Gallery's
+    // componentDidUpdate rebuilds itemsRef on `img_ids` reference
+    // inequality (see gallery.jsx), and re-deriving this on every render
+    // keeps that check meaningful instead of it silently no-op'ing on a
+    // stale reversed array from a prior render.
+    const folderImgIds = (this.props.tab === 'Folders' && !this.state.folderSortNewestFirst)
+      ? [...this.state.imagery_ids].reverse()
+      : this.state.imagery_ids
+
     var body = null
     if (! this.state.loading){
       body = <Gallery
+                    tab={this.props.tab}
                     poss_ids = {this.state.possible_ids}
-                    img_ids={this.state.imagery_ids}
+                    img_ids={folderImgIds}
                     people={this.props.people}
                     unassigned_person_id={this.props.unassigned_person_id}
                     ignore_person_id={this.props.ignore_person_id}
@@ -294,16 +333,34 @@ class ImageScreen extends React.Component{
           <PersonNameContextWrapper>
             <span className='header_person_name'>{selectedName}</span>
           </PersonNameContextWrapper>
-          <span className='no_classify_checkbox'>
-              &emsp;&emsp;&emsp;
-              <input type="checkbox"
-                  checked={this.state.active}
-                  onClick={this.toggle_unlikely}
-                  onChange={this.handleCheckbox}>
-              </input>
-              &nbsp;
-              Further Images Unlikely
-          </span>
+          {selectedFolder ? (
+            // Single button, alternating direction each click - matches
+            // the backend's default order_by('-dateTaken') when newest
+            // ("newest first"), just that same id list reversed
+            // client-side when not (see buildScreen). Was going to sit
+            // right next to the People-tab "Further Images Unlikely"
+            // checkbox below, which is already known-dead UI on this tab
+            // (see CLAUDE.md) - hidden here now that there's something
+            // real to show in its place.
+            <button
+              className='folderSortToggle'
+              onClick={() => this.setFolderSort(!this.state.folderSortNewestFirst)}
+            >
+              <span className='sortArrowGlyph'>{this.state.folderSortNewestFirst ? '↓' : '↑'}</span>
+              {this.state.folderSortNewestFirst ? 'Newest first' : 'Oldest first'}
+            </button>
+          ) : (
+            <span className='no_classify_checkbox'>
+                &emsp;&emsp;&emsp;
+                <input type="checkbox"
+                    checked={this.state.active}
+                    onClick={this.toggle_unlikely}
+                    onChange={this.handleCheckbox}>
+                </input>
+                &nbsp;
+                Further Images Unlikely
+            </span>
+          )}
 
         </div>
 

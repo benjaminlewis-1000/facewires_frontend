@@ -92,8 +92,9 @@ class LazyImage extends React.PureComponent {
       
     return (
       <div className={(this.props.hidden || this.state.ignored) ? 'hidden_img' : 'imgDiv'}>
-        <LazyImageContextWrapper 
+        <LazyImageContextWrapper
           menuId={menuId}
+          disabled={this.props.isFolderTile}
           hidden={this.props.hidden}
           ignored={this.state.ignored}
           selected={this.props.selected}
@@ -119,7 +120,7 @@ class LazyImage extends React.PureComponent {
             already fixed once for MutableSelect's dropdown (see there) for
             the same underlying reason, just a second, unrelated component
             that assumes plain viewport-relative fixed positioning. */}
-        {createPortal(
+        {!this.props.isFolderTile && createPortal(
           <Menu id={menuId}>
             <Item onClick={ () => this.props.api_action('close_assigned', this.props.face_id) }>
               Remove from person
@@ -199,10 +200,11 @@ class LazyImage extends React.PureComponent {
 }
 
 // Functional wrapper to leverage react-contexify's hook cleanly inside a Class Component
-const LazyImageContextWrapper = React.memo(function LazyImageContextWrapper({ menuId, hidden, ignored, selected, url, index, scrollPosition, localClick, onDrop, onDrag, loaded, onLoad }) {
+const LazyImageContextWrapper = React.memo(function LazyImageContextWrapper({ menuId, disabled, hidden, ignored, selected, url, index, scrollPosition, localClick, onDrop, onDrag, loaded, onLoad }) {
   const { show } = useContextMenu({ id: menuId });
 
   function handleContextMenu(event) {
+    if (disabled) return
     show({ event });
   }
 

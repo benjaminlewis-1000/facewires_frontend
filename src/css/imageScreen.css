@@ -107,3 +107,35 @@
     float: right;
     right: 10%;
 }
+
+/* Folders-tab newest/oldest-first toggle - same header slot the People
+   tab's .no_classify_checkbox occupies (see imageScreen.jsx). One button,
+   alternating direction/label each click. */
+.folderSortToggle{
+    float: right;
+    right: 10%;
+    position: relative;
+    top: 45%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 17px;
+    border: 1px solid #450293;
+    background-color: #450293;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.folderSortToggle:hover{
+    background-color: #5c14b8;
+}
+
+.sortArrowGlyph{
+    font-size: 16px;
+    line-height: 1;
+}
