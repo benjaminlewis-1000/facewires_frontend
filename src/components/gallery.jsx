@@ -375,7 +375,22 @@ class Gallery extends React.Component{
           if (this.props.only_unverified) addDelta(current_person_id, { num_unverified_faces: -definedCount })
         }
         if (proposedCount) addDelta(current_person_id, { num_possibilities: -proposedCount })
-        addDelta(unassigned_person_id, { num_possibilities: n })
+        // Faces actually moved into Unassigned here (the 'defined'
+        // sub-case - associate_person(blank_person.id) on the backend,
+        // when the face was declared to current_person_id) really do land
+        // in Unassigned's review queue for the first time, so those count.
+        // A 'proposed' face being rejected as a candidate for .ignore
+        // specifically is different: reject_association() never touches
+        // declared_name (see face_manager/models.py) - a face with .ignore
+        // as a possible match already has declared_name === Unassigned, so
+        // it was already sitting in Unassigned's count before this action,
+        // not newly added to it. That's not true for rejecting a candidate
+        // for any other (real) person - this delta was written for that
+        // case, where the face becoming visible in Unassigned's queue
+        // *is* new, so only skip it specifically when current_person_id is
+        // .ignore.
+        const newlyUnassignedCount = current_person_id === ignore_person_id ? definedCount : n
+        addDelta(unassigned_person_id, { num_possibilities: newlyUnassignedCount })
         break
       case 'close_unassigned':
         // "Send to ignore" is reachable from any face's context menu, not
