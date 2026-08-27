@@ -167,8 +167,21 @@ class LazyImage extends React.PureComponent {
         }
         {
           this.props.ignore_tab ? (
+            // Same action as the "no" (x) button on other people's
+            // proposed-match tiles (see the 'proposed' case below) -
+            // close_assigned sends this face to Unassigned and, if it was
+            // only a possible match (not yet declared to .ignore), marks
+            // .ignore as a rejected candidate so it won't be re-suggested.
+            // Previously called close_ignored, which moved the face to a
+            // second "hard ignore" person (.realignore) instead - changed
+            // per explicit user request (2026-08-27): the red X here
+            // should behave like every other X in the app, not escalate to
+            // a separate, unreviewable ignore tier. buildCountDeltas'
+            // close_ignored case is left wired up even though this button
+            // no longer reaches it - harmless, and still callable from
+            // wherever else 'close_ignored' might be fired in the future.
             <button className={this.props.hidden ? 'hidden_img' : 'delete'}
-                    onClick={ (e)=>{this.props.api_action('close_ignored', this.props.face_id) } }
+                    onClick={ (e)=>{this.props.api_action('close_assigned', this.props.face_id) } }
                     >
                     x
                     </button>

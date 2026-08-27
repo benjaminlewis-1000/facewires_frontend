@@ -167,6 +167,26 @@ its behavior, don't assume this file's history describes what's live.
 - Deleted dead files: pcScreenTest.jsx, login.jsx, customContext.jsx.
 
 ### Currently in progress / open
+- Changed (2026-08-27): the red X on the `.ignore` screen (`lazyImg.jsx`'s
+  ignore-tab delete button) now fires `close_assigned` instead of
+  `close_ignored`, per explicit user request. Previously it called
+  `close_ignored`, which the backend (`api/views.py`'s `bulk_thread`)
+  treats as promoting the face to a second, separate "hard ignore" person
+  (`.realignore`) — a one-way move with no UI anywhere to review or undo
+  it (`.realignore` isn't one of the special-cased sidebar names, and
+  isn't in the undo/redo stack). The user wants the same behavior as the
+  "no" (x) button everywhere else instead: `close_assigned` either rejects
+  `.ignore` as a possible-match candidate (if the face was only a
+  `proposed` suggestion) or reassigns it to Unassigned (if it was already
+  declared to `.ignore`) — see `buildCountDeltas`'s `close_assigned` case
+  (`gallery.jsx`), unchanged, already handles both cases correctly
+  regardless of which tab triggered it. `close_ignored`/`.realignore`
+  remain wired up server-side and in `buildCountDeltas` (deliberately left
+  as-is, per the user - "not useful right now" but harmless) - just no
+  longer reachable from this specific button. The right-click "Remove
+  from person" menu item already called `close_assigned` for every tab
+  including `.ignore`, so this makes the dedicated X button consistent
+  with it instead of the two disagreeing.
 - Fixed (2026-08-26): `PicasaScreen`'s initial load (params/people/folders fetch, all
   three fire from the constructor/`componentDidMount`) used to hang on the loading spinner
   forever instead of failing visibly, in two cases: (1) backend unreachable — `fetchAPIURL`
