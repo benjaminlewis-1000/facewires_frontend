@@ -125,7 +125,7 @@
 }
 
 .modalImage{
-  
+
   width: 90%;
   height: 90%;
   object-fit: contain;
@@ -134,6 +134,44 @@
   display: block;
   -ms-transform: translateY(5%);
   transform: translateY(5%);
+}
+
+/* Prev/next paging through the current folder from the full-size modal
+   (Folders tab only - see gallery.jsx's render). Absolutely positioned
+   against .Modal (position:fixed already), vertically centered over the
+   image regardless of the modal's fixed 80vh/80vw size. */
+.modalNavButton{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid #450293;
+  background-color: white;
+  color: #450293;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 101;
+}
+
+.modalNavButton:hover:not(:disabled){
+  background-color: #450293;
+  color: white;
+}
+
+.modalNavButton:disabled{
+  opacity: 0.3;
+  cursor: default;
+}
+
+.modalNavButton.prev{
+  left: 12px;
+}
+
+.modalNavButton.next{
+  right: 12px;
 }
 
 @keyframes fadeIn {

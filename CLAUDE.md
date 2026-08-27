@@ -177,6 +177,21 @@ its behavior, don't assume this file's history describes what's live.
 - Deleted dead files: pcScreenTest.jsx, login.jsx, customContext.jsx.
 
 ### Currently in progress / open
+- Added (2026-08-27): prev/next paging through the full-size modal on the
+  Folders tab (`gallery.jsx`). `state.modalItemIndex` tracks the open
+  image's position in `this.itemsRef` (set from `itemsRef.findIndex(...)`
+  when the modal opens via double-click); `showAdjacentModalImage(delta)`
+  walks it by ±1 and rebuilds the modal URL via a new `buildModalUrl(id)`
+  helper (factored out of the same face_source-vs-full_big logic the
+  double-click handler already had). Wired to on-screen prev/next buttons
+  (`.modalNavButton`, `imageModal.css`) and the Left/Right arrow keys while
+  the modal is open, both disabled/no-op at the folder's first/last image.
+  Folders-tab only, gated on `this.props.tab === 'Folders'` - the People
+  tab's modal is unaffected. While touching `_handleKeyDown` for the arrow
+  keys, also closed a gap the earlier Folders-tab context-menu/row-button
+  fix (below) had missed: the `Delete`/`Shift+R` keyboard shortcuts
+  (`close_ignored`/`close_assigned`) were still live on the Folders tab
+  too, same face-vs-ImageFile-id risk, now suppressed there the same way.
 - Fixed (2026-08-27): the Folders tab showed random, unrelated people's
   face crops instead of photo thumbnails, and its header always read
   "Unassigned". Root cause: `paginate_obj_ids/{folder_id}/directory`

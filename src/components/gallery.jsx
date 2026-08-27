@@ -139,6 +139,11 @@ class Gallery extends React.Component{
       errorMessage: null,
       modalOpen: false,
       modalURL: "https://cdn.pixabay.com/photo/2016/05/24/16/48/mountains-1412683__340.png",
+      // Position of the currently-open modal image within this.itemsRef -
+      // lets the modal page back/forward through the folder without
+      // closing (Folders tab only - see showAdjacentModalImage/render).
+      // -1 means "nothing open"/not applicable.
+      modalItemIndex: -1,
       // How many tiles fit per row at the gallery's current width - kept
       // in state (rather than just an instance field) because it drives
       // the row layout, so a change needs to trigger a re-render. Refined
@@ -153,6 +158,7 @@ class Gallery extends React.Component{
     this.pendingClick = null
     this.api_action = this.api_action.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
+    this.showAdjacentModalImage = this.showAdjacentModalImage.bind(this);
     this.setHidden = this.setHidden.bind(this);
     this.unselectAll = this.unselectAll.bind(this);
     this.clearImagesSelected = this.clearImagesSelected.bind(this);
@@ -229,6 +235,26 @@ class Gallery extends React.Component{
   }
 
   _handleKeyDown = (event) => {
+    // Page the open modal with the arrow keys - Folders tab only, same
+    // scoping as the prev/next buttons themselves (see render).
+    if (this.state.modalOpen && this.props.tab === 'Folders'){
+      if (event.key === 'ArrowLeft'){
+        event.preventDefault()
+        this.showAdjacentModalImage(-1)
+      }
+      if (event.key === 'ArrowRight'){
+        event.preventDefault()
+        this.showAdjacentModalImage(1)
+      }
+      return
+    }
+
+    // Same reasoning as getRowButtonMode/isFolderTile above - Delete and
+    // Shift+R both fire face-specific bulk operations, which would
+    // silently misapply to an unrelated Face row if fired against a
+    // folder tile's ImageFile id.
+    if (this.props.tab === 'Folders') return
+
     const cp = this.props.current_person_id
     const ip = this.props.ignore_person_id
     if (event.key == 'Delete'){
@@ -618,12 +644,10 @@ class Gallery extends React.Component{
       window.clearTimeout(pending.timeoutId)
       this.pendingClick = null
       this.unselectAll()
-      // Folder tiles are ImageFile ids, not Face ids - face_source (which
-      // does Face.objects.get(id=...)) would show an unrelated photo.
-      // full_big is the same "largest available preview" concept for a
-      // whole image.
-      const modalType = this.props.tab === 'Folders' ? 'full_big' : 'face_source'
-      this.setState({modalURL: store.get('api_url') + '/keyed_image/' + modalType + '/?id=' + face_id + '&access_key=' + store.get('access_key') })
+      this.setState({
+        modalURL: this.buildModalUrl(face_id),
+        modalItemIndex: this.itemsRef.findIndex(([, id]) => id === face_id),
+      })
       this.toggleModal()
       return Promise.resolve([])
     }
@@ -641,6 +665,26 @@ class Gallery extends React.Component{
 
  toggleModal() {
     this.setState({modalOpen: !this.state.modalOpen});
+  }
+
+  // Folder tiles are ImageFile ids, not Face ids - face_source (which does
+  // Face.objects.get(id=...)) would show an unrelated photo. full_big is
+  // the same "largest available preview" concept for a whole image.
+  buildModalUrl(id){
+    const modalType = this.props.tab === 'Folders' ? 'full_big' : 'face_source'
+    return store.get('api_url') + '/keyed_image/' + modalType + '/?id=' + id + '&access_key=' + store.get('access_key')
+  }
+
+  // Pages the open modal to the previous/next image in this.itemsRef
+  // (delta -1/+1) without closing it. Folders-tab only (see render) -
+  // itemsRef there is just the folder's photos in a fixed order (no
+  // hidden/selection concept to account for, unlike the People tab), so
+  // walking it directly by index is enough.
+  showAdjacentModalImage(delta){
+    const newIndex = this.state.modalItemIndex + delta
+    if (newIndex < 0 || newIndex >= this.itemsRef.length) return
+    const [, id] = this.itemsRef[newIndex]
+    this.setState({ modalURL: this.buildModalUrl(id), modalItemIndex: newIndex })
   }
 
   setHidden(current_selected_id){
@@ -731,11 +775,31 @@ class Gallery extends React.Component{
           overlayClassName="Overlay"
           shouldCloseOnOverlayClick={true}
         >
+          {this.props.tab === 'Folders' && (
+            <button
+              className='modalNavButton prev'
+              disabled={this.state.modalItemIndex <= 0}
+              onClick={() => this.showAdjacentModalImage(-1)}
+              aria-label='Previous image'
+            >
+              &#8592;
+            </button>
+          )}
           <img
             src={this.state.modalURL}
             alt="Full size"
             className='modalImage'
           />
+          {this.props.tab === 'Folders' && (
+            <button
+              className='modalNavButton next'
+              disabled={this.state.modalItemIndex < 0 || this.state.modalItemIndex >= this.itemsRef.length - 1}
+              onClick={() => this.showAdjacentModalImage(1)}
+              aria-label='Next image'
+            >
+              &#8594;
+            </button>
+          )}
         </Modal>
 
         <List
