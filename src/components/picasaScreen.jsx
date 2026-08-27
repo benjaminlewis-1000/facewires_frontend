@@ -14,6 +14,7 @@ import { mapWithConcurrency } from './concurrencyPool';
 import FolderSidebar from './folderSidebar'
 import PersonSidebar from './personSidebar'
 import ImageScreen from './imageScreen'
+import ToolsScreen from './toolsScreen'
 import axiosInstance from './axios_setup'
 import { withRetry } from './apiRetry';
 import { assignFaceToPerson, bulkFaceOperation } from './faceActions';
@@ -901,7 +902,7 @@ class PicasaScreen extends React.Component{
   renderSidebar() {
 
     if ( this.state.tab === "Tools" ){
-      return <p>Tools</p>
+      return <ToolsScreen />
     }
       
     if ( this.state.tab === "People" ){

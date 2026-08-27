@@ -55,6 +55,16 @@ changing URLs/environment logic, or consolidate them if doing a larger refactor.
 `MainApp` → `PicasaScreen` (`picasaScreen.jsx`, the real root component) → tab switch between:
 - **People tab:** `PersonSidebar` (list of tagged people) + `ImageScreen` → `Gallery` (grid of face crops)
 - **Folders tab:** `FolderSidebar` (photo folders/albums by year) + `ImageScreen` → `Gallery`
+- **Tools tab:** `ToolsScreen` (`toolsScreen.jsx`, added 2026-08-27) — **mocked scaffolding, not a real
+  feature yet.** Self-contained (owns its own `selectedToolId`/mock form state internally, no props from
+  `PicasaScreen`, no API calls) so it's a one-file add/remove: delete `toolsScreen.jsx` and the single
+  `<ToolsScreen />` line in `picasaScreen.jsx`'s `renderSidebar()` to fully revert. Reuses the existing
+  `.sidebarList`/`.base-state`/`.click-state` (sidebar) and `.screenHeader`/`.imageScreen` (content pane)
+  CSS classes so it visually matches People/Folders without new CSS. Sidebar lists 3 placeholder tool
+  names; the panel shows the selected tool's name/blurb plus an unwired dropdown and two checkboxes -
+  purely to demonstrate the two-pane layout, not real functionality. Whatever real tools eventually go
+  here will need actual design (their own state shape, likely real props/API calls) - don't build on this
+  file's specific mock content, just its layout shape.
 
 `PicasaScreen` fetches the full people list (`/person_list/`) and folder list (`/folder_list/`) on mount,
 paginating through DRF-style `{results, next, count}` responses via `compile_api_list` +
