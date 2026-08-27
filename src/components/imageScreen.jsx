@@ -334,25 +334,21 @@ class ImageScreen extends React.Component{
             <span className='header_person_name'>{selectedName}</span>
           </PersonNameContextWrapper>
           {selectedFolder ? (
-            // Down = newest first (matches the backend's default
-            // order_by('-dateTaken')), up = oldest first - just a
-            // client-side reverse of the same id list (see buildScreen),
-            // no new fetch. Was going to sit right next to the People-tab
-            // "Further Images Unlikely" checkbox below, which is already
-            // known-dead UI on this tab (see CLAUDE.md) - hidden here now
-            // that there's something real to show in its place.
-            <span className='folderSortToggle'>
-              <button
-                className={'sortArrowButton' + (this.state.folderSortNewestFirst ? ' active' : '')}
-                title="Newest first"
-                onClick={() => this.setFolderSort(true)}
-              >&#8595;</button>
-              <button
-                className={'sortArrowButton' + (!this.state.folderSortNewestFirst ? ' active' : '')}
-                title="Oldest first"
-                onClick={() => this.setFolderSort(false)}
-              >&#8593;</button>
-            </span>
+            // Single button, alternating direction each click - matches
+            // the backend's default order_by('-dateTaken') when newest
+            // ("newest first"), just that same id list reversed
+            // client-side when not (see buildScreen). Was going to sit
+            // right next to the People-tab "Further Images Unlikely"
+            // checkbox below, which is already known-dead UI on this tab
+            // (see CLAUDE.md) - hidden here now that there's something
+            // real to show in its place.
+            <button
+              className='folderSortToggle'
+              onClick={() => this.setFolderSort(!this.state.folderSortNewestFirst)}
+            >
+              <span className='sortArrowGlyph'>{this.state.folderSortNewestFirst ? '↓' : '↑'}</span>
+              {this.state.folderSortNewestFirst ? 'Newest first' : 'Oldest first'}
+            </button>
           ) : (
             <span className='no_classify_checkbox'>
                 &emsp;&emsp;&emsp;
