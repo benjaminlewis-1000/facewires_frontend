@@ -716,30 +716,15 @@ class Gallery extends React.Component{
   }
 
   // Resolves the face currently open in the modal (C/X/I hotkeys - People
-  // tab, "Only Unlabeled Faces" view only, see _handleKeyDown) and advances
-  // the modal to the next not-yet-hidden face, so a reviewer can keep
-  // resolving faces one after another without leaving the full-size view.
-  // Closes the modal instead once nothing's left. this.state.hidden won't
-  // reflect api_action's setHidden call yet by the time this runs
-  // (setState is async) - faceId is added to the skip-set explicitly so
-  // the very face just acted on isn't immediately reshown.
+  // tab, "Only Unlabeled Faces" view only, see _handleKeyDown), then closes
+  // the modal - this is an occasional action, not a review-queue workflow,
+  // so per the user it should drop back to the grid rather than auto-
+  // advance to the next face.
   resolveModalFace(actionType){
     if (this.state.modalItemIndex < 0) return
     const [, faceId] = this.itemsRef[this.state.modalItemIndex]
     this.api_action(actionType, faceId)
-
-    const hiddenAfter = new Set([...this.state.hidden, faceId])
-    let nextIndex = this.state.modalItemIndex + 1
-    while (nextIndex < this.itemsRef.length && hiddenAfter.has(this.itemsRef[nextIndex][1])){
-      nextIndex++
-    }
-
-    if (nextIndex < this.itemsRef.length){
-      const [, nextId] = this.itemsRef[nextIndex]
-      this.setState({ modalURL: this.buildModalUrl(nextId), modalItemIndex: nextIndex })
-    } else {
-      this.setState({ modalOpen: false, modalItemIndex: -1 })
-    }
+    this.setState({ modalOpen: false, modalItemIndex: -1 })
   }
 
   setHidden(current_selected_id){
