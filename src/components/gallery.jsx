@@ -159,6 +159,7 @@ class Gallery extends React.Component{
     this.api_action = this.api_action.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
     this.showAdjacentModalImage = this.showAdjacentModalImage.bind(this);
+    this.resolveModalFace = this.resolveModalFace.bind(this);
     this.setHidden = this.setHidden.bind(this);
     this.unselectAll = this.unselectAll.bind(this);
     this.clearImagesSelected = this.clearImagesSelected.bind(this);
@@ -247,6 +248,26 @@ class Gallery extends React.Component{
         this.showAdjacentModalImage(1)
       }
       return
+    }
+
+    // C/X/I resolve the face currently open in the modal - People tab,
+    // "Only Unlabeled Faces" view only (that toggle is what limits this
+    // gallery's tiles to proposed/possible matches - see ImageScreen's
+    // componentDidUpdate - so every modal-openable tile here is a real
+    // confirm/reject/ignore candidate). Same INPUT/TEXTAREA guard as
+    // picasaScreen.jsx's undo/redo Ctrl+Z/Ctrl+Y handler, so this can't
+    // fire while typing in the rename/merge/person-search boxes.
+    if (this.state.modalOpen && this.props.tab === 'People' && this.props.unlabeled){
+      const tag = event.target && event.target.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
+        const key = event.key.toLowerCase()
+        const actionByKey = { c: 'confirm_proposed', x: 'close_assigned', i: 'close_unassigned' }
+        if (actionByKey[key]){
+          event.preventDefault()
+          this.resolveModalFace(actionByKey[key])
+          return
+        }
+      }
     }
 
     // Same reasoning as getRowButtonMode/isFolderTile above - Delete and
@@ -694,6 +715,33 @@ class Gallery extends React.Component{
     this.setState({ modalURL: this.buildModalUrl(id), modalItemIndex: newIndex })
   }
 
+  // Resolves the face currently open in the modal (C/X/I hotkeys - People
+  // tab, "Only Unlabeled Faces" view only, see _handleKeyDown) and advances
+  // the modal to the next not-yet-hidden face, so a reviewer can keep
+  // resolving faces one after another without leaving the full-size view.
+  // Closes the modal instead once nothing's left. this.state.hidden won't
+  // reflect api_action's setHidden call yet by the time this runs
+  // (setState is async) - faceId is added to the skip-set explicitly so
+  // the very face just acted on isn't immediately reshown.
+  resolveModalFace(actionType){
+    if (this.state.modalItemIndex < 0) return
+    const [, faceId] = this.itemsRef[this.state.modalItemIndex]
+    this.api_action(actionType, faceId)
+
+    const hiddenAfter = new Set([...this.state.hidden, faceId])
+    let nextIndex = this.state.modalItemIndex + 1
+    while (nextIndex < this.itemsRef.length && hiddenAfter.has(this.itemsRef[nextIndex][1])){
+      nextIndex++
+    }
+
+    if (nextIndex < this.itemsRef.length){
+      const [, nextId] = this.itemsRef[nextIndex]
+      this.setState({ modalURL: this.buildModalUrl(nextId), modalItemIndex: nextIndex })
+    } else {
+      this.setState({ modalOpen: false, modalItemIndex: -1 })
+    }
+  }
+
   setHidden(current_selected_id){
     // console.log("Set hidden", this.state.imgsSelected, current_selected_id)
     var uniq_selected = [...new Set(this.state.imgsSelected.concat(this.state.hidden).concat([current_selected_id]))]
@@ -806,6 +854,13 @@ class Gallery extends React.Component{
             >
               &#8594;
             </button>
+          )}
+          {this.props.tab === 'People' && this.props.unlabeled && (
+            <div className='modalHotkeyHint'>
+              <span><kbd>C</kbd> Confirm</span>
+              <span><kbd>X</kbd> Unassign</span>
+              <span><kbd>I</kbd> Ignore</span>
+            </div>
           )}
         </Modal>
 
