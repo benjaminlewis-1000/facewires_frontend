@@ -109,6 +109,7 @@ class Gallery extends React.Component{
     super(props);
 
     this.clickHandler = this.clickHandler.bind(this)
+    this.doubleClickHandler = this.doubleClickHandler.bind(this)
     this.get_unique_list = this.get_unique_list.bind(this)
     this.handleRowAction = this.handleRowAction.bind(this)
     // Imperative handle onto react-window's List - used by handleRowAction
@@ -160,9 +161,6 @@ class Gallery extends React.Component{
       editingFaceId: null,
     }
 
-    // Tracks a still-pending single click waiting to see if a second one
-    // follows (see clickHandler) - null when there's nothing pending.
-    this.pendingClick = null
     this.api_action = this.api_action.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
     this.showAdjacentModalImage = this.showAdjacentModalImage.bind(this);
@@ -714,40 +712,33 @@ class Gallery extends React.Component{
     console.log("Drop")
   }
 
-  // Distinguishes a single click (select) from a double click (open the
-  // full-size modal) on the same tile - tracks one pending click directly:
-  // the first click starts a timer and remembers which face/when; if a
-  // second click on the same face arrives before that timer fires, it's a
-  // double-click - cancel the pending timer (so the single-click branch
-  // never runs at all) and open the modal immediately.
+  // Used to debounce single-click selection against double-click-to-open,
+  // by delaying every single click up to 250ms to see whether a second one
+  // followed - meaning every click's visual highlight lagged behind the
+  // actual mouse click by up to a quarter second, every time, even for a
+  // genuine single click that no double-click was ever coming for. Browsers
+  // already distinguish these natively (a real double-click fires two
+  // `click` events immediately, back-to-back, *and* a separate `dblclick`
+  // event) - selection now applies immediately on every click, with
+  // clickHandler/doubleClickHandler wired to the two native events
+  // separately instead of hand-timing them. A genuine double-click still
+  // fires singleClick twice first (harmless - the second click, since the
+  // tile's already selected from the first, just toggles it back off
+  // before doubleClickHandler's own unselectAll()/modal-open runs), so the
+  // end state is identical to before, just without the artificial delay.
   clickHandler(event, face_id, index) {
-    event.persist()
     event.preventDefault()
+    return Promise.resolve(this.singleClick(event, face_id, index))
+  }
 
-    const now = new Date().getTime()
-    const pending = this.pendingClick
-    const isDoubleClick = pending && pending.face_id === face_id && (now - pending.time) < 250
-
-    if (isDoubleClick) {
-      window.clearTimeout(pending.timeoutId)
-      this.pendingClick = null
-      this.unselectAll()
-      this.setState({
-        modalURL: this.buildModalUrl(face_id),
-        modalItemIndex: this.itemsRef.findIndex(([, id]) => id === face_id),
-      })
-      this.toggleModal()
-      return Promise.resolve([])
-    }
-
-    return new Promise((resolve) => {
-      const timeoutId = window.setTimeout(() => {
-        this.pendingClick = null
-        const imgs_selected = this.singleClick(event, face_id, index)
-        resolve(imgs_selected)
-      }, 250)
-      this.pendingClick = { face_id, time: now, timeoutId }
+  doubleClickHandler(event, face_id) {
+    event.preventDefault()
+    this.unselectAll()
+    this.setState({
+      modalURL: this.buildModalUrl(face_id),
+      modalItemIndex: this.itemsRef.findIndex(([, id]) => id === face_id),
     })
+    this.toggleModal()
   }
 
 
@@ -867,6 +858,7 @@ class Gallery extends React.Component{
       onApiError: this.handleApiError,
       setHidden: this.setHidden,
       onClick: this.clickHandler,
+      onDoubleClick: this.doubleClickHandler,
       clearImagesSelected: this.clearImagesSelected,
       current_person_id: this.props.current_person_id,
       unassigned_person_id: this.props.unassigned_person_id,
