@@ -489,7 +489,20 @@ class Gallery extends React.Component{
             addDelta(current_person_id, { num_faces: -definedCount })
             if (this.props.only_unverified) addDelta(current_person_id, { num_unverified_faces: -definedCount })
           }
-          if (proposedCount) addDelta(current_person_id, { num_possibilities: -proposedCount })
+          if (proposedCount) {
+            addDelta(current_person_id, { num_possibilities: -proposedCount })
+            // Same reasoning as close_assigned's newlyUnassignedCount
+            // comment above: a 'proposed' face here still has
+            // declared_name === Unassigned (reject_association()/soft
+            // ignore never touches declared_name until it's actually
+            // moved), so it was already sitting in Unassigned's own
+            // num_possibilities before this action - missing this line
+            // meant pressing "I" on a candidate from e.g. the modal
+            // hotkeys or a normal proposed tile's context menu correctly
+            // debited the specific person's count but silently left
+            // Unassigned's sidebar number stale.
+            addDelta(unassigned_person_id, { num_possibilities: -proposedCount })
+          }
         }
         addDelta(ignore_person_id, { num_faces: n })
         break
