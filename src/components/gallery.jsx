@@ -443,6 +443,19 @@ class Gallery extends React.Component{
     switch (action_type){
       case 'confirm_proposed':
         addDelta(current_person_id, { num_possibilities: -n, num_faces: n, num_unverified_faces: n })
+        // Same reasoning as close_assigned/close_unassigned's Unassigned
+        // deltas elsewhere in this switch: confirm_proposed only ever
+        // fires on 'proposed' tiles (see lazyImg.jsx - the checkmark
+        // button only renders for that type), which still have
+        // declared_name === Unassigned right up until associate_person()
+        // moves them (api/views.py's bulk_thread). They were already
+        // sitting in Unassigned's num_possibilities before this action,
+        // so confirming them needs to debit Unassigned too - missing
+        // this meant confirming a proposed candidate correctly grew the
+        // target person's count but left Unassigned's sidebar number
+        // stale (reported for the .ignore person specifically, but this
+        // applied to confirming a candidate for any person).
+        addDelta(unassigned_person_id, { num_possibilities: -n })
         break
       case 'close_assigned':
         if (definedCount) {
