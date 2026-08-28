@@ -40,7 +40,7 @@ function readSizeVars(){
 // render.
 function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize, rowButtonWidth,
   rowButtonMode, rowButtonLabel, handleRowAction, imgsSelected, apiUrl, accessKey, imageKeyedType,
-  ...tileProps }){
+  editingFaceId, onEditComplete, ...tileProps }){
   const row = rows[index] || []
   const lastItem = row[row.length - 1]
 
@@ -58,6 +58,8 @@ function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize,
           index={itemIndex}
           face_id={face_id}
           type={type}
+          forceEdit={editingFaceId === face_id}
+          onEditComplete={onEditComplete}
           {...tileProps}
         />
       ))}
@@ -151,6 +153,11 @@ class Gallery extends React.Component{
       // handleListResize; 1 is just a safe non-zero placeholder for the
       // first paint.
       columnCount: 1,
+      // Face id of the tile that should force itself into "send to other
+      // person" edit mode (R hotkey, People tab "Only Unlabeled Faces"
+      // view - see _handleKeyDown/startSendToOtherPerson). null means no
+      // tile is being forced into edit mode via the keyboard.
+      editingFaceId: null,
     }
 
     // Tracks a still-pending single click waiting to see if a second one
@@ -160,6 +167,8 @@ class Gallery extends React.Component{
     this.toggleModal = this.toggleModal.bind(this);
     this.showAdjacentModalImage = this.showAdjacentModalImage.bind(this);
     this.resolveModalFace = this.resolveModalFace.bind(this);
+    this.startSendToOtherPerson = this.startSendToOtherPerson.bind(this);
+    this.clearEditingFace = this.clearEditingFace.bind(this);
     this.setHidden = this.setHidden.bind(this);
     this.unselectAll = this.unselectAll.bind(this);
     this.clearImagesSelected = this.clearImagesSelected.bind(this);
@@ -265,6 +274,33 @@ class Gallery extends React.Component{
         if (actionByKey[key]){
           event.preventDefault()
           this.resolveModalFace(actionByKey[key])
+          return
+        }
+      }
+    }
+
+    // Same C/X (plus Q for ignore, R for "send to other person") but for
+    // a selected tile in the grid itself, modal closed - People tab,
+    // "Only Unlabeled Faces" view only, same scoping as the modal block
+    // above. Mirrors the existing Delete/Shift+R bulk-action pattern just
+    // below (api_action called with no face_id operates on
+    // this.state.imgsSelected as-is). R is checked without Shift so it
+    // doesn't collide with the pre-existing Shift+R (close_assigned)
+    // shortcut - event.key is the same 'R'/'r' either way once lower-
+    // cased, only event.shiftKey tells them apart.
+    if (!this.state.modalOpen && this.props.tab === 'People' && this.props.unlabeled && this.state.imgsSelected.length > 0){
+      const tag = event.target && event.target.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
+        const key = event.key.toLowerCase()
+        if (key === 'r' && !event.shiftKey){
+          event.preventDefault()
+          this.startSendToOtherPerson()
+          return
+        }
+        const actionByKey = { c: 'confirm_proposed', x: 'close_assigned', q: 'close_unassigned' }
+        if (actionByKey[key]){
+          event.preventDefault()
+          this.api_action(actionByKey[key])
           return
         }
       }
@@ -385,7 +421,12 @@ class Gallery extends React.Component{
   }
 
   clearImagesSelected(){
-    this.setState({imgsSelected: []})
+    // Also drops any tile forced into "send to other person" edit mode
+    // (R hotkey) - get_unique_list (called by both api_action and
+    // MutableSelect's assignPerson) already routes through here on every
+    // resolution, successful or not, so this is the one place that
+    // reliably clears editingFaceId once its tile is no longer relevant.
+    this.setState({imgsSelected: [], editingFaceId: null})
   }
 
   unselectAll(){
@@ -753,6 +794,25 @@ class Gallery extends React.Component{
     this.setState({ modalOpen: false, modalItemIndex: -1 })
   }
 
+  // R hotkey (grid, not modal - People tab "Only Unlabeled Faces" view,
+  // see _handleKeyDown). Forces whichever tile was most recently added to
+  // the selection into MutableSelect's "send to other person" edit mode
+  // (LazyImage's componentDidUpdate reacts to the forceEdit prop this
+  // drives via otherAssignment - same local mechanism the right-click
+  // menu's "Send to other person" already uses). Picking a person there
+  // still resolves the *whole* current selection via the existing
+  // get_unique_list/assignPerson bulk path - this only decides which
+  // single tile visually hosts the dropdown.
+  startSendToOtherPerson(){
+    if (this.state.imgsSelected.length === 0) return
+    const faceId = this.state.imgsSelected[this.state.imgsSelected.length - 1]
+    this.setState({ editingFaceId: faceId })
+  }
+
+  clearEditingFace(){
+    this.setState({ editingFaceId: null })
+  }
+
   setHidden(current_selected_id){
     // console.log("Set hidden", this.state.imgsSelected, current_selected_id)
     var uniq_selected = [...new Set(this.state.imgsSelected.concat(this.state.hidden).concat([current_selected_id]))]
@@ -819,6 +879,8 @@ class Gallery extends React.Component{
       onRecordUndo: this.props.onRecordUndo,
       unselectAll: this.unselectAll,
       onHighlightUpdated: this.props.onHighlightUpdated,
+      editingFaceId: this.state.editingFaceId,
+      onEditComplete: this.clearEditingFace,
     }
 
     return(

@@ -135,6 +135,39 @@
     background-color: #5c14b8;
 }
 
+/* Hotkey reminder for gallery.jsx's grid-level C/X/R/Q shortcuts (People
+   tab, "Only Unlabeled Faces" view only) - centered in .screenHeader,
+   same look as the full-size modal's own hint (.modalHotkeyHint,
+   imageModal.css), just positioned for a horizontal bar instead of
+   pinned to the bottom of an image. */
+.headerHotkeyHint{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    gap: 18px;
+    border: 1px solid #450293;
+    border-radius: 20px;
+    padding: 6px 18px;
+    font-size: 13px;
+    color: #450293;
+}
+
+.headerHotkeyHint kbd{
+    display: inline-block;
+    min-width: 16px;
+    text-align: center;
+    margin-right: 4px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid #450293;
+    background-color: #450293;
+    color: white;
+    font-family: inherit;
+    font-weight: bold;
+}
+
 .sortArrowGlyph{
     font-size: 16px;
     line-height: 1;

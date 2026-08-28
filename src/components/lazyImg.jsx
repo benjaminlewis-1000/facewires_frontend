@@ -59,9 +59,25 @@ class LazyImage extends React.PureComponent {
   // Escape in the person-search box (MutableSelect) calls this to back
   // the tile fully out of "send to other person" mode - reverting to
   // the original type flips the render switch below back to the tile's
-  // normal confirm/reject buttons, unmounting MutableSelect.
+  // normal confirm/reject buttons, unmounting MutableSelect. Also clears
+  // Gallery's editingFaceId (if this tile was the one forced into edit
+  // mode via the R hotkey - see componentDidUpdate below) so it doesn't
+  // immediately snap back into edit mode on the next render.
   cancelOtherAssignment() {
     this.setState({ type: this.props.type });
+    this.props.onEditComplete && this.props.onEditComplete();
+  }
+
+  // R hotkey (gallery.jsx's startSendToOtherPerson) forces a specific
+  // tile into "send to other person" mode from outside - by face id,
+  // since Gallery has no direct handle on this component instance
+  // (react-window only mounts what's in view). Reuses the exact same
+  // local otherAssignment() the right-click context menu item already
+  // calls, so MutableSelect mounts/autofocuses the same way either way.
+  componentDidUpdate(prevProps) {
+    if (this.props.forceEdit && !prevProps.forceEdit) {
+      this.otherAssignment();
+    }
   }
 
   render() {
