@@ -45,7 +45,9 @@ https://stackoverflow.com/questions/2836827/how-do-you-add-a-scroll-bar-to-a-div
     overflow-x:hidden;
     padding-top: 10px;
     padding-left: 2px;
-    padding-bottom: 10px;
+    /* Was 10px - not enough room to scroll the last name fully into view
+       past the browser chrome/edge below the list. */
+    padding-bottom: 60px;
     margin-bottom: 5px;
 }
 

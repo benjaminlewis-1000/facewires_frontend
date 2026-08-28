@@ -159,6 +159,7 @@ class Gallery extends React.Component{
     this.api_action = this.api_action.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
     this.showAdjacentModalImage = this.showAdjacentModalImage.bind(this);
+    this.resolveModalFace = this.resolveModalFace.bind(this);
     this.setHidden = this.setHidden.bind(this);
     this.unselectAll = this.unselectAll.bind(this);
     this.clearImagesSelected = this.clearImagesSelected.bind(this);
@@ -247,6 +248,26 @@ class Gallery extends React.Component{
         this.showAdjacentModalImage(1)
       }
       return
+    }
+
+    // C/X/I resolve the face currently open in the modal - People tab,
+    // "Only Unlabeled Faces" view only (that toggle is what limits this
+    // gallery's tiles to proposed/possible matches - see ImageScreen's
+    // componentDidUpdate - so every modal-openable tile here is a real
+    // confirm/reject/ignore candidate). Same INPUT/TEXTAREA guard as
+    // picasaScreen.jsx's undo/redo Ctrl+Z/Ctrl+Y handler, so this can't
+    // fire while typing in the rename/merge/person-search boxes.
+    if (this.state.modalOpen && this.props.tab === 'People' && this.props.unlabeled){
+      const tag = event.target && event.target.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
+        const key = event.key.toLowerCase()
+        const actionByKey = { c: 'confirm_proposed', x: 'close_assigned', i: 'close_unassigned' }
+        if (actionByKey[key]){
+          event.preventDefault()
+          this.resolveModalFace(actionByKey[key])
+          return
+        }
+      }
     }
 
     // Same reasoning as getRowButtonMode/isFolderTile above - Delete and
@@ -468,7 +489,20 @@ class Gallery extends React.Component{
             addDelta(current_person_id, { num_faces: -definedCount })
             if (this.props.only_unverified) addDelta(current_person_id, { num_unverified_faces: -definedCount })
           }
-          if (proposedCount) addDelta(current_person_id, { num_possibilities: -proposedCount })
+          if (proposedCount) {
+            addDelta(current_person_id, { num_possibilities: -proposedCount })
+            // Same reasoning as close_assigned's newlyUnassignedCount
+            // comment above: a 'proposed' face here still has
+            // declared_name === Unassigned (reject_association()/soft
+            // ignore never touches declared_name until it's actually
+            // moved), so it was already sitting in Unassigned's own
+            // num_possibilities before this action - missing this line
+            // meant pressing "I" on a candidate from e.g. the modal
+            // hotkeys or a normal proposed tile's context menu correctly
+            // debited the specific person's count but silently left
+            // Unassigned's sidebar number stale.
+            addDelta(unassigned_person_id, { num_possibilities: -proposedCount })
+          }
         }
         addDelta(ignore_person_id, { num_faces: n })
         break
@@ -694,6 +728,18 @@ class Gallery extends React.Component{
     this.setState({ modalURL: this.buildModalUrl(id), modalItemIndex: newIndex })
   }
 
+  // Resolves the face currently open in the modal (C/X/I hotkeys - People
+  // tab, "Only Unlabeled Faces" view only, see _handleKeyDown), then closes
+  // the modal - this is an occasional action, not a review-queue workflow,
+  // so per the user it should drop back to the grid rather than auto-
+  // advance to the next face.
+  resolveModalFace(actionType){
+    if (this.state.modalItemIndex < 0) return
+    const [, faceId] = this.itemsRef[this.state.modalItemIndex]
+    this.api_action(actionType, faceId)
+    this.setState({ modalOpen: false, modalItemIndex: -1 })
+  }
+
   setHidden(current_selected_id){
     // console.log("Set hidden", this.state.imgsSelected, current_selected_id)
     var uniq_selected = [...new Set(this.state.imgsSelected.concat(this.state.hidden).concat([current_selected_id]))]
@@ -806,6 +852,13 @@ class Gallery extends React.Component{
             >
               &#8594;
             </button>
+          )}
+          {this.props.tab === 'People' && this.props.unlabeled && (
+            <div className='modalHotkeyHint'>
+              <span><kbd>C</kbd> Confirm</span>
+              <span><kbd>X</kbd> Unassign</span>
+              <span><kbd>I</kbd> Ignore</span>
+            </div>
           )}
         </Modal>
 
