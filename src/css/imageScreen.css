@@ -146,11 +146,20 @@
     top: 50%;
     transform: translate(-50%, -50%);
     display: flex;
+    align-items: center;
     gap: 18px;
+    height: 34px;
+    box-sizing: border-box;
     border: 1px solid #450293;
     border-radius: 20px;
-    padding: 6px 18px;
+    padding: 0 18px;
     font-size: 13px;
+    /* .screenHeader sets its own line-height equal to the full header
+       height (for its own vertical-centering trick) - without resetting
+       it here, that huge value inherits into these flex children's text
+       and (with align-items' default of stretch) stretches this whole
+       pill to match, instead of the compact height set above. */
+    line-height: normal;
     color: #450293;
 }
 

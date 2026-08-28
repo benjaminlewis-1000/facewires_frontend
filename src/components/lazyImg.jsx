@@ -84,11 +84,25 @@ class LazyImage extends React.PureComponent {
     // Unique menu id per image instance to avoid collisions
     const menuId = `menu-face-${this.props.face_id}-${this.props.index}`;
 
+    // True only when this MutableSelect is mounting because the user just
+    // explicitly asked to reassign this specific face (right-click "Send
+    // to other person", or the R hotkey via forceEdit/otherAssignment
+    // above) - i.e. its local state.type was switched away from the
+    // tile's original props.type. False for the Unassigned/Ignore tabs,
+    // where mutable_select is every tile's default rendering from the
+    // start (props.type is already 'unassigned_tab' there, or ignore_tab
+    // overrides regardless of type) - skipping MutableSelect's own
+    // placeholder-input gate for every one of those up front would mount
+    // its full searchable Dropdown for every visible tile at once instead
+    // of only on demand. See mutableSelect.jsx's startExpanded handling.
+    const startExpanded = !this.props.ignore_tab && this.props.type !== this.state.type
+
     var mutable_select = <MutableSelect
       peopleOptions={this.props.peopleOptions}
       get_unique_list={this.props.get_unique_list}
       face_id={this.props.face_id}
       type={this.props.type}
+      startExpanded={startExpanded}
       current_person_id={this.props.current_person_id}
       unassigned_person_id={this.props.unassigned_person_id}
       ignore_person_id={this.props.ignore_person_id}

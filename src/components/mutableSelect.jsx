@@ -18,7 +18,18 @@ class MutableSelect extends React.PureComponent{
     super(props);
 
     this.state = {
-      loaded: false,
+      // Normally starts false: on the Unassigned/Ignore tabs, every
+      // visible tile mounts a MutableSelect as its *default* state (see
+      // lazyImg.jsx), so this placeholder-input gate defers mounting the
+      // real search Dropdown (heavier - full option list) until the user
+      // actually clicks in, rather than paying that cost for every tile
+      // up front. startExpanded skips the gate: set by lazyImg.jsx only
+      // when this instance was mounted on demand via an explicit "send
+      // to other person" trigger (right-click menu or the R hotkey) -
+      // there's exactly one such instance at a time, so there's no bulk
+      // mount cost to defer, and the user has already signaled intent to
+      // type immediately.
+      loaded: !!props.startExpanded,
       visible: true,
       filterValue: '',
       listOrder: 0,
@@ -67,6 +78,27 @@ class MutableSelect extends React.PureComponent{
   // told explicitly to re-measure as the page scrolls, rather than just
   // moving along with its old DOM position the way an absolutely
   // positioned in-tree element would have.
+  // startExpanded mounts already "open" (loaded && visible both true from
+  // the constructor - see there) - componentDidUpdate's wasOpen/isOpen
+  // transition check below never sees that transition (there's no
+  // prevState on an initial mount), so the portaled menu's position would
+  // otherwise never get computed and it'd sit permanently display:none
+  // (see menuStyle, render). Mirrors what componentDidUpdate does for the
+  // normal click-to-open transition. The explicit focus() call is
+  // belt-and-suspenders alongside the input's own `autoFocus` attribute
+  // (render, below) - autoFocus is applied by React when the DOM node is
+  // created, which is reliable on a real initial mount like this one, but
+  // doesn't depend on that DOM-insertion timing being honored by every
+  // browser/portal combination.
+  componentDidMount(){
+    if (this.props.startExpanded){
+      this.updateMenuPosition()
+      window.addEventListener('scroll', this.updateMenuPosition, true)
+      window.addEventListener('resize', this.updateMenuPosition)
+      if (this.focusRef.current) this.focusRef.current.focus()
+    }
+  }
+
   componentDidUpdate(prevProps, prevState){
     const wasOpen = prevState.visible && prevState.loaded
     const isOpen = this.state.visible && this.state.loaded
@@ -354,6 +386,7 @@ makeSearchListNew(){
         type='text'
         defaultValue=''
         autoFocus
+        ref={this.focusRef}
         onClick={(e) => {
           console.log("Click")
           this.setState({visible: true});
