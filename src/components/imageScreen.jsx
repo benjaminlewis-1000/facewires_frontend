@@ -333,6 +333,18 @@ class ImageScreen extends React.Component{
           <PersonNameContextWrapper>
             <span className='header_person_name'>{selectedName}</span>
           </PersonNameContextWrapper>
+          {this.props.tab === 'People' && this.props.unlabeled && (
+            // Reminder for gallery.jsx's C/X/R/Q hotkeys (act on whatever's
+            // currently selected, no modal needed) - same look as the
+            // full-size modal's own hotkey hint (imageModal.css), centered
+            // in this header instead of pinned to the bottom of an image.
+            <div className='headerHotkeyHint'>
+              <span><kbd>C</kbd> Confirm</span>
+              <span><kbd>X</kbd> Unassign</span>
+              <span><kbd>R</kbd> Other person</span>
+              <span><kbd>Q</kbd> Ignore</span>
+            </div>
+          )}
           {selectedFolder ? (
             // Single button, alternating direction each click - matches
             // the backend's default order_by('-dateTaken') when newest
