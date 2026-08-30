@@ -261,12 +261,23 @@ class PicasaScreen extends React.Component{
       // var info = response.data
       var access_key = response.data.random_access_key;
 
-      this.setState({params_fetched: true})
       store.set('access_key', access_key);
 
-      if (this.state.names_fetched && this.state.dirs_fetched){
-        this.setState({loading: false})
-      }
+      // Read the sibling flags off prevState, not this.state - three
+      // independent fetches (params/people/folders) each flip their own
+      // "fetched" flag and check whether the other two are already done
+      // to decide when to clear `loading`. Reading this.state directly
+      // used to race: if two fetches resolved close enough together that
+      // React batched their setState calls, a callback could read a
+      // stale this.state that hadn't yet picked up a sibling's flag,
+      // so `loading` never got cleared - the app-level "sits and spins"
+      // bug. Combining the flag-set and the loading check into one
+      // functional setState update makes it atomic against prevState.
+      this.setState(prevState => {
+        const next = { params_fetched: true }
+        if (prevState.names_fetched && prevState.dirs_fetched) next.loading = false
+        return next
+      })
     })
     .catch((error) => {
       console.log('Failed to fetch parameters', error)
@@ -356,11 +367,14 @@ class PicasaScreen extends React.Component{
             }
           }
           // console.log("Folder length after: ", resp.length)
-          this.setState({'folders': resp})
-          this.setState({dirs_fetched: true}); 
-          if (this.state.names_fetched && this.state.params_fetched){
-            this.setState({loading: false})
-          }
+          // See the params-fetch handler above for why this is one
+          // functional setState keyed off prevState rather than a
+          // separate this.state.names_fetched/params_fetched check.
+          this.setState(prevState => {
+            const next = { folders: resp, dirs_fetched: true }
+            if (prevState.names_fetched && prevState.params_fetched) next.loading = false
+            return next
+          })
 
           console.log(this.state)
         }
@@ -431,17 +445,24 @@ class PicasaScreen extends React.Component{
             return
           }
 
-          this.setState({names_fetched: true});
-          this.setState({api_id: resp[0].id})
           console.log("Getting people")
           console.log(resp)
-          if (this.state.dirs_fetched && this.state.params_fetched){
-            this.setState({loading: false})
-          }
           console.log(unassigned_person_id)
           console.log(ignore_person_id)
-          this.setState({unassigned_id: unassigned_person_id.id})
-          this.setState({ignore_person_id: ignore_person_id.id})
+
+          // See the params-fetch handler above for why this is one
+          // functional setState keyed off prevState rather than a
+          // separate this.state.dirs_fetched/params_fetched check.
+          this.setState(prevState => {
+            const next = {
+              names_fetched: true,
+              api_id: resp[0].id,
+              unassigned_id: unassigned_person_id.id,
+              ignore_person_id: ignore_person_id.id,
+            }
+            if (prevState.dirs_fetched && prevState.params_fetched) next.loading = false
+            return next
+          })
 
           console.log(this.state)
         } else {

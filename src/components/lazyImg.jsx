@@ -17,6 +17,7 @@ class LazyImage extends React.PureComponent {
     };
 
     this.localClick = this.localClick.bind(this);
+    this.localDoubleClick = this.localDoubleClick.bind(this);
     this.otherAssignment = this.otherAssignment.bind(this);
     this.cancelOtherAssignment = this.cancelOtherAssignment.bind(this);
     this.set_as_thumbnail = this.set_as_thumbnail.bind(this);
@@ -50,6 +51,10 @@ class LazyImage extends React.PureComponent {
 
   localClick(event) {
     this.props.onClick(event, this.props.face_id, this.props.index);
+  }
+
+  localDoubleClick(event) {
+    this.props.onDoubleClick(event, this.props.face_id);
   }
 
   otherAssignment() {
@@ -132,6 +137,7 @@ class LazyImage extends React.PureComponent {
           index={this.props.index}
           scrollPosition={this.props.scrollPosition}
           localClick={this.localClick}
+          localDoubleClick={this.localDoubleClick}
           onDrop={this.props.onDrop}
           onDrag={this.props.onDrag}
           loaded={this.state.loaded}
@@ -230,7 +236,7 @@ class LazyImage extends React.PureComponent {
 }
 
 // Functional wrapper to leverage react-contexify's hook cleanly inside a Class Component
-const LazyImageContextWrapper = React.memo(function LazyImageContextWrapper({ menuId, disabled, hidden, ignored, selected, url, index, scrollPosition, localClick, onDrop, onDrag, loaded, onLoad }) {
+const LazyImageContextWrapper = React.memo(function LazyImageContextWrapper({ menuId, disabled, hidden, ignored, selected, url, index, scrollPosition, localClick, localDoubleClick, onDrop, onDrag, loaded, onLoad }) {
   const { show } = useContextMenu({ id: menuId });
 
   function handleContextMenu(event) {
@@ -248,6 +254,7 @@ const LazyImageContextWrapper = React.memo(function LazyImageContextWrapper({ me
         index={index}
         scrollPosition={scrollPosition}
         localClick={localClick}
+        localDoubleClick={localDoubleClick}
         onDrop={onDrop}
         onDrag={onDrag}
         loaded={loaded}
@@ -257,15 +264,16 @@ const LazyImageContextWrapper = React.memo(function LazyImageContextWrapper({ me
   );
 });
 
-const LazyImageComponent = React.memo(function LazyImageComponent({ hidden, ignored, selected, url, index, scrollPosition, localClick, onDrop, onDrag, loaded, onLoad }) {
+const LazyImageComponent = React.memo(function LazyImageComponent({ hidden, ignored, selected, url, index, scrollPosition, localClick, localDoubleClick, onDrop, onDrag, loaded, onLoad }) {
   return (
-    <LazyLoadImage 
-      className={(hidden || ignored) ? 'hidden_img' : selected ? 'img_thumb_active' : 'img_thumb'} 
-      src={url} 
+    <LazyLoadImage
+      className={(hidden || ignored) ? 'hidden_img' : selected ? 'img_thumb_active' : 'img_thumb'}
+      src={url}
       key={index}
       effect='blur'
       scrollPosition={scrollPosition}
       onClick={(e) => localClick(e)}
+      onDoubleClick={(e) => localDoubleClick(e)}
       onDrop={onDrop}
       onDrag={onDrag}
       wrapperClassName={loaded ? 'loaded' : 'loading'}
