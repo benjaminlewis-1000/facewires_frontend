@@ -430,6 +430,18 @@ its behavior, don't assume this file's history describes what's live.
   `master` and deployed to the live `picasa_api` container. Deliberately left
   as a TODO in the API repo for now rather than deployed immediately - see
   `django_picasa_dev/CLAUDE.md`.
+- Watch item, fixed but hard to confirm (2026-08-29): user reported the login/initial-load
+  flow was flaky - sometimes fine, sometimes an "Abort and Logout" spinner that never
+  resolves until manually clicked. Root-caused to a real race in `picasaScreen.jsx`: the
+  three initial fetches (parameters, people list, folder list) each used to clear `loading`
+  by reading `this.state.<sibling>Fetched` directly; if two resolved close enough together
+  for React to batch their setState calls, a callback could read a stale `this.state` that
+  hadn't yet picked up a sibling's flag, so `loading` never cleared. Fixed (commit
+  `a2b6298`, `vite_upgrade`) by having each fetch set its own flag and check the other two
+  atomically via a single functional `setState(prevState => ...)` instead. Timing-dependent
+  and not reliably reproducible on demand, so the user is watching for recurrence rather
+  than having confirmed it's gone - don't consider this fully closed until confirmed absent
+  over real usage. As of this note, only on dev - not yet promoted to prod.
 - Bug to investigate: after the tab sits in the background for a while
   (laptop asleep, tab backgrounded, etc.) and the user comes back and
   clicks to a different person, no images render. Not yet diagnosed -
