@@ -830,14 +830,16 @@ class Gallery extends React.Component{
   buildModalUrl(id){
     const modalType = this.props.tab === 'Folders' ? 'slideshow' : 'face_source'
     let url = store.get('api_url') + '/keyed_image/' + modalType + '/?id=' + id + '&access_key=' + store.get('access_key')
-    // Verify-faces screen only - draws a box around the specific face
-    // being reviewed (picasa/api/views.py's face_source highlight_box
-    // param), scaled server-side to match its live resize. Doesn't apply
-    // to Folders (slideshow has no single face in mind) or the People
-    // tab generally - only where you're specifically deciding "is this
-    // really the right face for this person," which is what
-    // only_unverified is for.
-    if (this.props.tab === 'People' && this.props.only_unverified){
+    // Verify-faces and unlabeled-faces screens only - draws a box around
+    // the specific face being reviewed (picasa/api/views.py's face_source
+    // highlight_box param), scaled server-side to match its live resize.
+    // Doesn't apply to Folders (slideshow has no single face in mind) or
+    // the People tab generally - only where you're specifically deciding
+    // "is this really the right face for this person" (only_unverified)
+    // or "who is this" (unlabeled, including its reviewFlaggedOnly
+    // sub-view) - a defined/already-confirmed gallery has no ambiguity
+    // to highlight.
+    if (this.props.tab === 'People' && (this.props.only_unverified || this.props.unlabeled)){
       url += '&highlight_box=true'
     }
     return url
