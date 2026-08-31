@@ -289,6 +289,32 @@ class Gallery extends React.Component{
       return
     }
 
+    // Same idea for the ".ignore" "Flagged for review" modal
+    // (reviewFlaggedOnly) - lets you browse back and forth through the
+    // list without resolving anything, same as Folders' paging above.
+    // Skips over already-resolved (hidden) faces rather than walking
+    // itemsRef's raw index like Folders does, since - unlike Folders -
+    // actions taken here can hide items out from under a fixed list
+    // (see advanceModalAfterResolve/pageModalSkippingHidden). Guarded
+    // against INPUT/TEXTAREA the same way Escape is above, so this
+    // doesn't fire while MutableSelect's search box (R hotkey) is
+    // focused/typeable.
+    if (this.state.modalOpen && this.props.tab === 'People' && this.props.reviewFlaggedOnly){
+      const tag = event.target && event.target.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
+        if (event.key === 'ArrowLeft'){
+          event.preventDefault()
+          this.pageModalSkippingHidden(-1)
+          return
+        }
+        if (event.key === 'ArrowRight'){
+          event.preventDefault()
+          this.pageModalSkippingHidden(1)
+          return
+        }
+      }
+    }
+
     // C/X/Q resolve the face currently open in the modal, R opens a
     // "send to other person" search box in the modal itself - People
     // tab, "Only Unlabeled Faces" view only (that toggle is what limits
@@ -873,25 +899,41 @@ class Gallery extends React.Component{
     }
   }
 
-  // Walks forward from the current modal face to the next one in
-  // itemsRef that isn't hidden yet (i.e. hasn't itself already been
-  // resolved) - itemsRef is a fixed list built once (see buildItems), so
-  // "hidden" (state.hidden, set by setHidden as each action resolves a
-  // face) is what actually tracks which ones are done, the same way the
-  // grid itself already filters hidden tiles out. Closes the modal once
-  // nothing reviewable is left, same as running out the bottom of the
-  // grid would.
-  advanceModalAfterResolve(){
-    let idx = this.state.modalItemIndex + 1
-    while (idx < this.itemsRef.length){
+  // Walks the modal delta steps (+1/-1) through itemsRef, skipping over
+  // any face that's already hidden (resolved) - itemsRef is a fixed list
+  // built once (see buildItems), so "hidden" (state.hidden, set by
+  // setHidden as each action resolves a face) is what actually tracks
+  // which ones are still reviewable, the same way the grid itself
+  // already filters hidden tiles out of view. Unlike Folders'
+  // showAdjacentModalImage, hidden entries here are real gaps to skip
+  // over, not just an out-of-range index, since actions taken in this
+  // same modal continuously remove items from the list as you go.
+  // Returns whether it actually moved - false means nothing reviewable
+  // is left in that direction; callers decide what that means (see
+  // advanceModalAfterResolve below, and the Left/Right arrow-key handler
+  // in _handleKeyDown, which just no-ops at the ends the same way
+  // Folders' own paging already does).
+  pageModalSkippingHidden(delta){
+    let idx = this.state.modalItemIndex + delta
+    while (idx >= 0 && idx < this.itemsRef.length){
       const [, faceId] = this.itemsRef[idx]
       if (this.state.hidden.indexOf(faceId) === -1){
         this.setState({ modalURL: this.buildModalUrl(faceId), modalItemIndex: idx, modalSendToOtherPerson: false })
-        return
+        return true
       }
-      idx++
+      idx += delta
     }
-    this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
+    return false
+  }
+
+  // Advances to the next still-reviewable face after a hotkey resolves
+  // the current one (see closeOrAdvanceModal above) - closes the modal
+  // instead when there's nothing left, same as running out the bottom of
+  // the grid would.
+  advanceModalAfterResolve(){
+    if (!this.pageModalSkippingHidden(1)){
+      this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
+    }
   }
 
   // Resolves the face currently open in the modal (C/X/Q hotkeys - People
@@ -1103,6 +1145,7 @@ class Gallery extends React.Component{
                 <span><kbd>X</kbd> Unassign</span>
                 <span><kbd>Q</kbd> Ignore</span>
                 <span><kbd>R</kbd> Other person</span>
+                {this.props.reviewFlaggedOnly && <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Browse</span>}
               </div>
             )
           )}
