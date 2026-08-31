@@ -559,7 +559,18 @@ class Gallery extends React.Component{
         addDelta(ignore_person_id, { num_faces: n })
         break
       case 'close_ignored':
-        addDelta(ignore_person_id, { num_faces: -n })
+        // Same defined/proposed split as close_assigned/close_unassigned
+        // above - this only ever fires while viewing the .ignore person
+        // (gallery.jsx's Delete-key handler), but that gallery can show
+        // both 'defined' tiles (already declared to .ignore, counted in
+        // .ignore's num_faces) and 'proposed' tiles (possible-match
+        // candidates for .ignore, counted in .ignore's num_possibilities
+        // instead) - see lazyImg.jsx's ignore_tab comment. Decrementing
+        // num_faces by the full n regardless used to silently corrupt
+        // .ignore's num_faces count whenever a 'proposed' tile was
+        // included (nothing had ever incremented it for that face).
+        if (definedCount) addDelta(ignore_person_id, { num_faces: -definedCount })
+        if (proposedCount) addDelta(ignore_person_id, { num_possibilities: -proposedCount })
         break
       case 'verify_face':
         addDelta(current_person_id, { num_unverified_faces: -n })
