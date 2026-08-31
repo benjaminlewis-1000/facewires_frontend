@@ -76,7 +76,8 @@ class ImageScreen extends React.Component{
     if (this.props.api_id !== prevProps.api_id ||
         this.props.unlabeled !== prevProps.unlabeled ||
         this.props.only_unverified !== prevProps.only_unverified ||
-        this.props.refreshVersion !== prevProps.refreshVersion){
+        this.props.refreshVersion !== prevProps.refreshVersion ||
+        this.props.reviewFlaggedOnly !== prevProps.reviewFlaggedOnly){
       const generation = ++this._fetchGeneration
       const debugTag = `[ImageScreen ${this.props.api_id}]`
       this.setState({loading: true})
@@ -103,7 +104,11 @@ class ImageScreen extends React.Component{
       }
 
       var imagery_url = ''
-      if (! (this.props.unlabeled && this.props.tab === "People") || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
+      // reviewFlaggedOnly faces are always still-undeclared (blank
+      // declared_name) by definition, same as the unlabeled toggle -
+      // skip the "definite"/face_declared fetch the same way, or it'd
+      // pull in .ignore's already-declared faces too.
+      if (! ((this.props.unlabeled || this.props.reviewFlaggedOnly) && this.props.tab === "People") || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
         axiosInstance.get(imagery_url, {
             params: {
@@ -134,7 +139,9 @@ class ImageScreen extends React.Component{
 
       if (this.props.tab === 'People' && !this.props.only_unverified ){
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
-        axiosInstance.get(imagery_url)
+        axiosInstance.get(imagery_url, {
+            params: this.props.reviewFlaggedOnly ? { flagged: true } : {}
+          })
           .then( (response) => {
             if (generation !== this._fetchGeneration) return
             this.setState({possible_ids: response.data.id_list});
