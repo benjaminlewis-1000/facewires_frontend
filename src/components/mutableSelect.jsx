@@ -313,6 +313,15 @@ keyPress(event, option){
 keyDown(event){
 
   if (event.key === "Escape"){
+    // Stop this from bubbling further - when this box is mounted inside
+    // the full-size image modal (R hotkey there - see gallery.jsx),
+    // react-modal's own content <div> has its own onKeyDown that also
+    // reacts to Escape (ModalPortal.js) and closes the *whole* modal.
+    // Without this, Escape here both cancelled edit mode (below) AND
+    // closed the modal a beat later via that ancestor handler - per the
+    // user, Escape here should only back out of "send to other person"
+    // and leave the larger image open.
+    event.stopPropagation()
     event.target.blur()
     this.setState({visible: false})
     // Backs the tile all the way out of "send to other person" mode
