@@ -53,6 +53,18 @@ class PersonSidebar extends React.Component {
     this.setState({ personSelected: index, personSelectedId: id })
   }
 
+  // Subordinate ".ignore" row ("Flagged for review") - same underlying
+  // person/id/index as .ignore's own row (it's a filtered view of
+  // .ignore's faces, not a different person), so local selection
+  // tracking stays in sync the same way a normal click would. Actually
+  // switching into that filtered view is handled by the parent
+  // (onSelectReviewFlagged), since it needs to flip a flag ImageScreen's
+  // fetch reads - see picasaScreen.jsx.
+  handleReviewFlaggedClick(index, id) {
+    this.props.onSelectReviewFlagged && this.props.onSelectReviewFlagged()
+    this.setState({ personSelected: index, personSelectedId: id })
+  }
+
   // Same filtering logic used by render(), but returned as data so
   // componentDidUpdate can check whether the current selection survived
   // a toggle change without having to duplicate the filter conditions.
@@ -167,6 +179,26 @@ class PersonSidebar extends React.Component {
       </SidebarPersonContextWrapper>
     );
   }
+  // Subordinate row directly under ".ignore" - a filtered view of
+  // .ignore's own possible-match faces (Face.mobile_review_hidden=True,
+  // set by the mobile app's ignore-review flow when a candidate was
+  // looked at but not confirmed as .ignore outright - "might actually be
+  // someone"). Not a real Person, so it piggybacks on .ignore's own
+  // id/index rather than getting its own sidebar entry in `people`.
+  makeReviewFlaggedRow(ignoreValue, ignoreIndex) {
+    const selected = this.props.reviewFlaggedOnly
+    const count = ignoreValue.num_review_flagged || 0
+    var className = (selected ? 'click-state' : 'base-state') + ' sidebarSubordinate'
+    return (
+      <button
+        key={`${ignoreIndex}-flagged`}
+        className={className}
+        onClick={() => this.handleReviewFlaggedClick(ignoreIndex, ignoreValue.id)}
+      >
+        {`↳ Flagged for review   (${count})`}
+      </button>
+    )
+  }
   //
 
   render() {
@@ -174,12 +206,22 @@ class PersonSidebar extends React.Component {
     var only_unverified = this.props.only_unverified
 
     const entries = this.getFilteredEntries()
-    var items = entries.map(({ index, value }) => {
+    // flatMap rather than map - .ignore's row needs to expand into two
+    // rows (itself plus the subordinate "Flagged for review" row right
+    // under it) without disturbing every other entry's shape.
+    var items = entries.flatMap(({ index, value }) => {
       if (index === -100){
         const noOne = { ...value, person_name: 'Unassigned' }
-        return this.makePerson(noOne, -100, this.state.personSelected === -100)
+        return [this.makePerson(noOne, -100, this.state.personSelected === -100 && !this.props.reviewFlaggedOnly)]
       }
-      return this.makePerson(value, index, this.state.personSelected === index, only_unverified, only_unlabeled)
+      const rows = [this.makePerson(value, index, this.state.personSelected === index && !this.props.reviewFlaggedOnly, only_unverified, only_unlabeled)]
+      // Only meaningful in unlabeled mode - the flagged faces this
+      // filters to are always still-undeclared (see picasaScreen.jsx's
+      // reviewFlaggedOnly reset when unlabeled is turned off).
+      if (value.person_name === '.ignore' && only_unlabeled){
+        rows.push(this.makeReviewFlaggedRow(value, index))
+      }
+      return rows
     })
 
     return(

@@ -174,10 +174,30 @@
   right: 12px;
 }
 
-/* Hotkey reminder for the C/X/I confirm/unassign/ignore shortcuts -
-   People tab, "Only Unlabeled Faces" view only (see gallery.jsx's
-   _handleKeyDown/render). Pinned to the bottom of .Modal (already
-   position:fixed), same purple accent as .modalNavButton. */
+/* R hotkey in the modal (People tab, "Only Unlabeled Faces" view) swaps
+   .modalHotkeyHint below out for this instead - same bottom-center slot,
+   hosting the same MutableSelect a grid tile's R hotkey/right-click
+   mounts (see gallery.jsx's render/openModalSendToOtherPerson). The
+   dropdown itself is .person_select (image_tile.css, sized/positioned
+   for a 100px tile) - not overridden here since it's portaled to
+   document.body and positions itself off real viewport coordinates
+   regardless of this wrapper's size (see mutableSelect.jsx). */
+.modalSendToPerson{
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #450293;
+  border-radius: 20px;
+  padding: 10px 18px;
+  z-index: 101;
+}
+
+/* Hotkey reminder for the C/X/Q/R confirm/unassign/ignore/other-person
+   shortcuts - People tab, "Only Unlabeled Faces" view only (see
+   gallery.jsx's _handleKeyDown/render). Pinned to the bottom of .Modal
+   (already position:fixed), same purple accent as .modalNavButton. */
 .modalHotkeyHint{
   position: absolute;
   bottom: 14px;

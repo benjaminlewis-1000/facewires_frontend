@@ -61,3 +61,14 @@ https://stackoverflow.com/questions/2836827/how-do-you-add-a-scroll-bar-to-a-div
   background-color: #fcfff7; /* Green background */
   color: #06084f; /* White text */
 }
+
+/* Subordinate sidebar row (currently just ".ignore"'s "Flagged for
+   review" row) - indented under its parent row with a small corner-tab
+   notch on the left so it reads as "part of" the row above it rather
+   than a sibling person. */
+.sidebarSubordinate{
+  padding-left: 28px !important;
+  font-size: 11px;
+  font-style: italic;
+  border-left: 3px solid #66b6d9;
+}

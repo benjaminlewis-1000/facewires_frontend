@@ -164,7 +164,26 @@ class MutableSelect extends React.PureComponent{
 // whose gallery it's currently shown in.
 sourceCountDelta(n){
   if (this.props.ignore_tab){
-    return { id: this.props.ignore_person_id, num_faces: -n }
+    // Same defined/proposed split as gallery.jsx's buildCountDeltas -
+    // ignore_tab mixes 'defined' (declared to .ignore, counted in
+    // num_faces) and 'proposed' (still-candidate, counted in
+    // num_possibilities) tiles, so a single unconditional num_faces
+    // delta here was wrong for a 'proposed' source (nothing had ever
+    // incremented num_faces for it). Only surfaced now because
+    // reviewFlaggedOnly's tiles are always 'proposed', which made the
+    // bug visible while wiring up its own count below.
+    const delta = { id: this.props.ignore_person_id }
+    if (this.props.type === 'proposed'){
+      delta.num_possibilities = -n
+    }else{
+      delta.num_faces = -n
+    }
+    // reviewFlaggedOnly's tiles (".ignore"'s "Flagged for review" row)
+    // are always 'proposed' by construction - reassigning one away from
+    // .ignore here removes it from that pool too, same as every other
+    // action already handled in gallery.jsx's buildCountDeltas.
+    if (this.props.reviewFlaggedOnly) delta.num_review_flagged = -n
+    return delta
   }
   if (this.props.current_person_id === this.props.unassigned_person_id){
     return { id: this.props.unassigned_person_id, num_possibilities: -n }

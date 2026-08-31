@@ -223,6 +223,13 @@ class PicasaScreen extends React.Component{
       t2: false,
       api_id: 0,
       selectedIndex: -100,
+      // True only while the sidebar's ".ignore" subordinate row
+      // ("Flagged for review") is the active selection - api_id/
+      // api_source still point at .ignore itself (this isn't a real
+      // Person), this just tells ImageScreen's face_poss fetch to add
+      // the extra mobile_review_hidden filter. Reset to false by
+      // setApiUrl any time a normal sidebar row is clicked.
+      reviewFlaggedOnly: false,
 
       showRenameModal: false,
       renamePersonId: null,
@@ -571,12 +578,35 @@ class PicasaScreen extends React.Component{
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
       this.setState({selectedIndex: index})
+      this.setState({reviewFlaggedOnly: false})
     }else if (childType === 'person'){
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
       this.setState({selectedIndex: index})
+      // A normal sidebar click always means "leave the .ignore
+      // subordinate filtered view" - selectReviewFlagged below is the
+      // only path that turns this back on.
+      this.setState({reviewFlaggedOnly: false})
     }
     // console.log(this.state.image_api_id)
+  }
+
+  // Sidebar's ".ignore" subordinate row ("Flagged for review") - selects
+  // .ignore itself (same as clicking its own row would) plus flips
+  // reviewFlaggedOnly on, which ImageScreen reads to add the extra
+  // mobile_review_hidden filter to its face_poss fetch. See
+  // personSidebar.jsx's makeReviewFlaggedRow/handleReviewFlaggedClick.
+  selectReviewFlagged = () => {
+    const ignoreId = this.state.ignore_person_id
+    const ignorePerson = this.state.people.find(p => p.id === ignoreId)
+    if (!ignorePerson) return
+    const index = this.state.people.findIndex(p => p.id === ignoreId)
+    this.setState({
+      api_source: ignorePerson.url,
+      api_id: ignoreId,
+      selectedIndex: index,
+      reviewFlaggedOnly: true,
+    })
   }
 
   setToggle = (childField) => {
@@ -592,6 +622,14 @@ class PicasaScreen extends React.Component{
           for (const other of exclusiveToggles){
             if (other !== childField) next[other] = false
           }
+        }
+        // The ".ignore" subordinate row only shows in unlabeled mode
+        // (see personSidebar.jsx) - if unlabeled is being turned off
+        // while the review-flagged view is active, leaving
+        // reviewFlaggedOnly set would strand the gallery in a filtered
+        // state with no visible row/way back to it.
+        if (childField === 'unlabeled_toggle' && !turningOn && prevState.reviewFlaggedOnly){
+          next.reviewFlaggedOnly = false
         }
         return next
       })
@@ -625,8 +663,9 @@ class PicasaScreen extends React.Component{
 
   // Apply local count deltas to state.people so the sidebar reflects
   // face operations immediately, without waiting on a refetch. deltas is
-  // an array of {id, num_faces?, num_possibilities?, num_unverified_faces?}
-  // where each present field is a signed delta to add (not an absolute value).
+  // an array of {id, num_faces?, num_possibilities?, num_unverified_faces?,
+  // num_review_flagged?} where each present field is a signed delta to
+  // add (not an absolute value).
   // Reconciled against the backend periodically by fetchPeopleList.
   updatePersonCounts(deltas){
     if (!deltas || deltas.length === 0) return
@@ -636,7 +675,7 @@ class PicasaScreen extends React.Component{
         if (!delta) return person
 
         const updated = { ...person }
-        for (const field of ['num_faces', 'num_possibilities', 'num_unverified_faces']){
+        for (const field of ['num_faces', 'num_possibilities', 'num_unverified_faces', 'num_review_flagged']){
           if (delta[field]){
             updated[field] = Math.max(0, (updated[field] || 0) + delta[field])
           }
@@ -929,7 +968,7 @@ class PicasaScreen extends React.Component{
     if ( this.state.tab === "People" ){
       return (
       <div>
-        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} />
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} />
         <ImageScreen
           tab={this.state.tab}
           api_source={this.state.api_source}
@@ -945,6 +984,7 @@ class PicasaScreen extends React.Component{
           unlabeled={this.state.unlabeled_toggle}
           only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}
+          reviewFlaggedOnly={this.state.reviewFlaggedOnly}
         />
       </div>
       );

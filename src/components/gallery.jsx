@@ -2,6 +2,7 @@ import React from 'react';
 import store from 'store';
 import '../css/image_tile.css'
 import LazyImage from './lazyImg'
+import MutableSelect from './mutableSelect'
 import { List } from 'react-window';
 import Modal from "react-modal";
 import { bulkFaceOperation } from './faceActions';
@@ -159,6 +160,12 @@ class Gallery extends React.Component{
       // view - see _handleKeyDown/startSendToOtherPerson). null means no
       // tile is being forced into edit mode via the keyboard.
       editingFaceId: null,
+      // R hotkey while the modal is open (People tab, "Only Unlabeled
+      // Faces" view) - mounts a MutableSelect directly in the modal for
+      // the currently-open face, same idea as editingFaceId above but
+      // for the modal's single image instead of a grid tile. See
+      // _handleKeyDown/render.
+      modalSendToOtherPerson: false,
     }
 
     this.api_action = this.api_action.bind(this)
@@ -167,6 +174,9 @@ class Gallery extends React.Component{
     this.resolveModalFace = this.resolveModalFace.bind(this);
     this.startSendToOtherPerson = this.startSendToOtherPerson.bind(this);
     this.clearEditingFace = this.clearEditingFace.bind(this);
+    this.openModalSendToOtherPerson = this.openModalSendToOtherPerson.bind(this);
+    this.cancelModalSendToOtherPerson = this.cancelModalSendToOtherPerson.bind(this);
+    this.finishModalSendToOtherPerson = this.finishModalSendToOtherPerson.bind(this);
     this.setHidden = this.setHidden.bind(this);
     this.unselectAll = this.unselectAll.bind(this);
     this.clearImagesSelected = this.clearImagesSelected.bind(this);
@@ -243,6 +253,28 @@ class Gallery extends React.Component{
   }
 
   _handleKeyDown = (event) => {
+    // Escape closes the modal - react-modal's own Escape handling
+    // (ModalPortal.js) is a React onKeyDown prop attached directly to
+    // the modal's content <div>, not a document-level listener, so it
+    // only fires when that div (or a focused descendant, e.g. after
+    // clicking inside it) actually has DOM focus - opening the modal via
+    // double-click doesn't move focus there, so Escape did nothing until
+    // you clicked inside it first. This document-level check bypasses
+    // that entirely. Skipped while MutableSelect's search box (People
+    // tab, R hotkey) is focused - its own Escape handler backs out of
+    // "send to other person" instead of closing the whole modal, and
+    // that box *does* hold real DOM focus (autoFocus/startExpanded), so
+    // the INPUT/TEXTAREA guard already used elsewhere in this handler
+    // reliably tells the two cases apart.
+    if (this.state.modalOpen && event.key === 'Escape'){
+      const tag = event.target && event.target.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
+        event.preventDefault()
+        this.toggleModal()
+        return
+      }
+    }
+
     // Page the open modal with the arrow keys - Folders tab only, same
     // scoping as the prev/next buttons themselves (see render).
     if (this.state.modalOpen && this.props.tab === 'Folders'){
@@ -257,18 +289,54 @@ class Gallery extends React.Component{
       return
     }
 
-    // C/X/I resolve the face currently open in the modal - People tab,
-    // "Only Unlabeled Faces" view only (that toggle is what limits this
-    // gallery's tiles to proposed/possible matches - see ImageScreen's
-    // componentDidUpdate - so every modal-openable tile here is a real
-    // confirm/reject/ignore candidate). Same INPUT/TEXTAREA guard as
-    // picasaScreen.jsx's undo/redo Ctrl+Z/Ctrl+Y handler, so this can't
-    // fire while typing in the rename/merge/person-search boxes.
+    // Same idea for the ".ignore" "Flagged for review" modal
+    // (reviewFlaggedOnly) - lets you browse back and forth through the
+    // list without resolving anything, same as Folders' paging above.
+    // Skips over already-resolved (hidden) faces rather than walking
+    // itemsRef's raw index like Folders does, since - unlike Folders -
+    // actions taken here can hide items out from under a fixed list
+    // (see advanceModalAfterResolve/pageModalSkippingHidden). Guarded
+    // against INPUT/TEXTAREA the same way Escape is above, so this
+    // doesn't fire while MutableSelect's search box (R hotkey) is
+    // focused/typeable.
+    if (this.state.modalOpen && this.props.tab === 'People' && this.props.reviewFlaggedOnly){
+      const tag = event.target && event.target.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
+        if (event.key === 'ArrowLeft'){
+          event.preventDefault()
+          this.pageModalSkippingHidden(-1)
+          return
+        }
+        if (event.key === 'ArrowRight'){
+          event.preventDefault()
+          this.pageModalSkippingHidden(1)
+          return
+        }
+      }
+    }
+
+    // C/X/Q resolve the face currently open in the modal, R opens a
+    // "send to other person" search box in the modal itself - People
+    // tab, "Only Unlabeled Faces" view only (that toggle is what limits
+    // this gallery's tiles to proposed/possible matches - see
+    // ImageScreen's componentDidUpdate - so every modal-openable tile
+    // here is a real confirm/reject/ignore candidate). Q rather than I
+    // for ignore, matching the grid's own C/X/Q/R hotkeys below - was I
+    // here only because the modal hotkeys shipped before the grid ones
+    // did. Same INPUT/TEXTAREA guard as picasaScreen.jsx's undo/redo
+    // Ctrl+Z/Ctrl+Y handler, so this can't fire while typing in the
+    // rename/merge/person-search boxes (including MutableSelect's own
+    // box once R has opened it below).
     if (this.state.modalOpen && this.props.tab === 'People' && this.props.unlabeled){
       const tag = event.target && event.target.tagName
       if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
         const key = event.key.toLowerCase()
-        const actionByKey = { c: 'confirm_proposed', x: 'close_assigned', i: 'close_unassigned' }
+        if (key === 'r' && !this.state.modalSendToOtherPerson){
+          event.preventDefault()
+          this.openModalSendToOtherPerson()
+          return
+        }
+        const actionByKey = { c: 'confirm_proposed', x: 'close_assigned', q: 'close_unassigned' }
         if (actionByKey[key]){
           event.preventDefault()
           this.resolveModalFace(actionByKey[key])
@@ -559,13 +627,37 @@ class Gallery extends React.Component{
         addDelta(ignore_person_id, { num_faces: n })
         break
       case 'close_ignored':
-        addDelta(ignore_person_id, { num_faces: -n })
+        // Same defined/proposed split as close_assigned/close_unassigned
+        // above - this only ever fires while viewing the .ignore person
+        // (gallery.jsx's Delete-key handler), but that gallery can show
+        // both 'defined' tiles (already declared to .ignore, counted in
+        // .ignore's num_faces) and 'proposed' tiles (possible-match
+        // candidates for .ignore, counted in .ignore's num_possibilities
+        // instead) - see lazyImg.jsx's ignore_tab comment. Decrementing
+        // num_faces by the full n regardless used to silently corrupt
+        // .ignore's num_faces count whenever a 'proposed' tile was
+        // included (nothing had ever incremented it for that face).
+        if (definedCount) addDelta(ignore_person_id, { num_faces: -definedCount })
+        if (proposedCount) addDelta(ignore_person_id, { num_possibilities: -proposedCount })
         break
       case 'verify_face':
         addDelta(current_person_id, { num_unverified_faces: -n })
         break
       default:
         break
+    }
+
+    // Every tile in the ".ignore" "Flagged for review" gallery
+    // (reviewFlaggedOnly, threaded from ImageScreen) is, by construction,
+    // a 'proposed' .ignore candidate with mobile_review_hidden=True (the
+    // backend's ?flagged=true filter - see picasa/api/views.py). Any
+    // action taken here moves the face out of that pool one way or
+    // another (confirmed, rejected, sent to Unassigned, hard-ignored),
+    // so the sidebar's num_review_flagged count needs the same
+    // decrement regardless of which action fired - this was previously
+    // only reflected on the next 10-minute people-list poll.
+    if (this.props.reviewFlaggedOnly && proposedCount){
+      addDelta(ignore_person_id, { num_review_flagged: -proposedCount })
     }
 
     return deltas
@@ -743,7 +835,12 @@ class Gallery extends React.Component{
 
 
  toggleModal() {
-    this.setState({modalOpen: !this.state.modalOpen});
+    // Reset unconditionally - covers both closing (overlay click, Escape
+    // via react-modal's own onRequestClose) leaving a stray
+    // modalSendToOtherPerson=true that would otherwise show the search
+    // box immediately the next time any modal opens, and opening (no-op,
+    // already false).
+    this.setState({modalOpen: !this.state.modalOpen, modalSendToOtherPerson: false});
   }
 
   // Folder tiles are ImageFile ids, not Face ids - face_source (which does
@@ -758,7 +855,20 @@ class Gallery extends React.Component{
   // just for a whole ImageFile instead of a single face.
   buildModalUrl(id){
     const modalType = this.props.tab === 'Folders' ? 'slideshow' : 'face_source'
-    return store.get('api_url') + '/keyed_image/' + modalType + '/?id=' + id + '&access_key=' + store.get('access_key')
+    let url = store.get('api_url') + '/keyed_image/' + modalType + '/?id=' + id + '&access_key=' + store.get('access_key')
+    // Verify-faces and unlabeled-faces screens only - draws a box around
+    // the specific face being reviewed (picasa/api/views.py's face_source
+    // highlight_box param), scaled server-side to match its live resize.
+    // Doesn't apply to Folders (slideshow has no single face in mind) or
+    // the People tab generally - only where you're specifically deciding
+    // "is this really the right face for this person" (only_unverified)
+    // or "who is this" (unlabeled, including its reviewFlaggedOnly
+    // sub-view) - a defined/already-confirmed gallery has no ambiguity
+    // to highlight.
+    if (this.props.tab === 'People' && (this.props.only_unverified || this.props.unlabeled)){
+      url += '&highlight_box=true'
+    }
+    return url
   }
 
   // Pages the open modal to the previous/next image in this.itemsRef
@@ -773,16 +883,91 @@ class Gallery extends React.Component{
     this.setState({ modalURL: this.buildModalUrl(id), modalItemIndex: newIndex })
   }
 
-  // Resolves the face currently open in the modal (C/X/I hotkeys - People
-  // tab, "Only Unlabeled Faces" view only, see _handleKeyDown), then closes
-  // the modal - this is an occasional action, not a review-queue workflow,
-  // so per the user it should drop back to the grid rather than auto-
-  // advance to the next face.
+  // What happens after a modal hotkey resolves the currently-open face -
+  // shared by resolveModalFace (C/X/Q) and finishModalSendToOtherPerson
+  // (R) below. Everywhere except the ".ignore" "Flagged for review" view
+  // this is an occasional action, not a review queue, so it drops back
+  // to the grid (per the user). reviewFlaggedOnly *is* a review queue
+  // though - per the user, advance to the next still-visible face in the
+  // list instead of closing, so a review pass can move through several
+  // faces without leaving the modal each time.
+  closeOrAdvanceModal(){
+    if (this.props.reviewFlaggedOnly){
+      this.advanceModalAfterResolve()
+    }else{
+      this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
+    }
+  }
+
+  // Walks the modal delta steps (+1/-1) through itemsRef, skipping over
+  // any face that's already hidden (resolved) - itemsRef is a fixed list
+  // built once (see buildItems), so "hidden" (state.hidden, set by
+  // setHidden as each action resolves a face) is what actually tracks
+  // which ones are still reviewable, the same way the grid itself
+  // already filters hidden tiles out of view. Unlike Folders'
+  // showAdjacentModalImage, hidden entries here are real gaps to skip
+  // over, not just an out-of-range index, since actions taken in this
+  // same modal continuously remove items from the list as you go.
+  // Returns whether it actually moved - false means nothing reviewable
+  // is left in that direction; callers decide what that means (see
+  // advanceModalAfterResolve below, and the Left/Right arrow-key handler
+  // in _handleKeyDown, which just no-ops at the ends the same way
+  // Folders' own paging already does).
+  pageModalSkippingHidden(delta){
+    let idx = this.state.modalItemIndex + delta
+    while (idx >= 0 && idx < this.itemsRef.length){
+      const [, faceId] = this.itemsRef[idx]
+      if (this.state.hidden.indexOf(faceId) === -1){
+        this.setState({ modalURL: this.buildModalUrl(faceId), modalItemIndex: idx, modalSendToOtherPerson: false })
+        return true
+      }
+      idx += delta
+    }
+    return false
+  }
+
+  // Advances to the next still-reviewable face after a hotkey resolves
+  // the current one (see closeOrAdvanceModal above) - closes the modal
+  // instead when there's nothing left, same as running out the bottom of
+  // the grid would.
+  advanceModalAfterResolve(){
+    if (!this.pageModalSkippingHidden(1)){
+      this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
+    }
+  }
+
+  // Resolves the face currently open in the modal (C/X/Q hotkeys - People
+  // tab, "Only Unlabeled Faces" view only, see _handleKeyDown) - see
+  // closeOrAdvanceModal above for what happens next.
   resolveModalFace(actionType){
     if (this.state.modalItemIndex < 0) return
     const [, faceId] = this.itemsRef[this.state.modalItemIndex]
     this.api_action(actionType, faceId)
-    this.setState({ modalOpen: false, modalItemIndex: -1 })
+    this.closeOrAdvanceModal()
+  }
+
+  // R hotkey while the modal is open - mounts a MutableSelect directly in
+  // the modal (see render) for whichever face is currently open there,
+  // startExpanded so it's immediately focused/typeable, same as the R
+  // hotkey already does for a grid tile via startSendToOtherPerson below.
+  openModalSendToOtherPerson(){
+    if (this.state.modalItemIndex < 0) return
+    this.setState({ modalSendToOtherPerson: true })
+  }
+
+  // Escape in the modal's search box (MutableSelect's onCancel) backs out
+  // to just viewing the image again, same as it does for a grid tile -
+  // doesn't close the modal itself.
+  cancelModalSendToOtherPerson(){
+    this.setState({ modalSendToOtherPerson: false })
+  }
+
+  // MutableSelect's setInvisible - fired once assignPerson has kicked off
+  // the real API call(s) (get_unique_list, called at the top of
+  // assignPerson, already hid the tile in the grid via setHidden). See
+  // closeOrAdvanceModal above for what happens next.
+  finishModalSendToOtherPerson(){
+    this.closeOrAdvanceModal()
   }
 
   // R hotkey (grid, not modal - People tab "Only Unlabeled Faces" view,
@@ -866,6 +1051,7 @@ class Gallery extends React.Component{
       peopleOptions: this.state.peopleOptions,
       ignore_tab: this.props.current_person_id === this.props.ignore_person_id,
       only_unverified: this.props.only_unverified,
+      reviewFlaggedOnly: this.props.reviewFlaggedOnly,
       updatePersonList: this.props.updatePersonList,
       updatePersonCounts: this.props.updatePersonCounts,
       onRecordUndo: this.props.onRecordUndo,
@@ -921,11 +1107,47 @@ class Gallery extends React.Component{
             </button>
           )}
           {this.props.tab === 'People' && this.props.unlabeled && (
-            <div className='modalHotkeyHint'>
-              <span><kbd>C</kbd> Confirm</span>
-              <span><kbd>X</kbd> Unassign</span>
-              <span><kbd>I</kbd> Ignore</span>
-            </div>
+            this.state.modalSendToOtherPerson && this.state.modalItemIndex >= 0 ? (
+              // R was just pressed - the same MutableSelect a grid tile's
+              // R hotkey/right-click "Send to other person" mounts,
+              // just hosted in the modal instead of a tile (see
+              // openModalSendToOtherPerson/finishModalSendToOtherPerson/
+              // cancelModalSendToOtherPerson above). get_unique_list
+              // returns just this one face_id, since doubleClickHandler
+              // already cleared imgsSelected when the modal opened.
+              <div className='modalSendToPerson'>
+                <MutableSelect
+                  peopleOptions={this.state.peopleOptions}
+                  get_unique_list={this.get_unique_list}
+                  face_id={this.itemsRef[this.state.modalItemIndex][1]}
+                  type={this.itemsRef[this.state.modalItemIndex][2]}
+                  startExpanded={true}
+                  current_person_id={this.props.current_person_id}
+                  unassigned_person_id={this.props.unassigned_person_id}
+                  ignore_person_id={this.props.ignore_person_id}
+                  ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
+                  only_unverified={this.props.only_unverified}
+                  reviewFlaggedOnly={this.props.reviewFlaggedOnly}
+                  setInvisible={this.finishModalSendToOtherPerson}
+                  onCancel={this.cancelModalSendToOtherPerson}
+                  setHidden={this.setHidden}
+                  updatePersonList={this.props.updatePersonList}
+                  updatePersonCounts={this.props.updatePersonCounts}
+                  onRecordUndo={this.props.onRecordUndo}
+                  imgsSelected={this.state.imgsSelected}
+                  clearImagesSelected={this.clearImagesSelected}
+                  onApiError={this.handleApiError}
+                />
+              </div>
+            ) : (
+              <div className='modalHotkeyHint'>
+                <span><kbd>C</kbd> Confirm</span>
+                <span><kbd>X</kbd> Unassign</span>
+                <span><kbd>Q</kbd> Ignore</span>
+                <span><kbd>R</kbd> Other person</span>
+                {this.props.reviewFlaggedOnly && <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Browse</span>}
+              </div>
+            )
           )}
         </Modal>
 

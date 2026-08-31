@@ -76,7 +76,8 @@ class ImageScreen extends React.Component{
     if (this.props.api_id !== prevProps.api_id ||
         this.props.unlabeled !== prevProps.unlabeled ||
         this.props.only_unverified !== prevProps.only_unverified ||
-        this.props.refreshVersion !== prevProps.refreshVersion){
+        this.props.refreshVersion !== prevProps.refreshVersion ||
+        this.props.reviewFlaggedOnly !== prevProps.reviewFlaggedOnly){
       const generation = ++this._fetchGeneration
       const debugTag = `[ImageScreen ${this.props.api_id}]`
       this.setState({loading: true})
@@ -103,7 +104,11 @@ class ImageScreen extends React.Component{
       }
 
       var imagery_url = ''
-      if (! (this.props.unlabeled && this.props.tab === "People") || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
+      // reviewFlaggedOnly faces are always still-undeclared (blank
+      // declared_name) by definition, same as the unlabeled toggle -
+      // skip the "definite"/face_declared fetch the same way, or it'd
+      // pull in .ignore's already-declared faces too.
+      if (! ((this.props.unlabeled || this.props.reviewFlaggedOnly) && this.props.tab === "People") || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
         axiosInstance.get(imagery_url, {
             params: {
@@ -134,7 +139,9 @@ class ImageScreen extends React.Component{
 
       if (this.props.tab === 'People' && !this.props.only_unverified ){
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
-        axiosInstance.get(imagery_url)
+        axiosInstance.get(imagery_url, {
+            params: this.props.reviewFlaggedOnly ? { flagged: true } : {}
+          })
           .then( (response) => {
             if (generation !== this._fetchGeneration) return
             this.setState({possible_ids: response.data.id_list});
@@ -321,6 +328,7 @@ class ImageScreen extends React.Component{
                     updatePersonCounts={this.props.updatePersonCounts}
                     unlabeled={this.props.unlabeled}
                     only_unverified={this.props.only_unverified}
+                    reviewFlaggedOnly={this.props.reviewFlaggedOnly}
                     onHighlightUpdated={this.bumpHighlightVersion}
                     onRecordUndo={this.props.onRecordUndo}
                   />
@@ -333,16 +341,23 @@ class ImageScreen extends React.Component{
           <PersonNameContextWrapper>
             <span className='header_person_name'>{selectedName}</span>
           </PersonNameContextWrapper>
-          {this.props.tab === 'People' && this.props.unlabeled && (
+          {this.props.tab === 'People' && (this.props.unlabeled || this.props.api_id === this.props.ignore_person_id) && (
             // Reminder for gallery.jsx's C/X/R/Q hotkeys (act on whatever's
             // currently selected, no modal needed) - same look as the
             // full-size modal's own hotkey hint (imageModal.css), centered
             // in this header instead of pinned to the bottom of an image.
+            // The Delete hint only applies while viewing the .ignore
+            // person itself (gallery.jsx's Delete-key handler checks
+            // current_person_id === ignore_person_id) - it's the one
+            // hotkey here not gated on "Only Unlabeled Faces", so it can
+            // show alone (viewing .ignore normally) or alongside the rest
+            // (viewing .ignore's own unlabeled tab).
             <div className='headerHotkeyHint'>
-              <span><kbd>C</kbd> Confirm</span>
-              <span><kbd>X</kbd> Unassign</span>
-              <span><kbd>R</kbd> Other person</span>
-              <span><kbd>Q</kbd> Ignore</span>
+              {this.props.unlabeled && <span><kbd>C</kbd> Confirm</span>}
+              {this.props.unlabeled && <span><kbd>X</kbd> Unassign</span>}
+              {this.props.unlabeled && <span><kbd>R</kbd> Other person</span>}
+              {this.props.unlabeled && <span><kbd>Q</kbd> Ignore</span>}
+              {this.props.api_id === this.props.ignore_person_id && <span><kbd>Delete</kbd> Hard ignore</span>}
             </div>
           )}
           {selectedFolder ? (
