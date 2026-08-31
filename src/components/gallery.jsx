@@ -833,16 +833,51 @@ class Gallery extends React.Component{
     this.setState({ modalURL: this.buildModalUrl(id), modalItemIndex: newIndex })
   }
 
+  // What happens after a modal hotkey resolves the currently-open face -
+  // shared by resolveModalFace (C/X/Q) and finishModalSendToOtherPerson
+  // (R) below. Everywhere except the ".ignore" "Flagged for review" view
+  // this is an occasional action, not a review queue, so it drops back
+  // to the grid (per the user). reviewFlaggedOnly *is* a review queue
+  // though - per the user, advance to the next still-visible face in the
+  // list instead of closing, so a review pass can move through several
+  // faces without leaving the modal each time.
+  closeOrAdvanceModal(){
+    if (this.props.reviewFlaggedOnly){
+      this.advanceModalAfterResolve()
+    }else{
+      this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
+    }
+  }
+
+  // Walks forward from the current modal face to the next one in
+  // itemsRef that isn't hidden yet (i.e. hasn't itself already been
+  // resolved) - itemsRef is a fixed list built once (see buildItems), so
+  // "hidden" (state.hidden, set by setHidden as each action resolves a
+  // face) is what actually tracks which ones are done, the same way the
+  // grid itself already filters hidden tiles out. Closes the modal once
+  // nothing reviewable is left, same as running out the bottom of the
+  // grid would.
+  advanceModalAfterResolve(){
+    let idx = this.state.modalItemIndex + 1
+    while (idx < this.itemsRef.length){
+      const [, faceId] = this.itemsRef[idx]
+      if (this.state.hidden.indexOf(faceId) === -1){
+        this.setState({ modalURL: this.buildModalUrl(faceId), modalItemIndex: idx, modalSendToOtherPerson: false })
+        return
+      }
+      idx++
+    }
+    this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
+  }
+
   // Resolves the face currently open in the modal (C/X/Q hotkeys - People
-  // tab, "Only Unlabeled Faces" view only, see _handleKeyDown), then closes
-  // the modal - this is an occasional action, not a review-queue workflow,
-  // so per the user it should drop back to the grid rather than auto-
-  // advance to the next face.
+  // tab, "Only Unlabeled Faces" view only, see _handleKeyDown) - see
+  // closeOrAdvanceModal above for what happens next.
   resolveModalFace(actionType){
     if (this.state.modalItemIndex < 0) return
     const [, faceId] = this.itemsRef[this.state.modalItemIndex]
     this.api_action(actionType, faceId)
-    this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
+    this.closeOrAdvanceModal()
   }
 
   // R hotkey while the modal is open - mounts a MutableSelect directly in
@@ -863,11 +898,10 @@ class Gallery extends React.Component{
 
   // MutableSelect's setInvisible - fired once assignPerson has kicked off
   // the real API call(s) (get_unique_list, called at the top of
-  // assignPerson, already hid the tile in the grid via setHidden). This
-  // is an occasional action like C/X/Q above, so close the modal the same
-  // way rather than leaving it open on a face that's already resolved.
+  // assignPerson, already hid the tile in the grid via setHidden). See
+  // closeOrAdvanceModal above for what happens next.
   finishModalSendToOtherPerson(){
-    this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
+    this.closeOrAdvanceModal()
   }
 
   // R hotkey (grid, not modal - People tab "Only Unlabeled Faces" view,
