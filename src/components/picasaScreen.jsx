@@ -623,6 +623,14 @@ class PicasaScreen extends React.Component{
             if (other !== childField) next[other] = false
           }
         }
+        // The ".ignore" subordinate row only shows in unlabeled mode
+        // (see personSidebar.jsx) - if unlabeled is being turned off
+        // while the review-flagged view is active, leaving
+        // reviewFlaggedOnly set would strand the gallery in a filtered
+        // state with no visible row/way back to it.
+        if (childField === 'unlabeled_toggle' && !turningOn && prevState.reviewFlaggedOnly){
+          next.reviewFlaggedOnly = false
+        }
         return next
       })
     }else{

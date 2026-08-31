@@ -215,7 +215,10 @@ class PersonSidebar extends React.Component {
         return [this.makePerson(noOne, -100, this.state.personSelected === -100 && !this.props.reviewFlaggedOnly)]
       }
       const rows = [this.makePerson(value, index, this.state.personSelected === index && !this.props.reviewFlaggedOnly, only_unverified, only_unlabeled)]
-      if (value.person_name === '.ignore'){
+      // Only meaningful in unlabeled mode - the flagged faces this
+      // filters to are always still-undeclared (see picasaScreen.jsx's
+      // reviewFlaggedOnly reset when unlabeled is turned off).
+      if (value.person_name === '.ignore' && only_unlabeled){
         rows.push(this.makeReviewFlaggedRow(value, index))
       }
       return rows
