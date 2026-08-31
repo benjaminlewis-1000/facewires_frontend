@@ -328,6 +328,7 @@ class ImageScreen extends React.Component{
                     updatePersonCounts={this.props.updatePersonCounts}
                     unlabeled={this.props.unlabeled}
                     only_unverified={this.props.only_unverified}
+                    reviewFlaggedOnly={this.props.reviewFlaggedOnly}
                     onHighlightUpdated={this.bumpHighlightVersion}
                     onRecordUndo={this.props.onRecordUndo}
                   />

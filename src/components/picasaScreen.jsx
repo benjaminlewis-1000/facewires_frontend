@@ -663,8 +663,9 @@ class PicasaScreen extends React.Component{
 
   // Apply local count deltas to state.people so the sidebar reflects
   // face operations immediately, without waiting on a refetch. deltas is
-  // an array of {id, num_faces?, num_possibilities?, num_unverified_faces?}
-  // where each present field is a signed delta to add (not an absolute value).
+  // an array of {id, num_faces?, num_possibilities?, num_unverified_faces?,
+  // num_review_flagged?} where each present field is a signed delta to
+  // add (not an absolute value).
   // Reconciled against the backend periodically by fetchPeopleList.
   updatePersonCounts(deltas){
     if (!deltas || deltas.length === 0) return
@@ -674,7 +675,7 @@ class PicasaScreen extends React.Component{
         if (!delta) return person
 
         const updated = { ...person }
-        for (const field of ['num_faces', 'num_possibilities', 'num_unverified_faces']){
+        for (const field of ['num_faces', 'num_possibilities', 'num_unverified_faces', 'num_review_flagged']){
           if (delta[field]){
             updated[field] = Math.max(0, (updated[field] || 0) + delta[field])
           }

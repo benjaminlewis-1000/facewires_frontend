@@ -579,6 +579,19 @@ class Gallery extends React.Component{
         break
     }
 
+    // Every tile in the ".ignore" "Flagged for review" gallery
+    // (reviewFlaggedOnly, threaded from ImageScreen) is, by construction,
+    // a 'proposed' .ignore candidate with mobile_review_hidden=True (the
+    // backend's ?flagged=true filter - see picasa/api/views.py). Any
+    // action taken here moves the face out of that pool one way or
+    // another (confirmed, rejected, sent to Unassigned, hard-ignored),
+    // so the sidebar's num_review_flagged count needs the same
+    // decrement regardless of which action fired - this was previously
+    // only reflected on the next 10-minute people-list poll.
+    if (this.props.reviewFlaggedOnly && proposedCount){
+      addDelta(ignore_person_id, { num_review_flagged: -proposedCount })
+    }
+
     return deltas
   }
 
@@ -877,6 +890,7 @@ class Gallery extends React.Component{
       peopleOptions: this.state.peopleOptions,
       ignore_tab: this.props.current_person_id === this.props.ignore_person_id,
       only_unverified: this.props.only_unverified,
+      reviewFlaggedOnly: this.props.reviewFlaggedOnly,
       updatePersonList: this.props.updatePersonList,
       updatePersonCounts: this.props.updatePersonCounts,
       onRecordUndo: this.props.onRecordUndo,
