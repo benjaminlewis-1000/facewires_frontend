@@ -7,6 +7,25 @@ import { List } from 'react-window';
 import Modal from "react-modal";
 import { bulkFaceOperation } from './faceActions';
 import { Message } from 'semantic-ui-react'; // already a dependency, used elsewhere (login.jsx)
+import axiosInstance from './axios_setup';
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December']
+
+// "December 20, 2012", no time component - pulled straight from the
+// ISO date string's own YYYY-MM-DD prefix rather than through a JS Date
+// object, deliberately: Date parsing + toLocaleDateString would convert
+// through the browser's local timezone, which can shift a UTC midnight-
+// ish timestamp onto the wrong calendar day depending on where the
+// viewer is - the date portion of the string as stored is exactly the
+// day the photo was taken, so there's nothing to convert.
+function formatModalDate(isoDateString){
+  if (!isoDateString) return null
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDateString)
+  if (!match) return null
+  const [, year, month, day] = match
+  return `${MONTH_NAMES[parseInt(month, 10) - 1]} ${parseInt(day, 10)}, ${year}`
+}
 
 // Tile/row-button sizing is declared once in image_tile.css (--tile-size /
 // --row-button-width custom properties, see the comment there) and read
@@ -166,7 +185,19 @@ class Gallery extends React.Component{
       // for the modal's single image instead of a grid tile. See
       // _handleKeyDown/render.
       modalSendToOtherPerson: false,
+      // The currently-open modal image's capture date, pre-formatted
+      // ("December 20, 2012") - null while it's still loading or if the
+      // fetch failed, in which case the date label just doesn't render
+      // (see render). Fetched separately from the image itself - see
+      // fetchModalDate.
+      modalDateText: null,
     }
+
+    // Bumped on every fetchModalDate call so a slower-to-resolve earlier
+    // request can't clobber a faster later one if the user pages through
+    // several modal images quickly (arrow keys, C/X/Q/R) before the
+    // first request lands.
+    this._modalDateGeneration = 0
 
     this.api_action = this.api_action.bind(this)
     this.toggleModal = this.toggleModal.bind(this);
@@ -830,7 +861,35 @@ class Gallery extends React.Component{
       modalURL: this.buildModalUrl(face_id),
       modalItemIndex: this.itemsRef.findIndex(([, id]) => id === face_id),
     })
+    this.fetchModalDate(face_id)
     this.toggleModal()
+  }
+
+  // The photo's capture date, shown under the modal image (see render) -
+  // every full-size modal in the app, not scoped to any particular tab/
+  // view like the highlight box or hotkey hints are. Fetched separately
+  // from the image itself (picasa/api/views.py's face_source/slideshow
+  // &date=true, same id/type resolution buildModalUrl already uses,
+  // just returning JSON instead of image bytes) rather than baked into
+  // any existing per-person/per-folder API response, since none of them
+  // carry a specific photo's date today. this._modalDateGeneration
+  // guards against a slower-to-resolve earlier request clobbering a
+  // faster later one if the user pages through several images quickly
+  // (arrow keys in the flagged-review modal) before the first request
+  // lands.
+  fetchModalDate(id){
+    const generation = ++this._modalDateGeneration
+    this.setState({ modalDateText: null })
+    axiosInstance.get(this.buildModalUrl(id) + '&date=true')
+      .then(response => {
+        if (generation !== this._modalDateGeneration) return
+        this.setState({ modalDateText: formatModalDate(response.data.date_taken) })
+      })
+      .catch(error => {
+        if (generation !== this._modalDateGeneration) return
+        console.log("Error fetching modal image date", error)
+        this.setState({ modalDateText: null })
+      })
   }
 
 
@@ -881,6 +940,7 @@ class Gallery extends React.Component{
     if (newIndex < 0 || newIndex >= this.itemsRef.length) return
     const [, id] = this.itemsRef[newIndex]
     this.setState({ modalURL: this.buildModalUrl(id), modalItemIndex: newIndex })
+    this.fetchModalDate(id)
   }
 
   // What happens after a modal hotkey resolves the currently-open face -
@@ -919,6 +979,7 @@ class Gallery extends React.Component{
       const [, faceId] = this.itemsRef[idx]
       if (this.state.hidden.indexOf(faceId) === -1){
         this.setState({ modalURL: this.buildModalUrl(faceId), modalItemIndex: idx, modalSendToOtherPerson: false })
+        this.fetchModalDate(faceId)
         return true
       }
       idx += delta
@@ -1148,6 +1209,12 @@ class Gallery extends React.Component{
                 {this.props.reviewFlaggedOnly && <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Browse</span>}
               </div>
             )
+          )}
+          {this.state.modalDateText && (
+            // Every full-size modal, not scoped to any particular tab/
+            // view like the boxes/hints above - just the photo's own
+            // capture date, off to the side of the image itself.
+            <div className='modalDateLabel'>{this.state.modalDateText}</div>
           )}
         </Modal>
 

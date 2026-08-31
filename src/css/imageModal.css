@@ -228,6 +228,26 @@
   font-weight: bold;
 }
 
+/* The modal image's capture date - every full-size modal, not scoped to
+   any particular tab/view. Same bottom row as .modalHotkeyHint/
+   .modalSendToPerson (bottom:14px), pinned to the left instead of
+   centered so it sits to the left of whichever of those two is showing,
+   per the user - "underneath the image and to the left of the tooltip
+   reminders." */
+.modalDateLabel{
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #450293;
+  border-radius: 20px;
+  padding: 6px 18px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #450293;
+  z-index: 101;
+}
+
 @keyframes fadeIn {
   0% {
     opacity:0;
