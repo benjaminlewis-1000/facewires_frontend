@@ -8,6 +8,7 @@ import Modal from "react-modal";
 import { bulkFaceOperation } from './faceActions';
 import { Message } from 'semantic-ui-react'; // already a dependency, used elsewhere (login.jsx)
 import axiosInstance from './axios_setup';
+import { withRetry } from './apiRetry';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
@@ -191,6 +192,10 @@ class Gallery extends React.Component{
       // (see render). Fetched separately from the image itself - see
       // fetchModalDate.
       modalDateText: null,
+      // True only once fetchModalDate has exhausted its retries - lets
+      // render show "Date unavailable" instead of indistinguishably
+      // rendering nothing for both "still loading" and "actually failed".
+      modalDateFailed: false,
     }
 
     // Bumped on every fetchModalDate call so a slower-to-resolve earlier
@@ -877,18 +882,31 @@ class Gallery extends React.Component{
   // faster later one if the user pages through several images quickly
   // (arrow keys in the flagged-review modal) before the first request
   // lands.
+  //
+  // Wrapped in withRetry (3 attempts, increasing delay) rather than
+  // relying only on axiosInstance's own global axios-retry - this
+  // request fires alongside the modal's own full-size image (which, with
+  // highlight_box on, does real server-side PIL work per request) and a
+  // whole gallery's worth of thumbnail requests already in flight, so an
+  // occasional slow response/timeout here is plausible even though the
+  // endpoint itself is cheap once it actually runs. A definitive failure
+  // (all retries exhausted) shows "Date unavailable" instead of just
+  // rendering nothing (see render) - reported by the user as some photos
+  // silently showing no date - so a real failure is now visibly distinct
+  // from "hasn't loaded yet", and logs the id so a future occurrence is
+  // actually diagnosable from devtools instead of a bare error object.
   fetchModalDate(id){
     const generation = ++this._modalDateGeneration
-    this.setState({ modalDateText: null })
-    axiosInstance.get(this.buildModalUrl(id) + '&date=true')
+    this.setState({ modalDateText: null, modalDateFailed: false })
+    withRetry(() => axiosInstance.get(this.buildModalUrl(id) + '&date=true'))
       .then(response => {
         if (generation !== this._modalDateGeneration) return
         this.setState({ modalDateText: formatModalDate(response.data.date_taken) })
       })
       .catch(error => {
         if (generation !== this._modalDateGeneration) return
-        console.log("Error fetching modal image date", error)
-        this.setState({ modalDateText: null })
+        console.log(`Error fetching modal image date for id ${id}`, error)
+        this.setState({ modalDateText: null, modalDateFailed: true })
       })
   }
 
@@ -1210,11 +1228,14 @@ class Gallery extends React.Component{
               </div>
             )
           )}
-          {this.state.modalDateText && (
+          {(this.state.modalDateText || this.state.modalDateFailed) && (
             // Every full-size modal, not scoped to any particular tab/
             // view like the boxes/hints above - just the photo's own
             // capture date, off to the side of the image itself.
-            <div className='modalDateLabel'>{this.state.modalDateText}</div>
+            // modalDateFailed (fetchModalDate's retries exhausted) shows
+            // an explicit "unavailable" rather than silently rendering
+            // nothing, same as a still-loading date - see fetchModalDate.
+            <div className='modalDateLabel'>{this.state.modalDateText || 'Date unavailable'}</div>
           )}
         </Modal>
 
