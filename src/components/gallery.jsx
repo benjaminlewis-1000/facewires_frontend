@@ -253,6 +253,28 @@ class Gallery extends React.Component{
   }
 
   _handleKeyDown = (event) => {
+    // Escape closes the modal - react-modal's own Escape handling
+    // (ModalPortal.js) is a React onKeyDown prop attached directly to
+    // the modal's content <div>, not a document-level listener, so it
+    // only fires when that div (or a focused descendant, e.g. after
+    // clicking inside it) actually has DOM focus - opening the modal via
+    // double-click doesn't move focus there, so Escape did nothing until
+    // you clicked inside it first. This document-level check bypasses
+    // that entirely. Skipped while MutableSelect's search box (People
+    // tab, R hotkey) is focused - its own Escape handler backs out of
+    // "send to other person" instead of closing the whole modal, and
+    // that box *does* hold real DOM focus (autoFocus/startExpanded), so
+    // the INPUT/TEXTAREA guard already used elsewhere in this handler
+    // reliably tells the two cases apart.
+    if (this.state.modalOpen && event.key === 'Escape'){
+      const tag = event.target && event.target.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
+        event.preventDefault()
+        this.toggleModal()
+        return
+      }
+    }
+
     // Page the open modal with the arrow keys - Folders tab only, same
     // scoping as the prev/next buttons themselves (see render).
     if (this.state.modalOpen && this.props.tab === 'Folders'){
