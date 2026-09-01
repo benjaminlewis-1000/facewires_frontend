@@ -355,17 +355,21 @@ class Gallery extends React.Component{
 
     // C/X/Q resolve the face currently open in the modal, R opens a
     // "send to other person" search box in the modal itself - People
-    // tab, "Only Unlabeled Faces" view only (that toggle is what limits
-    // this gallery's tiles to proposed/possible matches - see
-    // ImageScreen's componentDidUpdate - so every modal-openable tile
-    // here is a real confirm/reject/ignore candidate). Q rather than I
-    // for ignore, matching the grid's own C/X/Q/R hotkeys below - was I
-    // here only because the modal hotkeys shipped before the grid ones
-    // did. Same INPUT/TEXTAREA guard as picasaScreen.jsx's undo/redo
-    // Ctrl+Z/Ctrl+Y handler, so this can't fire while typing in the
-    // rename/merge/person-search boxes (including MutableSelect's own
-    // box once R has opened it below).
-    if (this.state.modalOpen && this.props.tab === 'People' && this.props.unlabeled){
+    // tab, "Only Unlabeled Faces" view (that toggle is what limits this
+    // gallery's tiles to proposed/possible matches - see ImageScreen's
+    // componentDidUpdate - so every modal-openable tile here is a real
+    // confirm/reject/ignore candidate). R and X additionally apply to
+    // the "Only Unverified Faces" view too, per the user - "send to
+    // other person" and "remove from person" both make sense while
+    // verifying an already-declared face, unlike confirm/send-to-ignore
+    // (C/Q), which are specific to a still-proposed candidate and stay
+    // unlabeled-only. Q rather than I for ignore, matching the grid's
+    // own hotkeys below - was I here only because the modal hotkeys
+    // shipped before the grid ones did. Same INPUT/TEXTAREA guard as
+    // picasaScreen.jsx's undo/redo Ctrl+Z/Ctrl+Y handler, so this can't
+    // fire while typing in the rename/merge/person-search boxes
+    // (including MutableSelect's own box once R has opened it below).
+    if (this.state.modalOpen && this.props.tab === 'People' && (this.props.unlabeled || this.props.only_unverified)){
       const tag = event.target && event.target.tagName
       if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
         const key = event.key.toLowerCase()
@@ -374,25 +378,31 @@ class Gallery extends React.Component{
           this.openModalSendToOtherPerson()
           return
         }
-        const actionByKey = { c: 'confirm_proposed', x: 'close_assigned', q: 'close_unassigned' }
-        if (actionByKey[key]){
+        if (key === 'x'){
           event.preventDefault()
-          this.resolveModalFace(actionByKey[key])
+          this.resolveModalFace('close_assigned')
           return
+        }
+        if (this.props.unlabeled){
+          const actionByKey = { c: 'confirm_proposed', q: 'close_unassigned' }
+          if (actionByKey[key]){
+            event.preventDefault()
+            this.resolveModalFace(actionByKey[key])
+            return
+          }
         }
       }
     }
 
-    // Same C/X (plus Q for ignore, R for "send to other person") but for
-    // a selected tile in the grid itself, modal closed - People tab,
-    // "Only Unlabeled Faces" view only, same scoping as the modal block
-    // above. Mirrors the existing Delete/Shift+R bulk-action pattern just
-    // below (api_action called with no face_id operates on
-    // this.state.imgsSelected as-is). R is checked without Shift so it
-    // doesn't collide with the pre-existing Shift+R (close_assigned)
-    // shortcut - event.key is the same 'R'/'r' either way once lower-
-    // cased, only event.shiftKey tells them apart.
-    if (!this.state.modalOpen && this.props.tab === 'People' && this.props.unlabeled && this.state.imgsSelected.length > 0){
+    // Same C/X/Q/R but for a selected tile in the grid itself, modal
+    // closed - same scoping as the modal block above (R/X also apply to
+    // the verify screen, C/Q stay unlabeled-only). Mirrors the existing
+    // Delete/Shift+R bulk-action pattern just below (api_action called
+    // with no face_id operates on this.state.imgsSelected as-is). R is
+    // checked without Shift so it doesn't collide with the pre-existing
+    // Shift+R (close_assigned) shortcut - event.key is the same 'R'/'r'
+    // either way once lower-cased, only event.shiftKey tells them apart.
+    if (!this.state.modalOpen && this.props.tab === 'People' && (this.props.unlabeled || this.props.only_unverified) && this.state.imgsSelected.length > 0){
       const tag = event.target && event.target.tagName
       if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
         const key = event.key.toLowerCase()
@@ -401,11 +411,18 @@ class Gallery extends React.Component{
           this.startSendToOtherPerson()
           return
         }
-        const actionByKey = { c: 'confirm_proposed', x: 'close_assigned', q: 'close_unassigned' }
-        if (actionByKey[key]){
+        if (key === 'x'){
           event.preventDefault()
-          this.api_action(actionByKey[key])
+          this.api_action('close_assigned')
           return
+        }
+        if (this.props.unlabeled){
+          const actionByKey = { c: 'confirm_proposed', q: 'close_unassigned' }
+          if (actionByKey[key]){
+            event.preventDefault()
+            this.api_action(actionByKey[key])
+            return
+          }
         }
       }
     }
@@ -1189,7 +1206,7 @@ class Gallery extends React.Component{
               &#8594;
             </button>
           )}
-          {this.props.tab === 'People' && this.props.unlabeled && (
+          {this.props.tab === 'People' && (this.props.unlabeled || this.props.only_unverified) && (
             this.state.modalSendToOtherPerson && this.state.modalItemIndex >= 0 ? (
               // R was just pressed - the same MutableSelect a grid tile's
               // R hotkey/right-click "Send to other person" mounts,
@@ -1224,16 +1241,18 @@ class Gallery extends React.Component{
               </div>
             ) : (
               <div className='modalHotkeyHint'>
-                <span><kbd>C</kbd> Confirm</span>
+                {/* C/Q only make sense for a still-proposed candidate, so
+                    stay unlabeled-only; X/R apply on the verify screen
+                    too (see _handleKeyDown). Arrow-key browsing likewise
+                    stays unlabeled-only (see pageModalSkippingHidden's
+                    own gating) - the verify screen doesn't build the same
+                    kind of review-queue list this was designed to page
+                    through. */}
+                {this.props.unlabeled && <span><kbd>C</kbd> Confirm</span>}
                 <span><kbd>X</kbd> Unassign</span>
-                <span><kbd>Q</kbd> Ignore</span>
+                {this.props.unlabeled && <span><kbd>Q</kbd> Ignore</span>}
                 <span><kbd>R</kbd> Other person</span>
-                {/* This whole hint block only renders when this.props.unlabeled
-                    is already true (see the enclosing condition below) -
-                    arrow-key paging now applies to every unlabeled gallery,
-                    not just the ".ignore" "Flagged for review" sub-view, so
-                    no extra reviewFlaggedOnly check is needed here anymore. */}
-                <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Browse</span>
+                {this.props.unlabeled && <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Browse</span>}
               </div>
             )
           )}
