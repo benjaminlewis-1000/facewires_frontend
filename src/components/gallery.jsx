@@ -311,6 +311,25 @@ class Gallery extends React.Component{
       }
     }
 
+    // Enter opens the full-size modal for whatever's currently selected -
+    // the same target a genuine double-click would open, just reachable
+    // from the keyboard once a tile's already been single-clicked to
+    // select it. Works on any tab (People faces, Folders photos) since
+    // doubleClickHandler/buildModalUrl already know how to build the
+    // right URL type for either. Reuses doubleClickHandler itself rather
+    // than duplicating its unselectAll()/fetchModalDate/toggleModal
+    // sequence - same end state as a real double-click. Guarded against
+    // INPUT/TEXTAREA the same way every other hotkey here is.
+    if (!this.state.modalOpen && event.key === 'Enter' && this.state.imgsSelected.length > 0){
+      const tag = event.target && event.target.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
+        event.preventDefault()
+        const face_id = this.state.imgsSelected[this.state.imgsSelected.length - 1]
+        this.doubleClickHandler(event, face_id)
+        return
+      }
+    }
+
     // Page the open modal with the arrow keys - Folders tab only, same
     // scoping as the prev/next buttons themselves (see render).
     if (this.state.modalOpen && this.props.tab === 'Folders'){
