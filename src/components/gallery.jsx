@@ -325,19 +325,20 @@ class Gallery extends React.Component{
       return
     }
 
-    // Same idea for any unlabeled-faces modal (People tab, "Only
-    // Unlabeled Faces") - lets you browse back and forth through the
-    // list without resolving anything, same as Folders' paging above.
-    // Originally only the ".ignore" "Flagged for review" sub-view
-    // (reviewFlaggedOnly), extended to every unlabeled gallery per the
-    // user. Skips over already-resolved (hidden) faces rather than
-    // walking itemsRef's raw index like Folders does, since - unlike
-    // Folders - actions taken here can hide items out from under a fixed
-    // list (see advanceModalAfterResolve/pageModalSkippingHidden).
-    // Guarded against INPUT/TEXTAREA the same way Escape is above, so
-    // this doesn't fire while MutableSelect's search box (R hotkey) is
-    // focused/typeable.
-    if (this.state.modalOpen && this.props.tab === 'People' && this.props.unlabeled){
+    // Same idea for any unlabeled-faces or verify-faces modal (People
+    // tab, "Only Unlabeled Faces"/"Only Unverified Faces") - lets you
+    // browse back and forth through the list without resolving anything,
+    // same as Folders' paging above. Originally only the ".ignore"
+    // "Flagged for review" sub-view (reviewFlaggedOnly), then every
+    // unlabeled gallery, extended to the verify screen too now that it
+    // has its own review-queue hotkey (V - see closeOrAdvanceModal).
+    // Skips over already-resolved (hidden) faces rather than walking
+    // itemsRef's raw index like Folders does, since - unlike Folders -
+    // actions taken here can hide items out from under a fixed list (see
+    // advanceModalAfterResolve/pageModalSkippingHidden). Guarded against
+    // INPUT/TEXTAREA the same way Escape is above, so this doesn't fire
+    // while MutableSelect's search box (R hotkey) is focused/typeable.
+    if (this.state.modalOpen && this.props.tab === 'People' && (this.props.unlabeled || this.props.only_unverified)){
       const tag = event.target && event.target.tagName
       if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
         if (event.key === 'ArrowLeft'){
@@ -383,6 +384,11 @@ class Gallery extends React.Component{
           this.resolveModalFace('close_assigned')
           return
         }
+        if (key === 'v' && this.props.only_unverified){
+          event.preventDefault()
+          this.resolveModalFace('verify_face')
+          return
+        }
         if (this.props.unlabeled){
           const actionByKey = { c: 'confirm_proposed', q: 'close_unassigned' }
           if (actionByKey[key]){
@@ -414,6 +420,11 @@ class Gallery extends React.Component{
         if (key === 'x'){
           event.preventDefault()
           this.api_action('close_assigned')
+          return
+        }
+        if (key === 'v' && this.props.only_unverified){
+          event.preventDefault()
+          this.api_action('verify_face')
           return
         }
         if (this.props.unlabeled){
@@ -981,17 +992,19 @@ class Gallery extends React.Component{
   }
 
   // What happens after a modal hotkey resolves the currently-open face -
-  // shared by resolveModalFace (C/X/Q) and finishModalSendToOtherPerson
-  // (R) below. Any unlabeled-faces gallery (People tab, "Only Unlabeled
-  // Faces") is a review queue - advance to the next still-visible face
-  // in the list instead of closing, so a review pass can move through
-  // several faces without leaving the modal each time. Originally only
-  // the ".ignore" "Flagged for review" sub-view (reviewFlaggedOnly),
-  // extended to every unlabeled gallery per the user. Everywhere else
-  // (a normal person/folder gallery) this is an occasional action, not a
-  // review queue, so it still just drops back to the grid.
+  // shared by resolveModalFace (C/X/Q/V) and finishModalSendToOtherPerson
+  // (R) below. Any unlabeled-faces or verify-faces gallery (People tab,
+  // "Only Unlabeled Faces"/"Only Unverified Faces") is a review queue -
+  // advance to the next still-visible face in the list instead of
+  // closing, so a review pass can move through several faces without
+  // leaving the modal each time. Originally only the ".ignore" "Flagged
+  // for review" sub-view (reviewFlaggedOnly), then every unlabeled
+  // gallery, now the verify screen too now that V gives it its own real
+  // "resolve and move on" action. Everywhere else (a normal person/
+  // folder gallery) this is an occasional action, not a review queue, so
+  // it still just drops back to the grid.
   closeOrAdvanceModal(){
-    if (this.props.unlabeled){
+    if (this.props.unlabeled || this.props.only_unverified){
       this.advanceModalAfterResolve()
     }else{
       this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
@@ -1242,17 +1255,17 @@ class Gallery extends React.Component{
             ) : (
               <div className='modalHotkeyHint'>
                 {/* C/Q only make sense for a still-proposed candidate, so
-                    stay unlabeled-only; X/R apply on the verify screen
-                    too (see _handleKeyDown). Arrow-key browsing likewise
-                    stays unlabeled-only (see pageModalSkippingHidden's
-                    own gating) - the verify screen doesn't build the same
-                    kind of review-queue list this was designed to page
-                    through. */}
+                    stay unlabeled-only; V (verify) is the mirror image -
+                    only meaningful for an already-declared face, so it's
+                    only_unverified-only. X/R/Browse apply to both, now
+                    that both are review-queue views (see
+                    closeOrAdvanceModal/pageModalSkippingHidden's gating). */}
                 {this.props.unlabeled && <span><kbd>C</kbd> Confirm</span>}
                 <span><kbd>X</kbd> Unassign</span>
                 {this.props.unlabeled && <span><kbd>Q</kbd> Ignore</span>}
+                {this.props.only_unverified && <span><kbd>V</kbd> Verify</span>}
                 <span><kbd>R</kbd> Other person</span>
-                {this.props.unlabeled && <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Browse</span>}
+                <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Browse</span>
               </div>
             )
           )}
