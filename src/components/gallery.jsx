@@ -325,17 +325,19 @@ class Gallery extends React.Component{
       return
     }
 
-    // Same idea for the ".ignore" "Flagged for review" modal
-    // (reviewFlaggedOnly) - lets you browse back and forth through the
+    // Same idea for any unlabeled-faces modal (People tab, "Only
+    // Unlabeled Faces") - lets you browse back and forth through the
     // list without resolving anything, same as Folders' paging above.
-    // Skips over already-resolved (hidden) faces rather than walking
-    // itemsRef's raw index like Folders does, since - unlike Folders -
-    // actions taken here can hide items out from under a fixed list
-    // (see advanceModalAfterResolve/pageModalSkippingHidden). Guarded
-    // against INPUT/TEXTAREA the same way Escape is above, so this
-    // doesn't fire while MutableSelect's search box (R hotkey) is
+    // Originally only the ".ignore" "Flagged for review" sub-view
+    // (reviewFlaggedOnly), extended to every unlabeled gallery per the
+    // user. Skips over already-resolved (hidden) faces rather than
+    // walking itemsRef's raw index like Folders does, since - unlike
+    // Folders - actions taken here can hide items out from under a fixed
+    // list (see advanceModalAfterResolve/pageModalSkippingHidden).
+    // Guarded against INPUT/TEXTAREA the same way Escape is above, so
+    // this doesn't fire while MutableSelect's search box (R hotkey) is
     // focused/typeable.
-    if (this.state.modalOpen && this.props.tab === 'People' && this.props.reviewFlaggedOnly){
+    if (this.state.modalOpen && this.props.tab === 'People' && this.props.unlabeled){
       const tag = event.target && event.target.tagName
       if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
         if (event.key === 'ArrowLeft'){
@@ -963,14 +965,16 @@ class Gallery extends React.Component{
 
   // What happens after a modal hotkey resolves the currently-open face -
   // shared by resolveModalFace (C/X/Q) and finishModalSendToOtherPerson
-  // (R) below. Everywhere except the ".ignore" "Flagged for review" view
-  // this is an occasional action, not a review queue, so it drops back
-  // to the grid (per the user). reviewFlaggedOnly *is* a review queue
-  // though - per the user, advance to the next still-visible face in the
-  // list instead of closing, so a review pass can move through several
-  // faces without leaving the modal each time.
+  // (R) below. Any unlabeled-faces gallery (People tab, "Only Unlabeled
+  // Faces") is a review queue - advance to the next still-visible face
+  // in the list instead of closing, so a review pass can move through
+  // several faces without leaving the modal each time. Originally only
+  // the ".ignore" "Flagged for review" sub-view (reviewFlaggedOnly),
+  // extended to every unlabeled gallery per the user. Everywhere else
+  // (a normal person/folder gallery) this is an occasional action, not a
+  // review queue, so it still just drops back to the grid.
   closeOrAdvanceModal(){
-    if (this.props.reviewFlaggedOnly){
+    if (this.props.unlabeled){
       this.advanceModalAfterResolve()
     }else{
       this.setState({ modalOpen: false, modalItemIndex: -1, modalSendToOtherPerson: false })
@@ -1224,7 +1228,12 @@ class Gallery extends React.Component{
                 <span><kbd>X</kbd> Unassign</span>
                 <span><kbd>Q</kbd> Ignore</span>
                 <span><kbd>R</kbd> Other person</span>
-                {this.props.reviewFlaggedOnly && <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Browse</span>}
+                {/* This whole hint block only renders when this.props.unlabeled
+                    is already true (see the enclosing condition below) -
+                    arrow-key paging now applies to every unlabeled gallery,
+                    not just the ".ignore" "Flagged for review" sub-view, so
+                    no extra reviewFlaggedOnly check is needed here anymore. */}
+                <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Browse</span>
               </div>
             )
           )}
