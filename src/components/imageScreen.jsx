@@ -341,22 +341,27 @@ class ImageScreen extends React.Component{
           <PersonNameContextWrapper>
             <span className='header_person_name'>{selectedName}</span>
           </PersonNameContextWrapper>
-          {this.props.tab === 'People' && (this.props.unlabeled || this.props.api_id === this.props.ignore_person_id) && (
+          {this.props.tab === 'People' && (this.props.unlabeled || this.props.only_unverified || this.props.api_id === this.props.ignore_person_id) && (
             // Reminder for gallery.jsx's C/X/R/Q hotkeys (act on whatever's
             // currently selected, no modal needed) - same look as the
             // full-size modal's own hotkey hint (imageModal.css), centered
             // in this header instead of pinned to the bottom of an image.
-            // The Delete hint only applies while viewing the .ignore
-            // person itself (gallery.jsx's Delete-key handler checks
-            // current_person_id === ignore_person_id) - it's the one
-            // hotkey here not gated on "Only Unlabeled Faces", so it can
-            // show alone (viewing .ignore normally) or alongside the rest
-            // (viewing .ignore's own unlabeled tab).
+            // R (send to other person) and X (unassign) apply on both the
+            // unlabeled and verify ("Only Unverified Faces") screens - C
+            // (confirm) and Q (send to ignore) only make sense for a still-
+            // proposed candidate, so stay unlabeled-only; V (verify) is the
+            // mirror image, only_unverified-only. The Delete hint only
+            // applies while viewing the .ignore person itself (gallery.jsx's
+            // Delete-key handler checks current_person_id ===
+            // ignore_person_id) - it's the one hotkey here not gated on
+            // either toggle, so it can show alone (viewing .ignore normally)
+            // or alongside the rest (viewing .ignore's own unlabeled tab).
             <div className='headerHotkeyHint'>
               {this.props.unlabeled && <span><kbd>C</kbd> Confirm</span>}
-              {this.props.unlabeled && <span><kbd>X</kbd> Unassign</span>}
-              {this.props.unlabeled && <span><kbd>R</kbd> Other person</span>}
+              {(this.props.unlabeled || this.props.only_unverified) && <span><kbd>X</kbd> Unassign</span>}
+              {(this.props.unlabeled || this.props.only_unverified) && <span><kbd>R</kbd> Other person</span>}
               {this.props.unlabeled && <span><kbd>Q</kbd> Ignore</span>}
+              {this.props.only_unverified && <span><kbd>V</kbd> Verify</span>}
               {this.props.api_id === this.props.ignore_person_id && <span><kbd>Delete</kbd> Hard ignore</span>}
             </div>
           )}
