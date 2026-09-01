@@ -890,10 +890,11 @@ class PicasaScreen extends React.Component{
       }
       case 'close_unassigned':
         return bulkFaceOperation(reverse ? 'close_ignored' : 'close_unassigned', record.faceIds, record.context.currentPersonId)
-      // 'confirm_proposed' isn't recorded by gallery.jsx right now (see the
-      // comment in runBulkOperation) - its reverse would be 'close_assigned',
-      // which is suspected broken server-side. No case needed here unless
-      // that's fixed and recording is turned back on.
+      case 'confirm_proposed':
+        // Reverse is close_assigned - see gallery.jsx's runBulkOperation
+        // for why this is safe to fire now (the backend bug that used to
+        // make this a silent no-op on an already-declared face is fixed).
+        return bulkFaceOperation(reverse ? 'close_assigned' : 'confirm_proposed', record.faceIds, record.context.currentPersonId)
       default:
         return Promise.reject(new Error(`Unknown undo record kind: ${record.kind}`))
     }

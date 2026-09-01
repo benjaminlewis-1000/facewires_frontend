@@ -92,24 +92,26 @@ client level, `withRetry` covers "surface an error to the user after a few tries
 **Routing:** `react-router-dom` v5 (`Switch`/`Route`/`Redirect`), not v6 — don't introduce v6 APIs
 (`Routes`, `element` prop, etc.).
 
-**Undo/redo (not yet manually verified against the real backend — see "Currently in progress /
-open" below):** `picasaScreen.jsx` owns a plain in-memory undo/redo stack (`state.undoStack`/
+**Undo/redo:** `picasaScreen.jsx` owns a plain in-memory undo/redo stack (`state.undoStack`/
 `undoPointer`, capped at 20 entries, never persisted to `store`/localStorage — deliberately,
 since replaying a reversal against faces that moved some other way since the tab was last open
-would be worse than just losing history on reload). Two action *kinds* are recorded right now,
-each as one entry per bulk action (never one per face): `assign_to_person` ("send to other
-person", recorded in `mutableSelect.jsx`'s `assignPerson`) and `close_unassigned` ("send to
-ignore", recorded in `gallery.jsx`'s `runBulkOperation`), via a new `onRecordUndo` prop threaded
-the same route as `updatePersonCounts`/`onApiError`. Undo negates the action's
-originally-computed count deltas and fires the real reverse API call (see `faceActions.js`'s
-`assignFaceToPerson`/`bulkFaceOperation`, shared by `gallery.jsx`, `mutableSelect.jsx`, and
-`picasaScreen.jsx`'s undo/redo execution itself, which has no live `Gallery` instance to call
-back into); redo reapplies the deltas and replays the original call. `confirm_proposed`
-("confirm") and `verify_face` aren't recorded — see backend-blocked follow-ups below, both for
-the same root cause (no trustworthy reverse operation). Toolbar buttons + Ctrl+Z/Ctrl+Y live in
-`tabular_menu.jsx`/`picasaScreen.jsx`; undoing/redoing more than `BULK_CONFIRM_THRESHOLD` (10)
-faces asks for confirmation first, since every reversal here is a real write against the live
-backend.
+would be worse than just losing history on reload). Three action *kinds* are recorded, each as
+one entry per bulk action (never one per face): `assign_to_person` ("send to other person",
+recorded in `mutableSelect.jsx`'s `assignPerson`), `close_unassigned` ("send to ignore"), and
+`confirm_proposed` ("confirm") — the latter two both recorded in `gallery.jsx`'s
+`runBulkOperation` — via an `onRecordUndo` prop threaded the same route as
+`updatePersonCounts`/`onApiError`. Undo negates the action's originally-computed count deltas
+and fires the real reverse API call (see `faceActions.js`'s `assignFaceToPerson`/
+`bulkFaceOperation`, shared by `gallery.jsx`, `mutableSelect.jsx`, and `picasaScreen.jsx`'s
+undo/redo execution itself, which has no live `Gallery` instance to call back into); redo
+reapplies the deltas and replays the original call. `confirm_proposed`'s reverse is
+`close_assigned` — this was excluded until 2026-09-01 because `close_assigned` had a live
+backend bug (see "Fixed bugs" in `django_picasa`'s `CLAUDE.md`) that made undoing a confirm a
+silent no-op; that bug is fixed and deployed, so it's back in the stack. `verify_face` still
+isn't recorded — no "un-verify" endpoint exists at all yet (see backend-blocked follow-ups
+below). Toolbar buttons + Ctrl+Z/Ctrl+Y live in `tabular_menu.jsx`/`picasaScreen.jsx`; undoing/
+redoing more than `BULK_CONFIRM_THRESHOLD` (10) faces asks for confirmation first, since every
+reversal here is a real write against the live backend.
 
 **Known stale/inconsistent spots** (don't "fix" silently without confirming — some may be work in
 progress): `README.md` is unmodified Create React App boilerplate and doesn't reflect the Vite/Docker
@@ -403,16 +405,18 @@ its behavior, don't assume this file's history describes what's live.
     new top of the list, but `scrollTop` doesn't move on its own, so
     without this the user keeps looking at whatever now happens to sit at
     that same pixel offset instead of picking up where they left off.
-- Bug, root-caused and fixed — but **only on the backend's dev branch, not
-  where this frontend's UI actually points**: "Remove from person"
-  (close_assigned action, gallery.jsx/lazyImg.jsx - both the context-menu
-  item and the "x" reject button call `api_action('close_assigned', face_id)`)
-  never actually removed the face from the person, in both the verify tab
-  and the main person gallery, and (once undo/redo shipped) undoing a
-  "confirm" hit the identical symptom, since its only reverse was calling
-  `close_assigned` too. Root cause, found 2026-08-24 in the backend repo
-  (`django_picasa_dev`, `backend_upgrade` branch): `close_assigned` always
-  called `Face.reject_association()`, which only knows how to decline a
+- Bug, root-caused and fixed, **now deployed to the live production API**
+  (as of 2026-09-01 - was previously fixed only on the backend's dev branch,
+  see prior revisions of this file for that interim state): "Remove from
+  person" (close_assigned action, gallery.jsx/lazyImg.jsx - both the
+  context-menu item and the "x" reject button call
+  `api_action('close_assigned', face_id)`) never actually removed the face
+  from the person, in both the verify tab and the main person gallery, and
+  (once undo/redo shipped) undoing a "confirm" hit the identical symptom,
+  since its only reverse was calling `close_assigned` too. Root cause,
+  found 2026-08-24 in the backend repo (`django_picasa_dev`,
+  `backend_upgrade` branch): `close_assigned` always called
+  `Face.reject_association()`, which only knows how to decline a
   *proposed* candidate (asserts the person is in the face's `poss_identN`
   list) - it was never built to unassign an already-*declared* face, which
   is what "Remove from person"/undo-of-confirm actually need. The assert
@@ -421,15 +425,9 @@ its behavior, don't assume this file's history describes what's live.
   doing nothing. Fixed in `api/views.py`'s `bulk_thread()` (branches on
   whether `current_person_id` is a possible-match candidate vs. the face's
   actual `declared_name`) with two new regression tests - see
-  `django_picasa_dev/CLAUDE.md` for the full writeup.
-  **This frontend talks to the production API (`picasa.exploretheworld.tech/api`,
-  per this file's "Project context" section), not the dev backend the fix
-  landed on** - so nothing changes here yet. Don't re-enable `confirm_proposed`
-  in the undo/redo stack (see the follow-up below) or consider this bug
-  actually resolved from this repo's side until the fix is ported to
-  `master` and deployed to the live `picasa_api` container. Deliberately left
-  as a TODO in the API repo for now rather than deployed immediately - see
-  `django_picasa_dev/CLAUDE.md`.
+  `django_picasa_dev/CLAUDE.md` for the full writeup. `confirm_proposed` is
+  accordingly back in the undo/redo stack (see "Undo/redo" under
+  Architecture above) as of 2026-09-01.
 - Watch item, fixed but hard to confirm (2026-08-29): user reported the login/initial-load
   flow was flaky - sometimes fine, sometimes an "Abort and Logout" spinner that never
   resolves until manually clicked. Root-caused to a real race in `picasaScreen.jsx`: the
@@ -441,7 +439,55 @@ its behavior, don't assume this file's history describes what's live.
   atomically via a single functional `setState(prevState => ...)` instead. Timing-dependent
   and not reliably reproducible on demand, so the user is watching for recurrence rather
   than having confirmed it's gone - don't consider this fully closed until confirmed absent
-  over real usage. As of this note, only on dev - not yet promoted to prod.
+  over real usage. Since promoted to prod along with everything else through 2026-09-01
+  (see the consolidated entry below); no recurrence reported so far.
+- Session of 2026-08-31/2026-09-01 - a long batch of face-review-modal work, roughly in the
+  order it landed. Everything through "R/X/V verify-screen hotkeys" is promoted to prod
+  (both frontend `master` and `picasa_api`); the Enter hotkey (mentioned in that same bullet)
+  and `confirm_proposed` back in undo/redo (last bullet below) are dev-only (`vite_upgrade`)
+  as of this note - not yet promoted.
+  - `axios_setup.jsx`: axios-retry given a real `retryDelay` (exponential backoff via
+    `axiosRetry.exponentialDelay`, factor 1000ms) - it previously retried 3 times with
+    `noDelay` (its own default), so all 3 attempts fired within milliseconds of the original
+    failure, giving a slow-to-recover backend no real chance to catch up.
+  - `.ignore`'s sidebar gained a subordinate "↳ Flagged for review (N)" row (unlabeled mode
+    only), a filtered view of `.ignore`'s possible-match faces where
+    `Face.mobile_review_hidden=True` (set by the mobile app's ignore-review flow - "looked at,
+    might actually be someone"). Backend: `PersonParamView`'s `face_poss` branch gained a
+    `?flagged=true` param (`django_picasa`/`api/views.py`); `PersonListView` gained a
+    `num_review_flagged` count. The *default* (non-flagged) query was later also changed to
+    **exclude** flagged faces, so the main `.ignore` screen and the flagged-review row are a
+    true complementary partition (covered by `IgnoreReviewFlaggedPartitionTests`/
+    `IgnoreReviewFlaggedCountTests` in `django_picasa`'s `api/tests.py` - the latter needs
+    `TransactionTestCase`, not the usual `ApiTestCase`/`TestCase`, since `PersonListView` farms
+    work out to threads on separate DB connections that can't see a plain `TestCase`'s
+    rolled-back transaction).
+  - The full-size modal gained: a red highlight box around the specific face under review
+    (`face_source`'s new `&highlight_box=true` param, drawn 12px outside the detected box so
+    the line doesn't cover the face's own edges) and the photo's capture date, bottom-left,
+    formatted "December 20, 2012" (`&date=true`, both new `KeyedImageView` params in
+    `django_picasa`/`api/views.py`) - the date fetch is wrapped in `withRetry` and shows
+    "Date unavailable" rather than nothing on a definitive failure. Both params work for
+    `face_source` (People tab) and `slideshow` (Folders tab).
+  - Modal hotkeys: unified I→Q for ignore; added R ("send to other person", opens
+    `MutableSelect` directly in the modal) and, later, extended R/X to the verify
+    (`only_unverified`) screen too, plus a new V ("verify", `verify_face`) hotkey there.
+    Fixed a real bug where Escape in the R box's search input also closed the whole modal
+    (it bubbled up into react-modal's own content-div Escape handler) - now
+    `event.stopPropagation()`'d. Fixed Escape not closing the modal at all unless you'd
+    already clicked inside it first (react-modal's Escape handler is a React `onKeyDown` on
+    the content div, not a document listener, so it needs real DOM focus - added a
+    document-level Escape check in `gallery.jsx` that doesn't have that requirement). Added
+    Enter to open the modal for whatever tile is currently selected (reuses
+    `doubleClickHandler`).
+  - The unlabeled-faces modal (originally just `.ignore`'s flagged-review sub-view) now
+    auto-advances to the next unresolved face on C/X/Q/R instead of closing, and supports
+    Left/Right arrow-key browsing - both since extended to the verify screen too now that V
+    gives it a real "resolve and move on" action. `closeOrAdvanceModal`/
+    `pageModalSkippingHidden` in `gallery.jsx` are the shared mechanics; gated on
+    `unlabeled || only_unverified`.
+  - `confirm_proposed` is back in the undo/redo stack (see "Undo/redo" under Architecture) -
+    the `close_assigned` backend bug that excluded it is confirmed fixed and live on prod.
 - Bug to investigate: after the tab sits in the background for a while
   (laptop asleep, tab backgrounded, etc.) and the user comes back and
   clicks to a different person, no images render. Not yet diagnosed -
@@ -484,18 +530,6 @@ its behavior, don't assume this file's history describes what's live.
   `kind: 'verify_face'`), and add a matching case to `picasaScreen.jsx`'s
   `runUndoRedoCall` (reverse = the new un-verify call, forward = `verify_face`
   again).
-- Feature follow-up, blocked on backend deploy (fix exists, just not live):
-  `confirm_proposed` ("confirm") is also not part of the undo/redo stack,
-  since its only available reverse (`close_assigned`) was the operation
-  that was broken (see the bug entry above) - undoing a confirm looked like
-  it worked locally but didn't actually persist. The backend fix now exists
-  on `django_picasa_dev`'s `backend_upgrade` branch, but this frontend talks
-  to the production API, which doesn't have it yet. Re-add it (same pattern
-  as `close_unassigned` in `runBulkOperation`, plus a `case 'confirm_proposed'`
-  back in `picasaScreen.jsx`'s `runUndoRedoCall` - see git history around
-  2026-08-24 for the exact code that was removed) once the backend fix is
-  actually deployed to the live `picasa_api` container - not merely fixed on
-  the dev branch.
 - Minor known gap: undoing an "assign to other person" that created a
   *brand-new* person (via `face_to_new_person`) doesn't delete that new person
   server-side - same underlying gap as the merge orphan-record issue above
