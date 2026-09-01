@@ -760,19 +760,24 @@ class Gallery extends React.Component{
       this.props.updatePersonCounts(deltas)
     }
 
-    // Only 'close_unassigned' is recorded for undo/redo right now (see
-    // CLAUDE.md / picasaScreen.jsx's undo stack). 'close_assigned' and
-    // 'close_ignored' are themselves used as the *reverse* calls for other
-    // undoable actions. 'confirm_proposed' *was* also recorded - its
-    // reverse is 'close_assigned' - but that's the same operation already
-    // suspected (CLAUDE.md's "Remove from person" bug) to return success
-    // without actually persisting server-side: undoing a confirm looked
-    // like it worked (the local count moved back) but a refresh showed the
-    // face never actually left the person. Pulled from the undo stack
-    // until that backend bug is fixed, same treatment 'verify_face'
-    // already gets for having no trustworthy reverse.
-    if (this.props.onRecordUndo && action_type === 'close_unassigned'){
-      const label = `Sent ${faceIds.length} face${faceIds.length === 1 ? '' : 's'} to ignore`
+    // 'close_unassigned' and 'confirm_proposed' are recorded for undo/redo
+    // (see CLAUDE.md / picasaScreen.jsx's undo stack) - 'close_assigned'
+    // and 'close_ignored' are themselves used as the *reverse* calls for
+    // these, not recorded as undoable actions in their own right.
+    // 'confirm_proposed' used to be excluded here: its reverse,
+    // 'close_assigned', had a live backend bug where undoing a confirm
+    // looked like it worked locally but the face never actually moved
+    // back server-side (reject_association() asserted the face was still
+    // a poss_identN candidate, which a just-confirmed/already-declared
+    // face never is). That bug is now fixed and deployed (bulk_thread()
+    // branches on possible-vs-declared) - re-enabled per the user.
+    // 'verify_face' still has no trustworthy reverse (no un-verify
+    // endpoint exists at all yet), so it stays out.
+    if (this.props.onRecordUndo && (action_type === 'close_unassigned' || action_type === 'confirm_proposed')){
+      const n = faceIds.length
+      const label = action_type === 'close_unassigned'
+        ? `Sent ${n} face${n === 1 ? '' : 's'} to ignore`
+        : `Confirmed ${n} face${n === 1 ? '' : 's'}`
       this.props.onRecordUndo({
         kind: action_type,
         label,
