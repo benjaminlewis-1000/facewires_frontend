@@ -23,7 +23,6 @@
     "react-window": "^2.3.0",
     "react-xml-parser": ">=1.1.6",
     "semantic-ui-react": ">=0.88.2",
-    "serve": ">=11.3.0",
     "store": ">=2.0.12"
   },
   "devDependencies": {
