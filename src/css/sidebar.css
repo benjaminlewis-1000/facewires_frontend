@@ -72,3 +72,17 @@ https://stackoverflow.com/questions/2836827/how-do-you-add-a-scroll-bar-to-a-div
   font-style: italic;
   border-left: 3px solid #66b6d9;
 }
+
+/* "Only Unverified Faces" screen's total-count label, standing in for
+   the Unassigned row this view hides (personSidebar.jsx). Deliberately
+   not a <button> and styled to look inert - no pointer cursor, no hover
+   state, a muted background - so it doesn't read as clickable the way
+   every other row in this list is. */
+.sidebarTotalUnverified{
+  padding: 4px 15px;
+  cursor: default;
+  color: #6b6b6b;
+  font-style: italic;
+  background-color: #eef0ea;
+  border-bottom: 1px solid #DDDDDD;
+}

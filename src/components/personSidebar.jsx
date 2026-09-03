@@ -83,6 +83,13 @@ class PersonSidebar extends React.Component {
 
     const passesFilter = (value) => {
       if (!applyFilter) return true
+      // Unassigned's "unverified" count is really num_blanks (every
+      // still-undeclared face, not per-face validation progress - see
+      // PersonListView's BLANK_FACE_NAME special case) - it was never a
+      // meaningful "verify" target. Hidden entirely here in favor of the
+      // total-unverified-count label render() shows in its place - see
+      // totalUnverified().
+      if (only_unverified && (value.person_name === "_NO_FACE_ASSIGNED_" || value.person_name === 'Unassigned')) return false
       if (only_unlabeled && value.num_possibilities === 0) return false
       if (only_unverified && value.num_unverified_faces === 0) return false
       return true
@@ -199,6 +206,19 @@ class PersonSidebar extends React.Component {
       </button>
     )
   }
+  // Total unverified-faces count across every real person, for the
+  // "Only Unverified Faces" screen's non-clickable header label (replaces
+  // the Unassigned row there - see getFilteredEntries' passesFilter).
+  // Excludes Unassigned itself, whose num_unverified_faces is really
+  // num_blanks (every still-undeclared face) rather than actual
+  // verification progress - including it would inflate this "how much
+  // is left to verify" number with faces that were never part of the
+  // verify workflow to begin with.
+  totalUnverified() {
+    return (this.props.people || [])
+      .filter(p => p.person_name !== "_NO_FACE_ASSIGNED_" && p.person_name !== 'Unassigned')
+      .reduce((sum, p) => sum + (p.num_unverified_faces || 0), 0)
+  }
   //
 
   render() {
@@ -233,6 +253,14 @@ class PersonSidebar extends React.Component {
           //   (e) => this.props.setState(this.state.person)
           // }
          >
+          {only_unverified && (
+            // Non-clickable - stands in for the Unassigned row this
+            // screen hides (see getFilteredEntries), since Unassigned's
+            // own count isn't real verification progress.
+            <div className="sidebarTotalUnverified">
+              {this.totalUnverified()} unverified face{this.totalUnverified() === 1 ? '' : 's'} total
+            </div>
+          )}
           {items}
         </div>
 
