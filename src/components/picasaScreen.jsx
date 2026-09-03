@@ -26,6 +26,15 @@ import CircleLoader from "react-spinners/CircleLoader";
 // to not hammer the backend even if the dataset grows a lot.
 const PAGINATION_CONCURRENCY = 5;
 
+// True for a 401/403 from axios - i.e. the Django session actually
+// expired/was invalid, not a network blip. Used by the three initial
+// fetches below to recognize "this isn't a server-reachability problem,
+// it's an auth problem" - see their catch blocks for why that
+// distinction matters.
+function isAuthFailure(error){
+  return !!(error && error.response && (error.response.status === 401 || error.response.status === 403))
+}
+
 // How many undo/redo entries to keep. Bookkeeping is light (each entry is
 // just a handful of ids/numbers) so 20 is generous rather than tight.
 const MAX_UNDO_HISTORY = 20;
@@ -288,6 +297,20 @@ class PicasaScreen extends React.Component{
     })
     .catch((error) => {
       console.log('Failed to fetch parameters', error)
+      if (isAuthFailure(error)) {
+        // MainApp optimistically renders PicasaScreen off a stale-but-
+        // present csrftoken cookie (see mainApp.jsx's hasCsrfCookie
+        // comment) while its own isLoggedIn() check verifies for real in
+        // the background. If the Django session had actually expired
+        // (most likely after the tab sat idle a while), this fetch and
+        // that background check both hit the same 401 - MainApp's check
+        // will call bounceToLogin() and navigate away momentarily.
+        // Showing our own "couldn't reach the server" error here would
+        // just flash a misleading message for a beat before that
+        // redirect happens - leave the spinner running and let MainApp's
+        // redirect take over instead.
+        return
+      }
       this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
     })
 
@@ -387,6 +410,9 @@ class PicasaScreen extends React.Component{
         }
       ).catch((error) => {
         console.log('Failed to fetch folders', error)
+        // See the params-fetch catch above for why an auth failure
+        // specifically is left alone rather than shown as a server error.
+        if (isAuthFailure(error)) return
         this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
       })
     }
@@ -478,7 +504,9 @@ class PicasaScreen extends React.Component{
       }
     ).catch((error) => {
       console.log('Failed to fetch people list', error)
-      if (isInitial){
+      // See the params-fetch catch above for why an auth failure
+      // specifically is left alone rather than shown as a server error.
+      if (isInitial && !isAuthFailure(error)){
         this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
       }
     })
