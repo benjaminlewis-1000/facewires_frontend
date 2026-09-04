@@ -376,7 +376,10 @@ class ImageScreen extends React.Component{
             // unlabeled and verify ("Only Unverified Faces") screens - C
             // (confirm) and Q (send to ignore) only make sense for a still-
             // proposed candidate, so stay unlabeled-only; V (verify) is the
-            // mirror image, only_unverified-only. The Delete hint only
+            // mirror image, only_unverified-only. A (verify a whole cluster,
+            // gallery.jsx) only shows alongside "Group by cluster" too - own
+            // local state.groupByCluster, not a prop, since only ImageScreen
+            // itself owns that checkbox. The Delete hint only
             // applies while viewing the .ignore person itself (gallery.jsx's
             // Delete-key handler checks current_person_id ===
             // ignore_person_id) - it's the one hotkey here not gated on
@@ -388,6 +391,7 @@ class ImageScreen extends React.Component{
               {(this.props.unlabeled || this.props.only_unverified) && <span><kbd>R</kbd> Other person</span>}
               {this.props.unlabeled && <span><kbd>Q</kbd> Ignore</span>}
               {this.props.only_unverified && <span><kbd>V</kbd> Verify</span>}
+              {this.props.only_unverified && this.state.groupByCluster && <span><kbd>A</kbd> Verify cluster</span>}
               {this.props.api_id === this.props.ignore_person_id && <span><kbd>Delete</kbd> Hard ignore</span>}
             </div>
           )}
