@@ -59,9 +59,24 @@ function readSizeVars(){
 // react-window's rowComponent must be a referentially-stable component - a
 // fresh function identity every render would remount every row, every
 // render.
+// A collapsed cluster's stand-in tile (verify screen "Group by cluster"
+// mode) - just a thumbnail (the cluster's first still-visible member)
+// plus a "+N" size badge, clicking expands it into its own section
+// above the grid (see Gallery.expandCluster/render). Deliberately not a
+// LazyImage - a cluster isn't a single face with confirm/reject/etc.
+// actions of its own, it's a group-selector.
+function ClusterTile({ url, count, onClick }){
+  return (
+    <div className='imgDiv clusterTile' onClick={onClick}>
+      <img className='img_thumb' src={url} alt='' />
+      <span className='clusterBadge'>{`×${count}`}</span>
+    </div>
+  )
+}
+
 function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize, rowButtonWidth,
   rowButtonMode, rowButtonLabel, handleRowAction, imgsSelected, apiUrl, accessKey, imageKeyedType,
-  editingFaceId, onEditComplete, ...tileProps }){
+  editingFaceId, onEditComplete, clusterSizeByFace, onExpandCluster, ...tileProps }){
   const row = rows[index] || []
   const lastItem = row[row.length - 1]
 
@@ -72,17 +87,26 @@ function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize,
   return (
     <div className='galleryRow' style={{ ...style, gridTemplateColumns }} {...ariaAttributes}>
       {row.map(([itemIndex, face_id, type]) => (
-        <LazyImage
-          key={face_id}
-          selected={imgsSelected.indexOf(face_id) >= 0}
-          url={apiUrl + '/keyed_image/' + imageKeyedType + '/?access_key=' + accessKey + '&id=' + face_id}
-          index={itemIndex}
-          face_id={face_id}
-          type={type}
-          forceEdit={editingFaceId === face_id}
-          onEditComplete={onEditComplete}
-          {...tileProps}
-        />
+        type === 'clusterRepresentative' ? (
+          <ClusterTile
+            key={face_id}
+            url={apiUrl + '/keyed_image/' + imageKeyedType + '/?access_key=' + accessKey + '&id=' + face_id}
+            count={clusterSizeByFace[face_id]}
+            onClick={() => onExpandCluster(face_id)}
+          />
+        ) : (
+          <LazyImage
+            key={face_id}
+            selected={imgsSelected.indexOf(face_id) >= 0}
+            url={apiUrl + '/keyed_image/' + imageKeyedType + '/?access_key=' + accessKey + '&id=' + face_id}
+            index={itemIndex}
+            face_id={face_id}
+            type={type}
+            forceEdit={editingFaceId === face_id}
+            onEditComplete={onEditComplete}
+            {...tileProps}
+          />
+        )
       ))}
       {rowButtonMode && lastItem && (
         <button
@@ -139,6 +163,9 @@ class Gallery extends React.Component{
     this.runBulkOperation = this.runBulkOperation.bind(this)
     this.handleListResize = this.handleListResize.bind(this)
     this.getRowButtonMode = this.getRowButtonMode.bind(this)
+    this.expandCluster = this.expandCluster.bind(this)
+    this.advanceToNextCluster = this.advanceToNextCluster.bind(this)
+    this.autoExpandFirstAvailableCluster = this.autoExpandFirstAvailableCluster.bind(this)
 
     const { tileSize, rowButtonWidth } = readSizeVars()
     this.tileSize = tileSize
@@ -196,6 +223,13 @@ class Gallery extends React.Component{
       // render show "Date unavailable" instead of indistinguishably
       // rendering nothing for both "still loading" and "actually failed".
       modalDateFailed: false,
+      // Verify screen "Group by cluster" mode only (this.props.
+      // groupByCluster) - which Face.verification_cluster_group is
+      // currently splayed open in its own section above the main grid
+      // (see render/expandCluster/advanceToNextCluster). null means
+      // none - either cluster mode is off, or every cluster's been
+      // resolved and what's left are ordinary singleton faces.
+      expandedClusterId: null,
     }
 
     // Bumped on every fetchModalDate call so a slower-to-resolve earlier
@@ -250,6 +284,78 @@ class Gallery extends React.Component{
 
     this.itemsRef = items
     this._typeById = typeById
+
+    // Verify screen "Group by cluster" mode - groups faces by
+    // Face.verification_cluster_group (this.props.clusterGroups,
+    // {faceId: groupId} from PersonParamView's face_declared response,
+    // only populated when only_unverified=true). _clusterOrder is
+    // group ids in first-seen order, fixed once here rather than
+    // recomputed as clusters get resolved, so advanceToNextCluster can
+    // walk forward by position without the list shifting underneath it.
+    // A face with no entry in clusterGroups is a singleton and never
+    // appears in _clusterMembers - see getGridDisplayItems.
+    const clusterOrder = []
+    const clusterMembers = {}
+    const groupIdByFace = {}
+    const clusterGroups = this.props.clusterGroups || {}
+    for (const [, faceId] of items){
+      const groupId = clusterGroups[String(faceId)]
+      if (groupId === undefined || groupId === null) continue
+      if (!(groupId in clusterMembers)){ clusterMembers[groupId] = []; clusterOrder.push(groupId) }
+      clusterMembers[groupId].push(faceId)
+      groupIdByFace[faceId] = groupId
+    }
+    this._clusterOrder = clusterOrder
+    this._clusterMembers = clusterMembers
+    this._groupIdByFace = groupIdByFace
+  }
+
+  clusterMembers(groupId){
+    return this._clusterMembers[groupId] || []
+  }
+
+  // Cluster members that are still around to review - a face leaves this
+  // (without leaving _clusterMembers, which stays fixed - see buildItems)
+  // once it's verified/reassigned/etc. and gets added to state.hidden,
+  // same as any other resolved tile.
+  visibleClusterMembers(groupId){
+    const hiddenSet = new Set(this.state.hidden)
+    return this.clusterMembers(groupId).filter(faceId => !hiddenSet.has(faceId))
+  }
+
+  // Splays one cluster open in its own section above the main grid (see
+  // render) and pre-selects every still-visible member into
+  // imgsSelected - the same selection state a normal click/shift-click
+  // would build, so V's existing api_action('verify_face') call (which
+  // just operates on whatever's selected) verifies exactly this batch
+  // with no new bulk-action code needed. Clicking a tile within the
+  // expanded cluster toggles it out of imgsSelected via the ordinary
+  // singleClick behavior (a plain click on an already-selected tile
+  // removes just that one face, per its existing splice() branch) - so
+  // a stray mis-clustered face can be excluded before hitting V.
+  expandCluster(groupId){
+    const members = this.visibleClusterMembers(groupId)
+    this.setState({ expandedClusterId: groupId, imgsSelected: [...members], lastClicked: -1 })
+  }
+
+  // Walks forward from the currently-expanded cluster's position in
+  // _clusterOrder (fixed at buildItems time) to the next one that still
+  // has faces left to review, and expands it - skips anything already
+  // fully resolved. Runs out of clusters -> clears expandedClusterId,
+  // which per the user just falls through to the ordinary one-face-at-
+  // a-time flow for whatever singleton faces are left (getGridDisplayItems
+  // already renders those normally regardless of cluster mode).
+  advanceToNextCluster(){
+    const order = this._clusterOrder
+    const currentIdx = order.indexOf(this.state.expandedClusterId)
+    for (let i = currentIdx + 1; i < order.length; i++){
+      const groupId = order[i]
+      if (this.visibleClusterMembers(groupId).length > 0){
+        this.expandCluster(groupId)
+        return
+      }
+    }
+    this.setState({ expandedClusterId: null, imgsSelected: [] })
   }
 
   componentDidMount(){
@@ -269,6 +375,15 @@ class Gallery extends React.Component{
     // doesn't get reset on tab switch, so this can't be relied on alone.
     if (this.props.tab === 'Folders') return null
     if (this.props.current_person_id === this.props.unassigned_person_id) return null
+    // "Verify row" targets whatever face_id sits at the row's end via
+    // handleRowAction's own visible-list walk - in cluster mode that
+    // list can contain 'clusterRepresentative' entries (see
+    // getGridDisplayItems), and using that single representative id as
+    // "the face to verify" would silently verify only it, not the whole
+    // cluster it stands in for. V (advanceToNextCluster) is cluster
+    // mode's own dedicated batch-verify path, so just hide this button
+    // there instead of teaching it to expand representatives too.
+    if (this.props.groupByCluster) return null
     if (this.props.unlabeled) return 'confirm'
     if (this.props.only_unverified) return 'verify'
     return null
@@ -443,7 +558,14 @@ class Gallery extends React.Component{
         }
         if (key === 'v' && this.props.only_unverified){
           event.preventDefault()
+          // If a cluster is currently expanded, imgsSelected is that
+          // cluster's (possibly hand-trimmed - see singleClick) member
+          // list, so this verifies exactly what's still selected, same
+          // as any other selection-driven action - then collapses and
+          // auto-expands the next cluster (see advanceToNextCluster).
+          const wasExpandedCluster = this.state.expandedClusterId !== null
           this.api_action('verify_face')
+          if (wasExpandedCluster) this.advanceToNextCluster()
           return
         }
         if (this.props.unlabeled){
@@ -509,6 +631,28 @@ class Gallery extends React.Component{
     if (prevProps.people.length !== this.props.people.length){
       this.setState({ peopleOptions: this.buildPeopleOptions(this.props.people) })
     }
+
+    // Auto-expand the first cluster the moment "Group by cluster" turns
+    // on, or when a fresh batch of cluster data arrives (new person/
+    // refetch - buildItems above already reran for that case). Turning
+    // the checkbox back off just clears the expanded section - the main
+    // grid already renders everything normally without it (see
+    // getGridDisplayItems).
+    if (this.props.groupByCluster && (!prevProps.groupByCluster || prevProps.img_ids !== this.props.img_ids)){
+      this.autoExpandFirstAvailableCluster()
+    } else if (!this.props.groupByCluster && prevProps.groupByCluster){
+      this.setState({ expandedClusterId: null })
+    }
+  }
+
+  autoExpandFirstAvailableCluster(){
+    for (const groupId of this._clusterOrder){
+      if (this.visibleClusterMembers(groupId).length > 0){
+        this.expandCluster(groupId)
+        return
+      }
+    }
+    this.setState({ expandedClusterId: null })
   }
 
   singleClick(event, face_id, index){
@@ -833,7 +977,81 @@ class Gallery extends React.Component{
   // re-scanning the *entire* loaded list on every infinite-scroll page
   // load, which no longer happens at all now that react-window (not
   // manual pagination) decides what's actually rendered.
+  // Verify screen "Group by cluster" mode only - transforms itemsRef into
+  // what the main grid actually shows: singleton faces unchanged, the
+  // currently-expanded cluster's members omitted entirely (rendered in
+  // their own section above the grid instead - see render), and every
+  // other cluster collapsed to one representative tile (its first still-
+  // visible member) tagged type 'clusterRepresentative' so GalleryRow
+  // knows to render the badge/click-to-expand tile instead of a normal
+  // LazyImage. Already excludes hidden faces (resolved singletons, and
+  // any cluster member individually resolved elsewhere), unlike itemsRef
+  // itself, which never shrinks - see computeVisibleRows below, which
+  // skips its own hidden-filtering pass for this branch since it's
+  // already done here.
+  getGridDisplayItems(){
+    if (!this.props.groupByCluster) return this.itemsRef
+    const hiddenSet = new Set(this.state.hidden)
+    const seenGroups = new Set()
+    const display = []
+    // Side output for the representative tile's "+N" badge - see
+    // ClusterTile/GalleryRow's rowProps.clusterSizeByFace.
+    this._clusterSizeByFace = {}
+    for (const [idx, faceId, type] of this.itemsRef){
+      if (hiddenSet.has(faceId)) continue
+      const groupId = this._groupIdByFace[faceId]
+      if (groupId === undefined){
+        display.push([idx, faceId, type])
+        continue
+      }
+      if (String(groupId) === String(this.state.expandedClusterId)) continue
+      if (seenGroups.has(groupId)) continue
+      seenGroups.add(groupId)
+      const remaining = this.visibleClusterMembers(groupId).length
+      // A cluster can shrink to one remaining face without ever being
+      // "resolved" - e.g. hand-deselecting a stray face before hitting V
+      // (see expandCluster) leaves it behind, still unverified. Nothing
+      // left to group at that point, so it reads better as an ordinary
+      // singleton tile (its real type - defined/proposed/etc.) than a
+      // "×1" cluster.
+      if (remaining <= 1){
+        display.push([idx, faceId, this._typeById[faceId]])
+        continue
+      }
+      this._clusterSizeByFace[faceId] = remaining
+      display.push([idx, faceId, 'clusterRepresentative'])
+    }
+    return display
+  }
+
+  // Groups the currently-visible (non-hidden) items into rows of
+  // state.columnCount tiles each - shared by render() (react-window pages
+  // through these rows) and handleRowAction (to know which face_ids are
+  // "up to and including" a given row). Memoized on (itemsRef, hidden,
+  // columns) identity - itemsRef only changes wholesale (buildItems, on a
+  // real person/tab switch), so a plain recompute-when-any-of-these-changed
+  // cache is enough; no need for the incremental/append-only tail-only
+  // path the old non-virtualized version needed; that existed to avoid
+  // re-scanning the *entire* loaded list on every infinite-scroll page
+  // load, which no longer happens at all now that react-window (not
+  // manual pagination) decides what's actually rendered.
+  //
+  // Cluster mode bypasses this cache entirely and just rebuilds from
+  // getGridDisplayItems every call - that list is a person's unverified
+  // faces (inherently small, not a whole library) and changes on every
+  // expand/collapse/verify, so memoizing it wouldn't pay for itself the
+  // way it does for the plain, much larger, far-more-stable path below.
   computeVisibleRows(){
+    if (this.props.groupByCluster){
+      const items = this.getGridDisplayItems()
+      const columns = Math.max(1, this.state.columnCount)
+      const rows = []
+      for (let i = 0; i < items.length; i += columns){
+        rows.push(items.slice(i, i + columns))
+      }
+      return { visible: items, rows }
+    }
+
     const items = this.itemsRef
     const hidden = this.state.hidden
     const columns = Math.max(1, this.state.columnCount)
@@ -1194,6 +1412,11 @@ class Gallery extends React.Component{
       onRecordUndo: this.props.onRecordUndo,
       unselectAll: this.unselectAll,
       onHighlightUpdated: this.props.onHighlightUpdated,
+      // Verify screen "Group by cluster" mode - see getGridDisplayItems/
+      // GalleryRow/ClusterTile. Empty/no-op outside that mode, since
+      // itemsRef never contains a 'clusterRepresentative' entry then.
+      clusterSizeByFace: this._clusterSizeByFace || {},
+      onExpandCluster: (faceId) => this.expandCluster(this._groupIdByFace[faceId]),
       editingFaceId: this.state.editingFaceId,
       onEditComplete: this.clearEditingFace,
     }
@@ -1303,6 +1526,41 @@ class Gallery extends React.Component{
             <div className='modalDateLabel'>{this.state.modalDateText || 'Date unavailable'}</div>
           )}
         </Modal>
+
+        {this.props.groupByCluster && this.state.expandedClusterId !== null && (
+          // The one cluster currently splayed open (see expandCluster/
+          // advanceToNextCluster) - a plain, un-virtualized flex row of
+          // normal LazyImage tiles (a cluster is a handful of faces, not
+          // a whole gallery, so react-window's virtualization isn't
+          // needed here). Reuses rowProps wholesale for every handler a
+          // tile needs (get_unique_list, api_action, click, etc. -
+          // exactly what the main grid's tiles already get), just
+          // overriding the handful of per-tile values that differ.
+          // These tiles start pre-selected (see expandCluster) so V
+          // verifies the whole visible batch by default; clicking one
+          // toggles it out via LazyImage's normal click-select behavior,
+          // letting a mis-clustered face be excluded before hitting V.
+          <div className='expandedCluster'>
+            <div className='expandedClusterHeader'>
+              {`Cluster ${this._clusterOrder.indexOf(this.state.expandedClusterId) + 1} of ${this._clusterOrder.length} · ${this.visibleClusterMembers(this.state.expandedClusterId).length} face(s) · `}
+              <kbd>V</kbd>&nbsp;to verify all
+            </div>
+            <div className='expandedClusterTiles'>
+              {this.visibleClusterMembers(this.state.expandedClusterId).map((face_id, i) => (
+                <LazyImage
+                  {...rowProps}
+                  key={face_id}
+                  index={i}
+                  face_id={face_id}
+                  type={this._typeById[face_id]}
+                  selected={rowProps.imgsSelected.indexOf(face_id) >= 0}
+                  url={rowProps.apiUrl + '/keyed_image/' + rowProps.imageKeyedType + '/?access_key=' + rowProps.accessKey + '&id=' + face_id}
+                  forceEdit={this.state.editingFaceId === face_id}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         <List
           listRef={this.listRef}
