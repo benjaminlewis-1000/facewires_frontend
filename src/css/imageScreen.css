@@ -108,6 +108,21 @@
     right: 10%;
 }
 
+/* Verify screen's "Group by cluster" checkbox - shares the header's
+   right-side slot with .no_classify_checkbox ("Further Images
+   Unlikely", always rendered on the People tab regardless of view), so
+   this needs its own offset to sit to the left of it rather than
+   overlapping. */
+.groupByClusterToggle{
+    font-size: 15px;
+    height: 100%;
+    position: relative;
+    top: 45%;
+    float: right;
+    right: 32%;
+    white-space: nowrap;
+}
+
 /* Folders-tab newest/oldest-first toggle - same header slot the People
    tab's .no_classify_checkbox occupies (see imageScreen.jsx). One button,
    alternating direction/label each click. */

@@ -52,6 +52,17 @@ class ImageScreen extends React.Component{
       // first" is just that same array reversed client-side (see
       // buildScreen below) - no new API/fixture needed.
       folderSortNewestFirst: true,
+      // Verify screen only - {faceId: groupId} for faces the nightly
+      // face_manager.cluster_unverified_faces job grouped as visually
+      // similar (PersonParamView's face_declared response, only
+      // populated when only_unverified=true - see componentDidUpdate).
+      // A face with no entry here is a singleton, reviewed individually
+      // regardless of groupByCluster below.
+      clusterGroups: {},
+      // "Group by cluster" checkbox - only meaningful (and only shown)
+      // alongside only_unverified; see Gallery for what this actually
+      // changes about the grid.
+      groupByCluster: false,
     }
 
     // Bumped every time componentDidUpdate kicks off a new pair of
@@ -67,11 +78,19 @@ class ImageScreen extends React.Component{
     this.bumpHighlightVersion = this.bumpHighlightVersion.bind(this)
     this.openRename = this.openRename.bind(this)
     this.setFolderSort = this.setFolderSort.bind(this)
+    this.toggleGroupByCluster = this.toggleGroupByCluster.bind(this)
 
     // this.ref = React.createRef();
   }
 
   componentDidUpdate(prevProps, prevState, snapshot){
+
+    // groupByCluster only makes sense alongside only_unverified - reset
+    // it the moment that toggle turns off, so it can't survive into an
+    // unrelated view and silently affect Gallery there.
+    if (!this.props.only_unverified && this.state.groupByCluster){
+      this.setState({groupByCluster: false})
+    }
 
     if (this.props.api_id !== prevProps.api_id ||
         this.props.unlabeled !== prevProps.unlabeled ||
@@ -90,7 +109,7 @@ class ImageScreen extends React.Component{
       // stale imagery_ids happens to still be sitting in state from
       // the last person, producing a gallery that mixes both people's
       // images.
-      this.setState({imagery_ids: [], possible_ids: []})
+      this.setState({imagery_ids: [], possible_ids: [], clusterGroups: {}})
 
       if (this.props.tab === 'People'){
         var req_type = 'face_declared'
@@ -118,6 +137,7 @@ class ImageScreen extends React.Component{
           .then( (response) => {
             if (generation !== this._fetchGeneration) return
             this.setState({imagery_ids: response.data.id_list});
+            this.setState({clusterGroups: response.data.cluster_groups || {}})
             this.setState({loading_definite: false})
             // Only the fetch that finishes last should flip the
             // overall loading flag - if we did it unconditionally here,
@@ -272,6 +292,10 @@ class ImageScreen extends React.Component{
     this.setState({ folderSortNewestFirst: newestFirst })
   }
 
+  toggleGroupByCluster() {
+    this.setState(prevState => ({ groupByCluster: !prevState.groupByCluster }))
+  }
+
 
   buildScreen() {
     // The header (highlight image + name + "further images unlikely"
@@ -329,6 +353,8 @@ class ImageScreen extends React.Component{
                     unlabeled={this.props.unlabeled}
                     only_unverified={this.props.only_unverified}
                     reviewFlaggedOnly={this.props.reviewFlaggedOnly}
+                    groupByCluster={this.props.only_unverified && this.state.groupByCluster}
+                    clusterGroups={this.state.clusterGroups}
                     onHighlightUpdated={this.bumpHighlightVersion}
                     onRecordUndo={this.props.onRecordUndo}
                   />
@@ -350,7 +376,10 @@ class ImageScreen extends React.Component{
             // unlabeled and verify ("Only Unverified Faces") screens - C
             // (confirm) and Q (send to ignore) only make sense for a still-
             // proposed candidate, so stay unlabeled-only; V (verify) is the
-            // mirror image, only_unverified-only. The Delete hint only
+            // mirror image, only_unverified-only. A (verify a whole cluster,
+            // gallery.jsx) only shows alongside "Group by cluster" too - own
+            // local state.groupByCluster, not a prop, since only ImageScreen
+            // itself owns that checkbox. The Delete hint only
             // applies while viewing the .ignore person itself (gallery.jsx's
             // Delete-key handler checks current_person_id ===
             // ignore_person_id) - it's the one hotkey here not gated on
@@ -362,6 +391,7 @@ class ImageScreen extends React.Component{
               {(this.props.unlabeled || this.props.only_unverified) && <span><kbd>R</kbd> Other person</span>}
               {this.props.unlabeled && <span><kbd>Q</kbd> Ignore</span>}
               {this.props.only_unverified && <span><kbd>V</kbd> Verify</span>}
+              {this.props.only_unverified && this.state.groupByCluster && <span><kbd>A</kbd> Verify cluster</span>}
               {this.props.api_id === this.props.ignore_person_id && <span><kbd>Delete</kbd> Hard ignore</span>}
             </div>
           )}
@@ -392,6 +422,21 @@ class ImageScreen extends React.Component{
                 &nbsp;
                 Further Images Unlikely
             </span>
+          )}
+          {this.props.tab === 'People' && this.props.only_unverified && (
+            // Groups this person's unverified faces by
+            // Face.verification_cluster_group (see gallery.jsx) instead
+            // of showing them individually - a nightly job pre-clusters
+            // visually similar faces so a whole batch can be reviewed at
+            // once. Only meaningful/shown on the verify screen.
+            <label className='groupByClusterToggle'>
+              <input type="checkbox"
+                  checked={this.state.groupByCluster}
+                  onChange={this.toggleGroupByCluster}>
+              </input>
+              &nbsp;
+              Group by cluster
+            </label>
           )}
 
         </div>
