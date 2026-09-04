@@ -417,6 +417,25 @@ class Gallery extends React.Component{
     if (this.props.groupByCluster) this.autoExpandFirstAvailableCluster()
   }
 
+  // Without this, every Gallery instance that's ever existed this
+  // session keeps its keydown listener live forever - ImageScreen
+  // unmounts/remounts a fresh Gallery on every person switch (see
+  // componentDidMount above), but nothing ever removed the listener the
+  // old instance added, so a single keypress (V/A/X/C/R/Delete/etc.)
+  // fired every still-attached stale instance's _handleKeyDown at once,
+  // each acting on whatever state.imgsSelected/props.current_person_id
+  // happened to be frozen on it the moment it was navigated away from -
+  // including a real runBulkOperation PATCH against the live backend.
+  // Root cause of faces being verified/actioned far beyond whatever was
+  // actually selected in the currently-visible gallery, worse the more
+  // people had been switched to in the session (one leaked listener per
+  // switch) - _handleKeyDown is a bound class-field arrow function
+  // (stable reference per instance), so removeEventListener here
+  // actually matches what was added.
+  componentWillUnmount(){
+    document.removeEventListener("keydown", this._handleKeyDown);
+  }
+
   // Which row-action label (if any) this gallery shows - shared by
   // render() (to know whether/what to draw) and handleListResize (to know
   // whether a button's width needs to be reserved in the per-row column
@@ -586,6 +605,21 @@ class Gallery extends React.Component{
             return
           }
         }
+      }
+    }
+
+    // Block the browser's native "select all" while in this view -
+    // plain 'a' already has its own dedicated meaning here (verify
+    // cluster, see below), and Ctrl/Cmd+A selecting the whole page's
+    // text is disruptive mid-review and not useful in a grid of images.
+    // Deliberately not gated on imgsSelected.length>0 (unlike the block
+    // below) - a stray Ctrl+A should never select all page text in this
+    // view, selection or not.
+    if (!this.state.modalOpen && this.props.tab === 'People' && (this.props.unlabeled || this.props.only_unverified)){
+      const tag = event.target && event.target.tagName
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA' && event.key.toLowerCase() === 'a' && (event.ctrlKey || event.metaKey)){
+        event.preventDefault()
+        return
       }
     }
 
