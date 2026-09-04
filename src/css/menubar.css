@@ -184,8 +184,8 @@ input:checked + .slider:before {
 
 .undoRedoButton{
   background: white;
-  border: 1px solid #450293;
-  color: #450293;
+  border: 1px solid #2da9cf;
+  color: #2da9cf;
   border-radius: 4px;
   padding: 6px 12px;
   margin: 0 6px 0 0;
@@ -195,7 +195,7 @@ input:checked + .slider:before {
 }
 
 .undoRedoButton:hover:not(:disabled){
-  background: #450293;
+  background: #2da9cf;
   color: white;
 }
 

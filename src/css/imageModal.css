@@ -30,7 +30,7 @@
    (given a semi-transparent scrim + flex centering here, which .Overlay
    itself doesn't set so the existing image lightbox is unaffected), but
    its own box - the papayawhip/50px-radius lightbox look doesn't match
-   the app's purple/white palette used elsewhere (e.g. .header_person_name). */
+   the app's blue/white palette used elsewhere (e.g. .header_person_name). */
 .RenameOverlay {
   background-color: rgba(0, 0, 0, 0.45);
   z-index: 300;
@@ -42,7 +42,7 @@
 
 .renameModal {
   background-color: white;
-  border-top: 6px solid #450293;
+  border-top: 6px solid #2da9cf;
   border-radius: 6px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   padding: 24px 28px;
@@ -52,7 +52,7 @@
 
 .renameModal h3 {
   margin: 0 0 16px 0;
-  color: #450293;
+  color: #2da9cf;
   font-stretch: expanded;
 }
 
@@ -67,7 +67,7 @@
 
 .renameModal input[type="text"]:focus {
   outline: none;
-  border-color: #450293;
+  border-color: #2da9cf;
 }
 
 .mergeModalList {
@@ -103,25 +103,25 @@
 .renameModalActions button {
   padding: 7px 16px;
   border-radius: 4px;
-  border: 1px solid #450293;
+  border: 1px solid #2da9cf;
   cursor: pointer;
   font-size: 14px;
 }
 
 .renameModalActions .renameConfirmBtn {
-  background-color: #450293;
+  background-color: #2da9cf;
   color: white;
 }
 
 .renameModalActions .renameConfirmBtn:disabled {
-  background-color: #a48ac0;
-  border-color: #a48ac0;
+  background-color: #8fd0e5;
+  border-color: #8fd0e5;
   cursor: default;
 }
 
 .renameModalActions .renameCancelBtn {
   background-color: white;
-  color: #450293;
+  color: #2da9cf;
 }
 
 .modalImage{
@@ -147,9 +147,9 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 1px solid #450293;
+  border: 1px solid #2da9cf;
   background-color: white;
-  color: #450293;
+  color: #2da9cf;
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
@@ -157,7 +157,7 @@
 }
 
 .modalNavButton:hover:not(:disabled){
-  background-color: #450293;
+  background-color: #2da9cf;
   color: white;
 }
 
@@ -188,7 +188,7 @@
   left: 50%;
   transform: translateX(-50%);
   background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid #450293;
+  border: 1px solid #2da9cf;
   border-radius: 20px;
   padding: 10px 18px;
   z-index: 101;
@@ -197,7 +197,7 @@
 /* Hotkey reminder for the C/X/Q/R confirm/unassign/ignore/other-person
    shortcuts - People tab, "Only Unlabeled Faces" view only (see
    gallery.jsx's _handleKeyDown/render). Pinned to the bottom of .Modal
-   (already position:fixed), same purple accent as .modalNavButton. */
+   (already position:fixed), same blue accent as .modalNavButton. */
 .modalHotkeyHint{
   position: absolute;
   bottom: 14px;
@@ -206,11 +206,11 @@
   display: flex;
   gap: 18px;
   background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid #450293;
+  border: 1px solid #2da9cf;
   border-radius: 20px;
   padding: 6px 18px;
   font-size: 13px;
-  color: #450293;
+  color: #2da9cf;
   z-index: 101;
 }
 
@@ -221,8 +221,8 @@
   margin-right: 4px;
   padding: 1px 5px;
   border-radius: 4px;
-  border: 1px solid #450293;
-  background-color: #450293;
+  border: 1px solid #2da9cf;
+  background-color: #2da9cf;
   color: white;
   font-family: inherit;
   font-weight: bold;
@@ -239,12 +239,12 @@
   bottom: 14px;
   left: 14px;
   background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid #450293;
+  border: 1px solid #2da9cf;
   border-radius: 20px;
   padding: 6px 18px;
   font-size: 13px;
   font-weight: bold;
-  color: #450293;
+  color: #2da9cf;
   z-index: 101;
 }
 

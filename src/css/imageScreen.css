@@ -77,7 +77,7 @@
 
 .header_person_name, .no_classify_checkbox{
     text-shadow: 1px 1px #A9A9A9;
-    color: #450293;
+    color: #2da9cf;
     font-stretch: expanded;
     vertical-align:middle;
     position: relative;
@@ -138,8 +138,8 @@
     height: 34px;
     padding: 0 14px;
     border-radius: 17px;
-    border: 1px solid #450293;
-    background-color: #450293;
+    border: 1px solid #2da9cf;
+    background-color: #2da9cf;
     color: white;
     font-size: 14px;
     font-weight: bold;
@@ -147,7 +147,7 @@
 }
 
 .folderSortToggle:hover{
-    background-color: #5c14b8;
+    background-color: #4db6d6;
 }
 
 /* Hotkey reminder for gallery.jsx's grid-level C/X/R/Q shortcuts (People
@@ -165,7 +165,7 @@
     gap: 18px;
     height: 34px;
     box-sizing: border-box;
-    border: 1px solid #450293;
+    border: 1px solid #2da9cf;
     border-radius: 20px;
     padding: 0 18px;
     font-size: 13px;
@@ -175,7 +175,7 @@
        and (with align-items' default of stretch) stretches this whole
        pill to match, instead of the compact height set above. */
     line-height: normal;
-    color: #450293;
+    color: #2da9cf;
 }
 
 .headerHotkeyHint kbd{
@@ -185,8 +185,8 @@
     margin-right: 4px;
     padding: 1px 5px;
     border-radius: 4px;
-    border: 1px solid #450293;
-    background-color: #450293;
+    border: 1px solid #2da9cf;
+    background-color: #2da9cf;
     color: white;
     font-family: inherit;
     font-weight: bold;
