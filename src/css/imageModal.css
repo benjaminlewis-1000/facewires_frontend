@@ -42,7 +42,7 @@
 
 .renameModal {
   background-color: white;
-  border-top: 6px solid #2da9cf;
+  border-top: 6px solid #197d9c;
   border-radius: 6px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   padding: 24px 28px;
@@ -52,7 +52,7 @@
 
 .renameModal h3 {
   margin: 0 0 16px 0;
-  color: #2da9cf;
+  color: #197d9c;
   font-stretch: expanded;
 }
 
@@ -67,7 +67,7 @@
 
 .renameModal input[type="text"]:focus {
   outline: none;
-  border-color: #2da9cf;
+  border-color: #197d9c;
 }
 
 .mergeModalList {
@@ -103,25 +103,25 @@
 .renameModalActions button {
   padding: 7px 16px;
   border-radius: 4px;
-  border: 1px solid #2da9cf;
+  border: 1px solid #197d9c;
   cursor: pointer;
   font-size: 14px;
 }
 
 .renameModalActions .renameConfirmBtn {
-  background-color: #2da9cf;
+  background-color: #197d9c;
   color: white;
 }
 
 .renameModalActions .renameConfirmBtn:disabled {
-  background-color: #8fd0e5;
-  border-color: #8fd0e5;
+  background-color: #8ebfce;
+  border-color: #8ebfce;
   cursor: default;
 }
 
 .renameModalActions .renameCancelBtn {
   background-color: white;
-  color: #2da9cf;
+  color: #197d9c;
 }
 
 .modalImage{
@@ -147,9 +147,9 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 1px solid #2da9cf;
+  border: 1px solid #197d9c;
   background-color: white;
-  color: #2da9cf;
+  color: #197d9c;
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
@@ -157,7 +157,7 @@
 }
 
 .modalNavButton:hover:not(:disabled){
-  background-color: #2da9cf;
+  background-color: #197d9c;
   color: white;
 }
 
@@ -188,7 +188,7 @@
   left: 50%;
   transform: translateX(-50%);
   background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid #2da9cf;
+  border: 1px solid #197d9c;
   border-radius: 20px;
   padding: 10px 18px;
   z-index: 101;
@@ -206,11 +206,11 @@
   display: flex;
   gap: 18px;
   background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid #2da9cf;
+  border: 1px solid #197d9c;
   border-radius: 20px;
   padding: 6px 18px;
   font-size: 13px;
-  color: #2da9cf;
+  color: #197d9c;
   z-index: 101;
 }
 
@@ -221,8 +221,8 @@
   margin-right: 4px;
   padding: 1px 5px;
   border-radius: 4px;
-  border: 1px solid #2da9cf;
-  background-color: #2da9cf;
+  border: 1px solid #197d9c;
+  background-color: #197d9c;
   color: white;
   font-family: inherit;
   font-weight: bold;
@@ -239,12 +239,12 @@
   bottom: 14px;
   left: 14px;
   background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid #2da9cf;
+  border: 1px solid #197d9c;
   border-radius: 20px;
   padding: 6px 18px;
   font-size: 13px;
   font-weight: bold;
-  color: #2da9cf;
+  color: #197d9c;
   z-index: 101;
 }
 

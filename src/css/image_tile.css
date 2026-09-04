@@ -152,14 +152,14 @@
 }
 
 .clusterTile .img_thumb{
-  border: 3px solid #2da9cf;
+  border: 3px solid #197d9c;
 }
 
 .clusterBadge{
   position: absolute;
   bottom: 6px;
   right: 6px;
-  background-color: #2da9cf;
+  background-color: #197d9c;
   color: white;
   font-size: 11px;
   font-weight: bold;
@@ -173,17 +173,17 @@
    flex-wrapped row of normal tiles, framed to read as "this whole group
    is being reviewed together" rather than part of the grid below it. */
 .expandedCluster{
-  border: 1px solid #2da9cf;
+  border: 1px solid #197d9c;
   border-radius: 6px;
   margin: 10px 10px 0;
   padding: 8px;
-  background-color: #eaf7fb;
+  background-color: #e8f2f5;
 }
 
 .expandedClusterHeader{
   font-size: 13px;
   font-weight: bold;
-  color: #2da9cf;
+  color: #197d9c;
   margin-bottom: 4px;
 }
 
@@ -193,8 +193,8 @@
   text-align: center;
   padding: 1px 5px;
   border-radius: 4px;
-  border: 1px solid #2da9cf;
-  background-color: #2da9cf;
+  border: 1px solid #197d9c;
+  background-color: #197d9c;
   color: white;
   font-family: inherit;
   font-weight: bold;
@@ -245,14 +245,14 @@
   font-size: 12px;
   padding: 10px 4px;
   border-radius: 4px;
-  border: 1px solid #2da9cf;
+  border: 1px solid #197d9c;
   background-color: white;
-  color: #2da9cf;
+  color: #197d9c;
   cursor: pointer;
 }
 
 .rowConfirmButton:hover{
-  background-color: #2da9cf;
+  background-color: #197d9c;
   color: white;
 }
 
