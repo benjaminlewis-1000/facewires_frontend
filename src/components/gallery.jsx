@@ -167,6 +167,7 @@ class Gallery extends React.Component{
     this.advanceToNextCluster = this.advanceToNextCluster.bind(this)
     this.autoExpandFirstAvailableCluster = this.autoExpandFirstAvailableCluster.bind(this)
     this.toggleClusterMember = this.toggleClusterMember.bind(this)
+    this.verifyExpandedCluster = this.verifyExpandedCluster.bind(this)
 
     const { tileSize, rowButtonWidth } = readSizeVars()
     this.tileSize = tileSize
@@ -231,16 +232,18 @@ class Gallery extends React.Component{
       // none - either cluster mode is off, or every cluster's been
       // resolved and what's left are ordinary singleton faces.
       expandedClusterId: null,
-      // False immediately after expandCluster/advanceToNextCluster
-      // auto-selects an entire cluster - flips true the moment the user
-      // manually toggles any tile within it (toggleClusterMember). Gates
-      // the plain V hotkey (see _handleKeyDown): verifying an untouched,
-      // auto-selected cluster via V (rather than the dedicated A action)
-      // used to be indistinguishable from a deliberate multi-select verify
-      // elsewhere in the grid, which the user found confusing - V is now a
-      // no-op on a cluster's still-untouched default selection, forcing A
-      // for "yes, verify this whole cluster."
-      clusterSelectionTouched: false,
+      // Which of the currently-expanded cluster's members are pending
+      // verification - deliberately a SEPARATE field from imgsSelected
+      // (the ordinary main-grid multi-select), not reused the way it
+      // originally was. Reusing imgsSelected meant any click anywhere
+      // else in the grid (a different cluster's representative tile, a
+      // plain singleton, even just scrolling past one) replaced the
+      // whole selection with that one other face - visually "unselecting
+      // everyone" in the expanded box - and double-clicking a cluster
+      // tile to open the modal called unselectAll(), wiping it the same
+      // way. Both were reported bugs; keeping this fully independent
+      // means neither the main grid nor the modal can ever touch it.
+      clusterSelected: [],
     }
 
     // Bumped on every fetchModalDate call so a slower-to-resolve earlier
@@ -338,21 +341,21 @@ class Gallery extends React.Component{
 
   // Splays one cluster open in its own section above the main grid (see
   // render) and pre-selects every still-visible member into
-  // imgsSelected - the same selection state a normal click/shift-click
-  // would build, so A's existing api_action('verify_face') call (which
-  // just operates on whatever's selected) verifies exactly this batch
-  // with no new bulk-action code needed. Clicking a tile within the
-  // expanded cluster toggles it via toggleClusterMember below (a plain
-  // add/remove, deliberately NOT routed through singleClick - see that
-  // method's own comment for why) - so a stray mis-clustered face can be
-  // excluded before hitting A.
+  // state.clusterSelected - its own field, independent of the main
+  // grid's imgsSelected (see that state field's own comment for why).
+  // verifyExpandedCluster() below is what A actually fires against.
+  // Clicking a tile within the expanded cluster toggles it via
+  // toggleClusterMember below (a plain add/remove, deliberately NOT
+  // routed through singleClick - see that method's own comment for why)
+  // - so a stray mis-clustered face can be excluded before hitting A.
   expandCluster(groupId){
     const members = this.visibleClusterMembers(groupId)
-    this.setState({ expandedClusterId: groupId, imgsSelected: [...members], lastClicked: -1, clusterSelectionTouched: false })
+    this.setState({ expandedClusterId: groupId, clusterSelected: [...members] })
   }
 
   // Dedicated click handler for tiles inside the expanded-cluster section
-  // (render, below) - deliberately NOT this.singleClick/clickHandler.
+  // (render, below) - deliberately NOT this.singleClick/clickHandler, and
+  // deliberately operates on state.clusterSelected, not state.imgsSelected.
   // singleClick's index-based shift-click range-select and "not currently
   // selected + no modifier key -> replace the whole selection with just
   // this one face" branches both assume `index` is this face's position
@@ -360,27 +363,44 @@ class Gallery extends React.Component{
   // but expandedCluster tiles are rendered with a small *local* index
   // (0..clusterSize-1, see render), not their real itemsRef position, and
   // clicking one is never meant to touch the rest of the grid at all.
-  // Reusing singleClick as-is caused two reported bugs: shift-clicking a
-  // cluster tile pulled in a big, wrong range of unrelated faces from the
-  // full list into imgsSelected (then verified/decremented all at once -
-  // the same bug that was driving the "unverified faces" sidebar count
-  // negative), and clicking a face back in after removing it wiped
-  // imgsSelected down to just that one face instead of restoring it
-  // alongside the rest of the still-selected cluster (singleClick's
-  // "not in list, no modifier" branch always assigns imagesSelected =
-  // [face_id]). A plain toggle-in-place has neither problem: modifier
-  // keys are ignored entirely (there is no meaningful "range" or
-  // "additional selection" gesture within a single cluster's tiles), and
-  // toggling a face never touches any other face's membership.
+  // Reusing singleClick/imgsSelected as-is caused three reported bugs:
+  // shift-clicking a cluster tile pulled in a big, wrong range of
+  // unrelated faces from the full list (the same bug that was driving the
+  // "unverified faces" sidebar count negative); clicking a face back in
+  // after removing it wiped the selection down to just that one face
+  // instead of restoring it alongside the rest of the still-selected
+  // cluster (singleClick's "not in list, no modifier" branch always
+  // assigns imagesSelected = [face_id]); and, since imgsSelected is also
+  // the main grid's own selection, clicking any OTHER tile in the grid
+  // (or double-clicking a cluster tile to open the modal, which calls
+  // unselectAll()) silently wiped the cluster's selection out from under
+  // it. A plain toggle-in-place on its own independent field has none of
+  // these problems: modifier keys are ignored entirely (there is no
+  // meaningful "range" or "additional selection" gesture within a single
+  // cluster's tiles), and nothing outside expandCluster/toggleClusterMember/
+  // verifyExpandedCluster/advanceToNextCluster ever touches this field.
   toggleClusterMember(event, face_id){
     event.preventDefault()
     this.setState(prevState => {
-      const idx = prevState.imgsSelected.indexOf(face_id)
-      const imgsSelected = idx >= 0
-        ? prevState.imgsSelected.filter(id => id !== face_id)
-        : [...prevState.imgsSelected, face_id]
-      return { imgsSelected, clusterSelectionTouched: true }
+      const idx = prevState.clusterSelected.indexOf(face_id)
+      const clusterSelected = idx >= 0
+        ? prevState.clusterSelected.filter(id => id !== face_id)
+        : [...prevState.clusterSelected, face_id]
+      return { clusterSelected }
     })
+  }
+
+  // A's bulk-verify action - mirrors runBulkOperation's own selection ->
+  // hidden/count/undo handling, just sourced from state.clusterSelected
+  // instead of state.imgsSelected (see that field's comment for why they
+  //'re kept separate). Clears clusterSelected itself rather than routing
+  // through get_unique_list/unselectAll, which only know about
+  // imgsSelected.
+  verifyExpandedCluster(){
+    const faceIds = [...new Set(this.state.clusterSelected)]
+    if (faceIds.length === 0) return
+    this.setState({ clusterSelected: [] })
+    this.runBulkOperation('verify_face', faceIds)
   }
 
   // Walks forward from the currently-expanded cluster's position in
@@ -400,7 +420,7 @@ class Gallery extends React.Component{
         return
       }
     }
-    this.setState({ expandedClusterId: null, imgsSelected: [], clusterSelectionTouched: false })
+    this.setState({ expandedClusterId: null, clusterSelected: [] })
   }
 
   componentDidMount(){
@@ -631,49 +651,44 @@ class Gallery extends React.Component{
     // checked without Shift so it doesn't collide with the pre-existing
     // Shift+R (close_assigned) shortcut - event.key is the same 'R'/'r'
     // either way once lower-cased, only event.shiftKey tells them apart.
-    if (!this.state.modalOpen && this.props.tab === 'People' && (this.props.unlabeled || this.props.only_unverified) && this.state.imgsSelected.length > 0){
+    // A is reachable purely off state.clusterSelected (its own field, see
+    // expandCluster's comment) - so this gate needs to open for that case
+    // too, even when the ordinary main-grid imgsSelected is empty.
+    const clusterHasSelection = this.props.groupByCluster && this.state.expandedClusterId !== null && this.state.clusterSelected.length > 0
+    if (!this.state.modalOpen && this.props.tab === 'People' && (this.props.unlabeled || this.props.only_unverified) && (this.state.imgsSelected.length > 0 || clusterHasSelection)){
       const tag = event.target && event.target.tagName
       if (tag !== 'INPUT' && tag !== 'TEXTAREA'){
         const key = event.key.toLowerCase()
-        if (key === 'r' && !event.shiftKey){
+        if (key === 'r' && !event.shiftKey && this.state.imgsSelected.length > 0){
           event.preventDefault()
           this.startSendToOtherPerson()
           return
         }
-        if (key === 'x'){
+        if (key === 'x' && this.state.imgsSelected.length > 0){
           event.preventDefault()
           this.api_action('close_assigned')
           return
         }
-        if (key === 'v' && this.props.only_unverified){
-          // No-op while an expanded cluster's default (untouched)
-          // selection is still in place - verifying a whole cluster is A's
-          // job specifically, per the user, so V doesn't double as a way
-          // to do the same thing by accident. Once the user has manually
-          // toggled at least one tile in the cluster (clusterSelectionTouched,
-          // see toggleClusterMember/expandCluster), that's a deliberate
-          // selection like any other and V verifies it normally.
-          if (this.props.groupByCluster && this.state.expandedClusterId !== null && !this.state.clusterSelectionTouched){
-            event.preventDefault()
-            return
-          }
+        if (key === 'v' && this.props.only_unverified && this.state.imgsSelected.length > 0){
           event.preventDefault()
-          // Plain verify - whatever's currently selected, no cluster-
-          // advance side effect, even if that selection happens to be an
-          // expanded cluster's members. A (below) is the dedicated
-          // "verify this whole cluster and move on" action - keeping V's
-          // behavior identical everywhere avoids it silently doing
-          // something extra depending on context, per the user.
+          // Plain verify - operates only on the ordinary main-grid
+          // selection (state.imgsSelected), never on an expanded
+          // cluster's own state.clusterSelected - the two are fully
+          // independent (see expandCluster's comment), so this is
+          // naturally a no-op whenever nothing's been individually
+          // selected outside the cluster box, without needing its own
+          // special-case check. A (below) is the dedicated "verify this
+          // whole cluster and move on" action, per the user.
           this.api_action('verify_face')
           return
         }
-        if (key === 'a' && this.props.groupByCluster && this.state.expandedClusterId !== null){
+        if (key === 'a' && clusterHasSelection){
           event.preventDefault()
           // Verifies exactly what's still selected in the expanded
-          // cluster (possibly hand-trimmed - see singleClick/
+          // cluster (possibly hand-trimmed - see toggleClusterMember/
           // expandCluster), then collapses it and auto-expands the next
           // one (see advanceToNextCluster).
-          this.api_action('verify_face')
+          this.verifyExpandedCluster()
           this.advanceToNextCluster()
           return
         }
@@ -750,7 +765,7 @@ class Gallery extends React.Component{
     if (this.props.groupByCluster && (!prevProps.groupByCluster || prevProps.img_ids !== this.props.img_ids)){
       this.autoExpandFirstAvailableCluster()
     } else if (!this.props.groupByCluster && prevProps.groupByCluster){
-      this.setState({ expandedClusterId: null })
+      this.setState({ expandedClusterId: null, clusterSelected: [] })
     }
   }
 
@@ -761,7 +776,7 @@ class Gallery extends React.Component{
         return
       }
     }
-    this.setState({ expandedClusterId: null })
+    this.setState({ expandedClusterId: null, clusterSelected: [] })
   }
 
   singleClick(event, face_id, index){
@@ -1645,13 +1660,12 @@ class Gallery extends React.Component{
           // tile needs (get_unique_list, api_action, click, etc. -
           // exactly what the main grid's tiles already get), just
           // overriding the handful of per-tile values that differ.
-          // These tiles start pre-selected (see expandCluster) so A
-          // verifies the whole visible batch by default; clicking one
-          // toggles it out via LazyImage's normal click-select behavior,
+          // These tiles start pre-selected into state.clusterSelected
+          // (see expandCluster) so A verifies the whole visible batch by
+          // default; clicking one toggles it via toggleClusterMember,
           // letting a mis-clustered face be excluded before hitting A.
-          // V still works here too (plain verify-the-selection, no
-          // auto-advance) - A is specifically "this is a cluster, treat
-          // it as one and move on."
+          // Deliberately NOT tied to imgsSelected/V - see clusterSelected's
+          // own state comment for why they're independent.
           <div className='expandedCluster'>
             <div className='expandedClusterHeader'>
               {`Cluster ${this._clusterOrder.indexOf(this.state.expandedClusterId) + 1} of ${this._clusterOrder.length} · ${this.visibleClusterMembers(this.state.expandedClusterId).length} face(s) · `}
@@ -1665,7 +1679,7 @@ class Gallery extends React.Component{
                   index={i}
                   face_id={face_id}
                   type={this._typeById[face_id]}
-                  selected={rowProps.imgsSelected.indexOf(face_id) >= 0}
+                  selected={this.state.clusterSelected.indexOf(face_id) >= 0}
                   url={rowProps.apiUrl + '/keyed_image/' + rowProps.imageKeyedType + '/?access_key=' + rowProps.accessKey + '&id=' + face_id}
                   forceEdit={this.state.editingFaceId === face_id}
                   onClick={this.toggleClusterMember}
