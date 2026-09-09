@@ -63,6 +63,15 @@ class ImageScreen extends React.Component{
       // alongside only_unverified; see Gallery for what this actually
       // changes about the grid.
       groupByCluster: false,
+      // Face ids sourced from a video frame (PersonParamView's
+      // video_face_ids, same sidecar-list pattern as cluster_groups) -
+      // populated from both the face_declared and face_poss fetches
+      // below (unlike cluster_groups, which is only ever returned
+      // alongside face_declared+only_unverified), so this is merged
+      // rather than overwritten by whichever fetch resolves second.
+      // Gallery uses this to decide whether a modal image needs the
+      // fast-then-accurate two-stage load.
+      videoFaceIds: [],
     }
 
     // Bumped every time componentDidUpdate kicks off a new pair of
@@ -79,6 +88,7 @@ class ImageScreen extends React.Component{
     this.openRename = this.openRename.bind(this)
     this.setFolderSort = this.setFolderSort.bind(this)
     this.toggleGroupByCluster = this.toggleGroupByCluster.bind(this)
+    this.mergeVideoFaceIds = this.mergeVideoFaceIds.bind(this)
 
     // this.ref = React.createRef();
   }
@@ -109,7 +119,7 @@ class ImageScreen extends React.Component{
       // stale imagery_ids happens to still be sitting in state from
       // the last person, producing a gallery that mixes both people's
       // images.
-      this.setState({imagery_ids: [], possible_ids: [], clusterGroups: {}})
+      this.setState({imagery_ids: [], possible_ids: [], clusterGroups: {}, videoFaceIds: []})
 
       if (this.props.tab === 'People'){
         var req_type = 'face_declared'
@@ -138,6 +148,7 @@ class ImageScreen extends React.Component{
             if (generation !== this._fetchGeneration) return
             this.setState({imagery_ids: response.data.id_list});
             this.setState({clusterGroups: response.data.cluster_groups || {}})
+            this.mergeVideoFaceIds(response.data.video_face_ids)
             this.setState({loading_definite: false})
             // Only the fetch that finishes last should flip the
             // overall loading flag - if we did it unconditionally here,
@@ -165,6 +176,7 @@ class ImageScreen extends React.Component{
           .then( (response) => {
             if (generation !== this._fetchGeneration) return
             this.setState({possible_ids: response.data.id_list});
+            this.mergeVideoFaceIds(response.data.video_face_ids)
             this.setState({loading_poss: false})
             // Same reasoning as the "definite" handler above - only
             // flip loading once both fetches for this generation are
@@ -194,6 +206,18 @@ class ImageScreen extends React.Component{
       }
     }
 
+  }
+
+  // face_declared and face_poss can each carry their own video_face_ids
+  // (a video-sourced face can be a possible match just as easily as a
+  // declared one), and the two fetches race - union onto whatever's
+  // already there instead of overwriting, so whichever resolves second
+  // doesn't erase ids the first one already found.
+  mergeVideoFaceIds(ids){
+    if (!ids || ids.length === 0) return
+    this.setState(prevState => ({
+      videoFaceIds: [...new Set([...prevState.videoFaceIds, ...ids])]
+    }))
   }
 
   errorCallback(msg){
@@ -355,6 +379,7 @@ class ImageScreen extends React.Component{
                     reviewFlaggedOnly={this.props.reviewFlaggedOnly}
                     groupByCluster={this.props.only_unverified && this.state.groupByCluster}
                     clusterGroups={this.state.clusterGroups}
+                    videoFaceIds={this.state.videoFaceIds}
                     onHighlightUpdated={this.bumpHighlightVersion}
                     onRecordUndo={this.props.onRecordUndo}
                   />

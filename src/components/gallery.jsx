@@ -168,6 +168,16 @@ class Gallery extends React.Component{
     this.autoExpandFirstAvailableCluster = this.autoExpandFirstAvailableCluster.bind(this)
     this.toggleClusterMember = this.toggleClusterMember.bind(this)
     this.verifyExpandedCluster = this.verifyExpandedCluster.bind(this)
+    this.loadModalImage = this.loadModalImage.bind(this)
+
+    // Gallery is remounted fresh on every person switch (see CLAUDE.md),
+    // and ImageScreen only ever renders one once both its face_declared
+    // and face_poss fetches have resolved (its `!loading` gate) - so
+    // this.props.videoFaceIds is already complete by the time a Gallery
+    // instance exists. Built once here, not kept reactive to prop
+    // updates, same as itemsRef below.
+    this._videoFaceIdSet = new Set(this.props.videoFaceIds || [])
+    this._modalImageGeneration = 0
 
     const { tileSize, rowButtonWidth } = readSizeVars()
     this.tileSize = tileSize
@@ -1259,11 +1269,44 @@ class Gallery extends React.Component{
     event.preventDefault()
     this.unselectAll()
     this.setState({
-      modalURL: this.buildModalUrl(face_id),
       modalItemIndex: this.itemsRef.findIndex(([, id]) => id === face_id),
     })
+    this.loadModalImage(face_id)
     this.fetchModalDate(face_id)
     this.toggleModal()
+  }
+
+  // Video-sourced faces (this._videoFaceIdSet, built from the
+  // video_face_ids sidecar list ImageScreen merges from the
+  // face_declared/face_poss responses - same pattern as cluster_groups)
+  // get the fast approximate frame immediately, then swap to the
+  // accurate one once it resolves (the backend's own two-stage pipeline,
+  // ~1-2s for the accurate frame vs well under a second for the fast
+  // one) - same progressive-loading idea as a blurred placeholder, just
+  // two real frames instead of a blur-to-sharp transition. Ordinary
+  // photo-sourced faces skip the fast fetch entirely and go straight to
+  // the plain (already-fast) URL - there's nothing to gain from a second
+  // request there.
+  //
+  // this._modalImageGeneration guards against a slower-to-resolve
+  // earlier accurate-frame fetch clobbering a faster later one, same
+  // reasoning as fetchModalDate's own generation counter - the user can
+  // page through several faces (arrow keys) before an earlier accurate
+  // fetch lands.
+  loadModalImage(id){
+    const baseUrl = this.buildModalUrl(id)
+    if (!this._videoFaceIdSet.has(id)){
+      this.setState({ modalURL: baseUrl })
+      return
+    }
+    const generation = ++this._modalImageGeneration
+    this.setState({ modalURL: baseUrl + '&fast=true' })
+    const accurateImg = new Image()
+    accurateImg.onload = () => {
+      if (generation !== this._modalImageGeneration) return
+      this.setState({ modalURL: baseUrl })
+    }
+    accurateImg.src = baseUrl
   }
 
   // The photo's capture date, shown under the modal image (see render) -
@@ -1353,7 +1396,8 @@ class Gallery extends React.Component{
     const newIndex = this.state.modalItemIndex + delta
     if (newIndex < 0 || newIndex >= this.itemsRef.length) return
     const [, id] = this.itemsRef[newIndex]
-    this.setState({ modalURL: this.buildModalUrl(id), modalItemIndex: newIndex })
+    this.setState({ modalItemIndex: newIndex })
+    this.loadModalImage(id)
     this.fetchModalDate(id)
   }
 
@@ -1396,7 +1440,8 @@ class Gallery extends React.Component{
     while (idx >= 0 && idx < this.itemsRef.length){
       const [, faceId] = this.itemsRef[idx]
       if (this.state.hidden.indexOf(faceId) === -1){
-        this.setState({ modalURL: this.buildModalUrl(faceId), modalItemIndex: idx, modalSendToOtherPerson: false })
+        this.setState({ modalItemIndex: idx, modalSendToOtherPerson: false })
+        this.loadModalImage(faceId)
         this.fetchModalDate(faceId)
         return true
       }
