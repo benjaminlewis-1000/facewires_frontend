@@ -155,7 +155,12 @@ class GeocodeReviewTool extends React.Component {
     return (
       <tr key={key} className={row.metro_validated ? 'geocodeRowValidated' : undefined}>
         <td className='geocodePreciseCity'>
-          {row.locality || <span className='geocodeUnknownLocality'>(unknown)</span>}
+          {row.locality
+            ? <span title={row.locality_is_approximate ? 'Nominatim had nothing usable here - this is the nearest named place we know of, not the actual precise location.' : undefined}>
+                {row.locality_is_approximate && <span className='geocodeApproxMarker'>~</span>}
+                {row.locality}
+              </span>
+            : <span className='geocodeUnknownLocality'>(unknown)</span>}
           {row.state ? `, ${row.state}` : ''}
           {row.country ? `, ${row.country}` : ''}
         </td>
@@ -211,8 +216,13 @@ class GeocodeReviewTool extends React.Component {
     // longer guaranteed to stay validated-last, so the split has to be
     // recomputed from each row's own flag every render rather than
     // assumed from position.
-    const knownPending = rows.filter(r => !r.metro_validated && r.locality)
-    const unknownPending = rows.filter(r => !r.metro_validated && !r.locality)
+    // An approximate locality (the offline nearest-named-place fallback -
+    // see CLAUDE.md/geocode.py) is grouped with the truly-unknown ones
+    // here too - it's real enough to display, but still not something to
+    // usefully compare the metro pick against, same reasoning as a bare
+    // null locality.
+    const knownPending = rows.filter(r => !r.metro_validated && r.locality && !r.locality_is_approximate)
+    const unknownPending = rows.filter(r => !r.metro_validated && (!r.locality || r.locality_is_approximate))
     const validated = rows.filter(r => r.metro_validated)
 
     return (
@@ -234,7 +244,7 @@ class GeocodeReviewTool extends React.Component {
               {knownPending.map(row => this.renderRow(row))}
               {unknownPending.length > 0 && (
                 <tr className='geocodeSectionDivider'>
-                  <td colSpan={4}>Unknown precise location</td>
+                  <td colSpan={4}>Unknown or approximate precise location</td>
                 </tr>
               )}
               {unknownPending.map(row => this.renderRow(row))}

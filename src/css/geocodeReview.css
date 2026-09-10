@@ -46,6 +46,12 @@
   white-space: nowrap;
 }
 
+.geocodeApproxMarker{
+  color: #b06a00;
+  font-weight: bold;
+  margin-right: 2px;
+}
+
 .geocodeUnknownLocality{
   color: #888;
   font-style: italic;
