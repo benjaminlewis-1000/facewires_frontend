@@ -489,6 +489,11 @@ class Gallery extends React.Component{
     // there instead of teaching it to expand representatives too.
     if (this.props.groupByCluster) return null
     if (this.props.unlabeled) return 'confirm'
+    // The ".ignore" "Flagged & unverified" row (reviewFlaggedUnverifiedOnly)
+    // is a sub-view of only_unverified (mutually exclusive with unlabeled -
+    // see picasaScreen.jsx's setToggle), showing already-declared,
+    // unverified faces - exactly what 'verify' already targets, so no
+    // special-casing needed here.
     if (this.props.only_unverified) return 'verify'
     return null
   }
@@ -1021,6 +1026,32 @@ class Gallery extends React.Component{
     // only reflected on the next 10-minute people-list poll.
     if (this.props.reviewFlaggedOnly && proposedCount){
       addDelta(ignore_person_id, { num_review_flagged: -proposedCount })
+      // confirm_proposed is the one action here that actually declares
+      // the face to .ignore (associate_person, backend) rather than
+      // rejecting/redirecting it elsewhere - it lands as validated=False
+      // (a fresh declare always is) and mobile_review_hidden survives
+      // the transition (nothing clears it - see api/views.py), so these
+      // faces immediately become part of the verify screen's "Flagged &
+      // unverified" row/count too. Keeps that sidebar number live
+      // without waiting on the next people-list poll, same reasoning as
+      // num_review_flagged's own decrement just above.
+      if (action_type === 'confirm_proposed'){
+        addDelta(ignore_person_id, { num_review_flagged_unverified: proposedCount })
+      }
+    }
+
+    // Mirror image of the block above, for the verify screen's ".ignore"
+    // "Flagged & unverified" row (reviewFlaggedUnverifiedOnly) - every
+    // tile there is, by construction, a 'defined' face declared to
+    // .ignore, unverified, with mobile_review_hidden=True. Any action
+    // taken here moves it out of that pool one way or another - verified
+    // (the expected, common case: V/row-verify, already handled generically
+    // above since these tiles are ordinary 'defined' faces to that logic),
+    // removed to Unassigned, or hard-ignored - so it stops counting here
+    // regardless of which action fired, same reasoning as
+    // num_review_flagged's decrement.
+    if (this.props.reviewFlaggedUnverifiedOnly && definedCount){
+      addDelta(ignore_person_id, { num_review_flagged_unverified: -definedCount })
     }
 
     return deltas
@@ -1576,6 +1607,7 @@ class Gallery extends React.Component{
       ignore_tab: this.props.current_person_id === this.props.ignore_person_id,
       only_unverified: this.props.only_unverified,
       reviewFlaggedOnly: this.props.reviewFlaggedOnly,
+      reviewFlaggedUnverifiedOnly: this.props.reviewFlaggedUnverifiedOnly,
       updatePersonList: this.props.updatePersonList,
       updatePersonCounts: this.props.updatePersonCounts,
       onRecordUndo: this.props.onRecordUndo,
@@ -1657,6 +1689,7 @@ class Gallery extends React.Component{
                   ignore_tab={this.props.current_person_id === this.props.ignore_person_id}
                   only_unverified={this.props.only_unverified}
                   reviewFlaggedOnly={this.props.reviewFlaggedOnly}
+                  reviewFlaggedUnverifiedOnly={this.props.reviewFlaggedUnverifiedOnly}
                   setInvisible={this.finishModalSendToOtherPerson}
                   onCancel={this.cancelModalSendToOtherPerson}
                   setHidden={this.setHidden}

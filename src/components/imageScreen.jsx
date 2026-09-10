@@ -106,7 +106,8 @@ class ImageScreen extends React.Component{
         this.props.unlabeled !== prevProps.unlabeled ||
         this.props.only_unverified !== prevProps.only_unverified ||
         this.props.refreshVersion !== prevProps.refreshVersion ||
-        this.props.reviewFlaggedOnly !== prevProps.reviewFlaggedOnly){
+        this.props.reviewFlaggedOnly !== prevProps.reviewFlaggedOnly ||
+        this.props.reviewFlaggedUnverifiedOnly !== prevProps.reviewFlaggedUnverifiedOnly){
       const generation = ++this._fetchGeneration
       const debugTag = `[ImageScreen ${this.props.api_id}]`
       this.setState({loading: true})
@@ -141,7 +142,14 @@ class ImageScreen extends React.Component{
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
         axiosInstance.get(imagery_url, {
             params: {
-              only_unverified: this.props.only_unverified
+              only_unverified: this.props.only_unverified,
+              // Verify screen's ".ignore" subordinate row ("Flagged &
+              // unverified") - see picasaScreen.jsx's
+              // reviewFlaggedUnverifiedOnly. Harmless to always include;
+              // the backend only honors it for the .ignore person, and
+              // only alongside only_unverified=true (PersonParamView's
+              // face_declared/do_only_unverified branch).
+              ...(this.props.reviewFlaggedUnverifiedOnly ? { flagged: true } : {}),
             }
           })
           .then( (response) => {
@@ -168,7 +176,11 @@ class ImageScreen extends React.Component{
         this.setState({loading_definite: false})
       }
 
-      if (this.props.tab === 'People' && !this.props.only_unverified ){
+      // reviewFlaggedUnverifiedOnly only ever coexists with only_unverified
+      // (see picasaScreen.jsx's setToggle) so !this.props.only_unverified
+      // already covers it, but this view genuinely has no possible-match
+      // concept either way.
+      if (this.props.tab === 'People' && !this.props.only_unverified){
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
         axiosInstance.get(imagery_url, {
             params: this.props.reviewFlaggedOnly ? { flagged: true } : {}
@@ -377,6 +389,7 @@ class ImageScreen extends React.Component{
                     unlabeled={this.props.unlabeled}
                     only_unverified={this.props.only_unverified}
                     reviewFlaggedOnly={this.props.reviewFlaggedOnly}
+                    reviewFlaggedUnverifiedOnly={this.props.reviewFlaggedUnverifiedOnly}
                     groupByCluster={this.props.only_unverified && this.state.groupByCluster}
                     clusterGroups={this.state.clusterGroups}
                     videoFaceIds={this.state.videoFaceIds}
