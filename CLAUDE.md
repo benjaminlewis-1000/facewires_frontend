@@ -55,16 +55,32 @@ changing URLs/environment logic, or consolidate them if doing a larger refactor.
 `MainApp` → `PicasaScreen` (`picasaScreen.jsx`, the real root component) → tab switch between:
 - **People tab:** `PersonSidebar` (list of tagged people) + `ImageScreen` → `Gallery` (grid of face crops)
 - **Folders tab:** `FolderSidebar` (photo folders/albums by year) + `ImageScreen` → `Gallery`
-- **Tools tab:** `ToolsScreen` (`toolsScreen.jsx`, added 2026-08-27) — **mocked scaffolding, not a real
-  feature yet.** Self-contained (owns its own `selectedToolId`/mock form state internally, no props from
-  `PicasaScreen`, no API calls) so it's a one-file add/remove: delete `toolsScreen.jsx` and the single
-  `<ToolsScreen />` line in `picasaScreen.jsx`'s `renderSidebar()` to fully revert. Reuses the existing
-  `.sidebarList`/`.base-state`/`.click-state` (sidebar) and `.screenHeader`/`.imageScreen` (content pane)
-  CSS classes so it visually matches People/Folders without new CSS. Sidebar lists 3 placeholder tool
-  names; the panel shows the selected tool's name/blurb plus an unwired dropdown and two checkboxes -
-  purely to demonstrate the two-pane layout, not real functionality. Whatever real tools eventually go
-  here will need actual design (their own state shape, likely real props/API calls) - don't build on this
-  file's specific mock content, just its layout shape.
+- **Tools tab:** `ToolsScreen` (`toolsScreen.jsx`, added 2026-08-27) now has one real tool, "Fix Geocoding"
+  (`REAL_TOOLS`, added 2026-09-10), sitting above a visual divider (`.geocodeSidebarDivider`, `sidebar.css`)
+  from the three placeholder mock tools below it (`MOCK_TOOLS` — still pure scaffolding, no props/API
+  calls, one-file-removable as before: delete `toolsScreen.jsx`'s `MOCK_TOOLS` array, its `.map()` in the
+  sidebar, the divider, and the ternary's mock-content branch). Still reuses the existing `.sidebarList`/
+  `.base-state`/`.click-state`/`.screenHeader`/`.imageScreen` classes for both real and mock tools.
+  - **Fix Geocoding** (`geocodeReviewTool.jsx`, `css/geocodeReview.css`) reviews/corrects
+    `find_nearest_metro()`'s offline "largest place within the nearest radius band" guess
+    (`django_picasa`'s `filepopulator/geocode.py`) against each photo's precise reverse-geocoded locality
+    — that heuristic sometimes disagrees with what a person would intuitively pick (e.g. a Pisa coordinate
+    resolving to Livorno instead of Florence). `GeocodeCache` is keyed per-coordinate (~11m rounding), not
+    per place, so the backend (`api/geocode_views.py`) builds the review table by grouping on `(locality,
+    country, nearest_metro_name)` — deliberately not on metro name alone, since the same metro name can be
+    the *correct* pick for a totally different, unrelated locality elsewhere. `GET /api/geocode_review/`
+    returns those groups (validated-last) plus `{total, validated}` metrics; `PATCH
+    /api/geocode_review/action/` either validates a group's current pick as-is or corrects it to a
+    different place — resolved first against the offline `major_places.csv` gazetteer, falling back to a
+    live Nominatim forward-geocode (`resolve_named_place()`) for anything not in that curated list (a
+    smaller hometown, a national park, a landmark) — applied to every `GeocodeCache` row in the group, with
+    `nearest_metro_distance_km` recomputed per-row via haversine. Two new `GeocodeCache` fields,
+    `metro_validated`/`metro_override`, record this without changing `nearest_metro_name`/
+    `nearest_metro_distance_km`'s shape — a corrected value is indistinguishable from an algorithm-produced
+    one unless something explicitly checks `metro_override`. `GET /api/geocode_review/search_places/` backs
+    the frontend's type-ahead over the same gazetteer. Both `run_geocoding_backfill()` (only ever processes
+    previously-uncached coordinates) and this feature were written/deployed together — a manual correction
+    here is permanent, not at risk of being silently overwritten by the next scheduled backfill run.
 
 `PicasaScreen` fetches the full people list (`/person_list/`) and folder list (`/folder_list/`) on mount,
 paginating through DRF-style `{results, next, count}` responses via `compile_api_list` +

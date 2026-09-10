@@ -183,6 +183,11 @@ sourceCountDelta(n){
     // .ignore here removes it from that pool too, same as every other
     // action already handled in gallery.jsx's buildCountDeltas.
     if (this.props.reviewFlaggedOnly) delta.num_review_flagged = -n
+    // Mirror image, for the "Flagged & unverified" audit row
+    // (reviewFlaggedUnverifiedOnly) - its tiles are always 'defined' by
+    // construction, so this always lands in the `else` branch above
+    // (num_faces), same as the reviewFlaggedOnly/num_possibilities case.
+    if (this.props.reviewFlaggedUnverifiedOnly) delta.num_review_flagged_unverified = -n
     return delta
   }
   if (this.props.current_person_id === this.props.unassigned_person_id){

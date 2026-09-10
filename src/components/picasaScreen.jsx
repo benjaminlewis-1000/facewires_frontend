@@ -239,6 +239,17 @@ class PicasaScreen extends React.Component{
       // the extra mobile_review_hidden filter. Reset to false by
       // setApiUrl any time a normal sidebar row is clicked.
       reviewFlaggedOnly: false,
+      // ".ignore" subordinate row on the verify screen ("Flagged &
+      // unverified") - faces already declared to .ignore, not yet
+      // verified, that were ALSO flagged at some point (mobile_review_hidden
+      // survives confirm, see CLAUDE.md). Only meaningful alongside
+      // only_unverified_toggle (see setToggle's reset below) - tells
+      // ImageScreen's face_declared fetch to add the flagged filter.
+      // Mutually exclusive with reviewFlaggedOnly (that one's the
+      // unlabeled-toggle equivalent, for still-proposed candidates) - see
+      // selectReviewFlagged/selectReviewFlaggedUnverified and setApiUrl
+      // below.
+      reviewFlaggedUnverifiedOnly: false,
 
       showRenameModal: false,
       renamePersonId: null,
@@ -606,15 +617,16 @@ class PicasaScreen extends React.Component{
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
       this.setState({selectedIndex: index})
-      this.setState({reviewFlaggedOnly: false})
+      this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false})
     }else if (childType === 'person'){
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
       this.setState({selectedIndex: index})
       // A normal sidebar click always means "leave the .ignore
-      // subordinate filtered view" - selectReviewFlagged below is the
-      // only path that turns this back on.
-      this.setState({reviewFlaggedOnly: false})
+      // subordinate filtered view" - selectReviewFlagged/
+      // selectReviewFlaggedUnverified below are the only paths that turn
+      // either back on.
+      this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false})
     }
     // console.log(this.state.image_api_id)
   }
@@ -634,6 +646,27 @@ class PicasaScreen extends React.Component{
       api_id: ignoreId,
       selectedIndex: index,
       reviewFlaggedOnly: true,
+      reviewFlaggedUnverifiedOnly: false,
+    })
+  }
+
+  // Sidebar's ".ignore" subordinate row on the verify screen ("Flagged &
+  // unverified") - mirrors selectReviewFlagged above, but for faces
+  // already declared to .ignore, not yet verified, that were ALSO
+  // flagged at some point (mobile_review_hidden survives confirm - see
+  // CLAUDE.md). See personSidebar.jsx's makeReviewFlaggedUnverifiedRow/
+  // handleReviewFlaggedUnverifiedClick.
+  selectReviewFlaggedUnverified = () => {
+    const ignoreId = this.state.ignore_person_id
+    const ignorePerson = this.state.people.find(p => p.id === ignoreId)
+    if (!ignorePerson) return
+    const index = this.state.people.findIndex(p => p.id === ignoreId)
+    this.setState({
+      api_source: ignorePerson.url,
+      api_id: ignoreId,
+      selectedIndex: index,
+      reviewFlaggedOnly: false,
+      reviewFlaggedUnverifiedOnly: true,
     })
   }
 
@@ -651,13 +684,22 @@ class PicasaScreen extends React.Component{
             if (other !== childField) next[other] = false
           }
         }
-        // The ".ignore" subordinate row only shows in unlabeled mode
-        // (see personSidebar.jsx) - if unlabeled is being turned off
-        // while the review-flagged view is active, leaving
-        // reviewFlaggedOnly set would strand the gallery in a filtered
-        // state with no visible row/way back to it.
-        if (childField === 'unlabeled_toggle' && !turningOn && prevState.reviewFlaggedOnly){
+        // The ".ignore" subordinate rows only show alongside their own
+        // toggle - "Flagged for review" under unlabeled (see
+        // personSidebar.jsx), "Flagged & unverified" under only_unverified.
+        // If that toggle is ending up off after this change - whether
+        // because it was the one directly clicked, or because the OTHER
+        // toggle was just turned on and knocked it off via the
+        // exclusiveToggles loop above - leaving the review-flagged flag
+        // set would strand the gallery in a filtered state with no
+        // visible row/way back to it.
+        const unlabeledWillBeOn = childField === 'unlabeled_toggle' ? turningOn : next.unlabeled_toggle ?? prevState.unlabeled_toggle
+        const onlyUnverifiedWillBeOn = childField === 'only_unverified_toggle' ? turningOn : next.only_unverified_toggle ?? prevState.only_unverified_toggle
+        if (!unlabeledWillBeOn && prevState.reviewFlaggedOnly){
           next.reviewFlaggedOnly = false
+        }
+        if (!onlyUnverifiedWillBeOn && prevState.reviewFlaggedUnverifiedOnly){
+          next.reviewFlaggedUnverifiedOnly = false
         }
         return next
       })
@@ -703,7 +745,7 @@ class PicasaScreen extends React.Component{
         if (!delta) return person
 
         const updated = { ...person }
-        for (const field of ['num_faces', 'num_possibilities', 'num_unverified_faces', 'num_review_flagged']){
+        for (const field of ['num_faces', 'num_possibilities', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_unverified']){
           if (delta[field]){
             updated[field] = Math.max(0, (updated[field] || 0) + delta[field])
           }
@@ -997,7 +1039,7 @@ class PicasaScreen extends React.Component{
     if ( this.state.tab === "People" ){
       return (
       <div>
-        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} />
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly} onSelectReviewFlaggedUnverified={this.selectReviewFlaggedUnverified} />
         <ImageScreen
           tab={this.state.tab}
           api_source={this.state.api_source}
@@ -1014,6 +1056,7 @@ class PicasaScreen extends React.Component{
           only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}
           reviewFlaggedOnly={this.state.reviewFlaggedOnly}
+          reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly}
         />
       </div>
       );

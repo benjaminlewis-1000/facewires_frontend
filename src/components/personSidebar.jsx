@@ -65,6 +65,13 @@ class PersonSidebar extends React.Component {
     this.setState({ personSelected: index, personSelectedId: id })
   }
 
+  // Same idea, for the "Flagged & unverified" subordinate row - see
+  // makeReviewFlaggedUnverifiedRow below.
+  handleReviewFlaggedUnverifiedClick(index, id) {
+    this.props.onSelectReviewFlaggedUnverified && this.props.onSelectReviewFlaggedUnverified()
+    this.setState({ personSelected: index, personSelectedId: id })
+  }
+
   // Same filtering logic used by render(), but returned as data so
   // componentDidUpdate can check whether the current selection survived
   // a toggle change without having to duplicate the filter conditions.
@@ -91,7 +98,17 @@ class PersonSidebar extends React.Component {
       // totalUnverified().
       if (only_unverified && (value.person_name === "_NO_FACE_ASSIGNED_" || value.person_name === 'Unassigned')) return false
       if (only_unlabeled && value.num_possibilities === 0) return false
-      if (only_unverified && value.num_unverified_faces === 0) return false
+      // .ignore's own num_unverified_faces already excludes flagged faces
+      // (backend partition - see PersonListView) - without this carve-out,
+      // .ignore would vanish from the sidebar entirely (subordinate row
+      // included) the moment every one of its unverified faces happened
+      // to be a flagged one, even though there's still something to
+      // review via "Flagged & unverified". Same reasoning as the
+      // mobile_review_hidden real-person regression fixed for the
+      // face_poss partition (see IgnoreReviewFlaggedPartitionTests'
+      // test_real_person_still_shows_a_mobile_review_hidden_candidate).
+      if (only_unverified && value.num_unverified_faces === 0 &&
+          !(value.person_name === '.ignore' && (value.num_review_flagged_unverified || 0) > 0)) return false
       return true
     }
 
@@ -206,6 +223,31 @@ class PersonSidebar extends React.Component {
       </button>
     )
   }
+  // Verify screen's ".ignore" subordinate row - a filtered view of
+  // .ignore's already-declared (declared_name, not poss_ident1), still-
+  // unverified faces that were ALSO flagged at some point via the mobile
+  // app's ignore-review flow. mobile_review_hidden is never cleared on
+  // confirm (see CLAUDE.md), so a candidate flagged via makeReviewFlaggedRow
+  // above and later manually confirmed as .ignore still carries it here -
+  // this is the audit trail for "flagged, then confirmed as .ignore
+  // anyway, but not yet verified." Complementary partition of the main
+  // verify screen's own .ignore query (PersonParamView's face_declared/
+  // do_only_unverified branch), same shape as makeReviewFlaggedRow's own
+  // poss_ident1 partition just above.
+  makeReviewFlaggedUnverifiedRow(ignoreValue, ignoreIndex) {
+    const selected = this.props.reviewFlaggedUnverifiedOnly
+    const count = ignoreValue.num_review_flagged_unverified || 0
+    var className = (selected ? 'click-state' : 'base-state') + ' sidebarSubordinate'
+    return (
+      <button
+        key={`${ignoreIndex}-flagged-unverified`}
+        className={className}
+        onClick={() => this.handleReviewFlaggedUnverifiedClick(ignoreIndex, ignoreValue.id)}
+      >
+        {`↳ Flagged & unverified   (${count})`}
+      </button>
+    )
+  }
   // Total unverified-faces count across every real person, for the
   // "Only Unverified Faces" screen's non-clickable header label (replaces
   // the Unassigned row there - see getFilteredEntries' passesFilter).
@@ -232,14 +274,20 @@ class PersonSidebar extends React.Component {
     var items = entries.flatMap(({ index, value }) => {
       if (index === -100){
         const noOne = { ...value, person_name: 'Unassigned' }
-        return [this.makePerson(noOne, -100, this.state.personSelected === -100 && !this.props.reviewFlaggedOnly)]
+        return [this.makePerson(noOne, -100, this.state.personSelected === -100 && !this.props.reviewFlaggedOnly && !this.props.reviewFlaggedUnverifiedOnly)]
       }
-      const rows = [this.makePerson(value, index, this.state.personSelected === index && !this.props.reviewFlaggedOnly, only_unverified, only_unlabeled)]
-      // Only meaningful in unlabeled mode - the flagged faces this
-      // filters to are always still-undeclared (see picasaScreen.jsx's
-      // reviewFlaggedOnly reset when unlabeled is turned off).
+      const rows = [this.makePerson(value, index, this.state.personSelected === index && !this.props.reviewFlaggedOnly && !this.props.reviewFlaggedUnverifiedOnly, only_unverified, only_unlabeled)]
+      // "Flagged for review" only makes sense in unlabeled mode - its
+      // faces are always still-undeclared (see picasaScreen.jsx's
+      // reviewFlaggedOnly reset when unlabeled is turned off). "Flagged &
+      // unverified" is the verify screen's own equivalent instead - same
+      // underlying mobile_review_hidden flag, but against already-declared,
+      // unverified faces, so it lives under only_unverified instead.
       if (value.person_name === '.ignore' && only_unlabeled){
         rows.push(this.makeReviewFlaggedRow(value, index))
+      }
+      if (value.person_name === '.ignore' && only_unverified){
+        rows.push(this.makeReviewFlaggedUnverifiedRow(value, index))
       }
       return rows
     })

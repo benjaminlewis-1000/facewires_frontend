@@ -1,10 +1,17 @@
 import React from 'react';
+import GeocodeReviewTool from './geocodeReviewTool';
 
-// Mocked scaffolding for the Tools tab - names/content here are all
-// placeholders. Deliberately self-contained (no props from PicasaScreen,
-// no real API calls) so this is a one-file add and a one-file remove:
-// delete this file and the single <ToolsScreen /> line in
-// picasaScreen.jsx's renderSidebar(), and the Tools tab is back to a stub.
+// The first real tool this tab has ever had - see CLAUDE.md. Everything
+// below it is still the original mocked scaffolding (names/content all
+// placeholders, no real API calls) - the divider rendered just after
+// REAL_TOOLS in the sidebar (search "geocodeSidebarDivider" below) exists
+// only to visually separate the two; delete it along with MOCK_TOOLS
+// itself whenever the mocks finally go, rather than leaving a lone
+// divider with nothing beneath it.
+const REAL_TOOLS = [
+  { id: 'geocode-review', name: 'Fix Geocoding' },
+];
+
 const MOCK_TOOLS = [
   { id: 'duplicate-finder', name: 'Duplicate Finder', blurb: 'Scan the library for likely duplicate photos and review them side by side before deciding what to keep.' },
   { id: 'batch-rename', name: 'Batch Rename', blurb: 'Rename a folder of photos in bulk using a naming pattern, instead of one at a time.' },
@@ -16,7 +23,7 @@ class ToolsScreen extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      selectedToolId: MOCK_TOOLS[0].id,
+      selectedToolId: REAL_TOOLS[0].id,
       mockOption: 'option-a',
       mockCheckboxA: false,
       mockCheckboxB: true,
@@ -24,11 +31,22 @@ class ToolsScreen extends React.Component {
   }
 
   render() {
-    const selectedTool = MOCK_TOOLS.find(t => t.id === this.state.selectedToolId)
+    const realTool = REAL_TOOLS.find(t => t.id === this.state.selectedToolId)
+    const selectedTool = realTool || MOCK_TOOLS.find(t => t.id === this.state.selectedToolId)
 
     return (
       <div>
         <div className="sidebarList" id="toolSidebar">
+          {REAL_TOOLS.map(tool => (
+            <button
+              key={tool.id}
+              className={this.state.selectedToolId === tool.id ? 'click-state' : 'base-state'}
+              onClick={() => this.setState({ selectedToolId: tool.id })}
+            >
+              {tool.name}
+            </button>
+          ))}
+          <div className='geocodeSidebarDivider' />
           {MOCK_TOOLS.map(tool => (
             <button
               key={tool.id}
@@ -45,6 +63,9 @@ class ToolsScreen extends React.Component {
         </div>
 
         <div className='imageScreen'>
+          {realTool ? (
+            <GeocodeReviewTool />
+          ) : (
           <div style={{ maxWidth: 480, padding: '10px 4px' }}>
             <p>{selectedTool.blurb}</p>
 
@@ -82,6 +103,7 @@ class ToolsScreen extends React.Component {
               </label>
             </div>
           </div>
+          )}
         </div>
       </div>
     );
