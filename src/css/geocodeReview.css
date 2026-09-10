@@ -1,7 +1,3 @@
-.geocodeReviewTool{
-  max-width: 900px;
-}
-
 .geocodeMetrics{
   font-size: 14px;
   font-weight: bold;
@@ -21,7 +17,18 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  /* auto (the default) sizes columns off their content, which left most
+     of the now-full-width table empty since only the actions column has
+     enough content to matter - fixed layout + explicit column widths
+     below makes every column actually stretch to fill the space, closer
+     to how the gallery grid fills its own container. */
+  table-layout: fixed;
 }
+
+.geocodeReviewTable th:nth-child(1){ width: 25%; }
+.geocodeReviewTable th:nth-child(2){ width: 35%; }
+.geocodeReviewTable th:nth-child(3){ width: 10%; }
+.geocodeReviewTable th:nth-child(4){ width: 30%; }
 
 .geocodeReviewTable thead th{
   position: sticky;
@@ -43,7 +50,12 @@
 }
 
 .geocodePreciseCity{
-  white-space: nowrap;
+  /* Was nowrap under the old content-sized (auto) table-layout, where
+     every column had as much room as its text needed - now that columns
+     have fixed percentage widths (see .geocodeReviewTable above), a long
+     "City, State, Country" string needs to actually wrap instead of
+     overflowing its column. */
+  word-break: break-word;
 }
 
 .geocodeApproxMarker{
@@ -58,7 +70,8 @@
 }
 
 .geocodeReviewTable input[type='text']{
-  width: 180px;
+  width: 100%;
+  box-sizing: border-box;
   font-size: 12px;
   padding: 2px 4px;
 }

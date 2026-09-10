@@ -100,9 +100,19 @@ class GeocodeReviewTool extends React.Component {
       rowBusy: { ...prevState.rowBusy, [key]: true },
       rowError: { ...prevState.rowError, [key]: null },
     }))
-    withRetry(() => axiosInstance.patch(store.get('api_url') + '/geocode_review/action/', {
+    // Deliberately NOT wrapped in withRetry - a 'correct' action's PATCH
+    // can trigger a live Nominatim call server-side, which already
+    // retries internally (geocode.py's RateLimiter, max_retries=2) before
+    // giving up. A second retry layer here just re-triggers that same
+    // internal retry-and-wait each time, and confirmed for real
+    // 2026-09-10: it can push total round-trip time past axios's own
+    // 15s timeout, which then throws a plain timeout error with no
+    // response body at all - losing the specific, useful error message
+    // (e.g. the rate-limit-cooldown one below) in favor of the generic
+    // fallback right when it matters most.
+    axiosInstance.patch(store.get('api_url') + '/geocode_review/action/', {
       locality: row.locality, country: row.country, metro_name: row.metro_name, ...body,
-    }))
+    })
       .then(response => {
         const patch = body.action === 'validate'
           ? { metro_validated: true }
