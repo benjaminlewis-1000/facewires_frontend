@@ -8,10 +8,26 @@
   margin-bottom: 12px;
 }
 
+/* Own scrolling box (same idea as gallery.jsx's virtualized grid) rather
+   than relying on the page/body scrolling - keeps the sticky <thead>
+   below simple: it only has to stick to the top of THIS container, not
+   fight the app's separately-fixed menu bar/screen header offsets. */
+.geocodeTableScroll{
+  max-height: calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - 13px);
+  overflow-y: auto;
+}
+
 .geocodeReviewTable{
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+}
+
+.geocodeReviewTable thead th{
+  position: sticky;
+  top: 0;
+  background-color: #fcfff7;
+  z-index: 2;
 }
 
 .geocodeReviewTable th{
@@ -76,7 +92,7 @@
   color: #888;
 }
 
-.geocodeValidatedDivider td{
+.geocodeSectionDivider td{
   text-align: center;
   font-weight: bold;
   font-size: 11px;

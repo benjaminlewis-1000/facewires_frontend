@@ -88,6 +88,12 @@ class GeocodeReviewTool extends React.Component {
     }, SEARCH_DEBOUNCE_MS)
   }
 
+  // Patches just this one row's fields in place - no refetch of the whole
+  // (potentially hundreds-of-rows) list on every Validate/Save click,
+  // which would otherwise reset scroll position and every other row's
+  // in-progress edit. See the .then() below for how rowKey - built from
+  // locality/country/metro_name - gets re-keyed after a correction
+  // changes metro_name.
   runAction(row, body) {
     const key = rowKey(row)
     this.setState(prevState => ({
@@ -97,7 +103,26 @@ class GeocodeReviewTool extends React.Component {
     withRetry(() => axiosInstance.patch(store.get('api_url') + '/geocode_review/action/', {
       locality: row.locality, country: row.country, metro_name: row.metro_name, ...body,
     }))
-      .then(() => this.fetchRows())
+      .then(response => {
+        const patch = body.action === 'validate'
+          ? { metro_validated: true }
+          : {
+            metro_name: response.data.metro_name,
+            metro_state: response.data.metro_state,
+            metro_distance_km: response.data.metro_distance_km,
+            metro_validated: true,
+            metro_override: true,
+          }
+        this.setState(prevState => ({
+          rows: prevState.rows.map(r => (rowKey(r) === key ? { ...r, ...patch } : r)),
+          rowBusy: { ...prevState.rowBusy, [key]: false },
+          // Re-key editText/suggestions onto the row's new identity (a
+          // correction changes metro_name, which rowKey is built from) so
+          // the input keeps showing the value that was just saved instead
+          // of reverting to whatever the old key's entry was.
+          editText: { ...prevState.editText, [rowKey({ ...row, ...patch })]: patch.metro_name || row.metro_name },
+        }))
+      })
       .catch(error => {
         const message = error?.response?.data?.error || 'Something went wrong saving this row.'
         this.setState(prevState => ({
@@ -131,6 +156,7 @@ class GeocodeReviewTool extends React.Component {
       <tr key={key} className={row.metro_validated ? 'geocodeRowValidated' : undefined}>
         <td className='geocodePreciseCity'>
           {row.locality || <span className='geocodeUnknownLocality'>(unknown)</span>}
+          {row.state ? `, ${row.state}` : ''}
           {row.country ? `, ${row.country}` : ''}
         </td>
         <td>
@@ -142,10 +168,16 @@ class GeocodeReviewTool extends React.Component {
             onChange={(e) => this.handleEditChange(key, e.target.value)}
           />
           <datalist id={datalistId}>
-            {suggestions.map(s => <option key={s.name} value={s.name}>{`${s.name} (${s.country_code})`}</option>)}
+            {suggestions.map(s => (
+              <option key={`${s.name}-${s.country_code}`} value={s.name}>
+                {s.state ? `${s.name}, ${s.state}` : `${s.name} (${s.country_code})`}
+              </option>
+            ))}
           </datalist>
-          {row.metro_distance_km != null &&
-            <span className='geocodeDistance'>{Math.round(row.metro_distance_km)} km away</span>}
+          <span className='geocodeDistance'>
+            {row.metro_state ? `${row.metro_state} - ` : ''}
+            {row.metro_distance_km != null ? `${Math.round(row.metro_distance_km)} km away` : ''}
+          </span>
         </td>
         <td className='geocodeNumImages'>{row.num_images}</td>
         <td className='geocodeActions'>
@@ -173,34 +205,48 @@ class GeocodeReviewTool extends React.Component {
     }
 
     const { rows, metrics } = this.state
-    const firstValidatedIndex = rows.findIndex(r => r.metro_validated)
-    const pending = firstValidatedIndex === -1 ? rows : rows.slice(0, firstValidatedIndex)
-    const validated = firstValidatedIndex === -1 ? [] : rows.slice(firstValidatedIndex)
+    // Filtered rather than sliced at "the first validated row" - once
+    // Validate/Save correction patch a row in place instead of
+    // refetching the whole (backend-pre-sorted) list, the array is no
+    // longer guaranteed to stay validated-last, so the split has to be
+    // recomputed from each row's own flag every render rather than
+    // assumed from position.
+    const knownPending = rows.filter(r => !r.metro_validated && r.locality)
+    const unknownPending = rows.filter(r => !r.metro_validated && !r.locality)
+    const validated = rows.filter(r => r.metro_validated)
 
     return (
       <div className='geocodeReviewTool'>
         <div className='geocodeMetrics'>
           {metrics.validated} of {metrics.total} validated
         </div>
-        <table className='geocodeReviewTable'>
-          <thead>
-            <tr>
-              <th>Precise city</th>
-              <th>Metro area</th>
-              <th>Photos</th>
-              <th>&nbsp;</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pending.map(row => this.renderRow(row))}
-            {validated.length > 0 && (
-              <tr className='geocodeValidatedDivider'>
-                <td colSpan={4}>Validated</td>
+        <div className='geocodeTableScroll'>
+          <table className='geocodeReviewTable'>
+            <thead>
+              <tr>
+                <th>Precise city</th>
+                <th>Metro area</th>
+                <th>Photos</th>
+                <th>&nbsp;</th>
               </tr>
-            )}
-            {validated.map(row => this.renderRow(row))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {knownPending.map(row => this.renderRow(row))}
+              {unknownPending.length > 0 && (
+                <tr className='geocodeSectionDivider'>
+                  <td colSpan={4}>Unknown precise location</td>
+                </tr>
+              )}
+              {unknownPending.map(row => this.renderRow(row))}
+              {validated.length > 0 && (
+                <tr className='geocodeSectionDivider'>
+                  <td colSpan={4}>Validated</td>
+                </tr>
+              )}
+              {validated.map(row => this.renderRow(row))}
+            </tbody>
+          </table>
+        </div>
       </div>
     )
   }
