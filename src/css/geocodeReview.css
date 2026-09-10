@@ -1,0 +1,88 @@
+.geocodeReviewTool{
+  max-width: 900px;
+}
+
+.geocodeMetrics{
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.geocodeReviewTable{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.geocodeReviewTable th{
+  text-align: left;
+  border-bottom: 2px solid #DDDDDD;
+  padding: 6px 8px;
+}
+
+.geocodeReviewTable td{
+  border-bottom: 1px solid #eee;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.geocodePreciseCity{
+  white-space: nowrap;
+}
+
+.geocodeUnknownLocality{
+  color: #888;
+  font-style: italic;
+}
+
+.geocodeReviewTable input[type='text']{
+  width: 180px;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.geocodeDistance{
+  display: block;
+  color: #666;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.geocodeNumImages{
+  text-align: right;
+}
+
+.geocodeActions button{
+  font-size: 11px;
+  margin-right: 4px;
+}
+
+.geocodeValidatedCheck{
+  color: #197d9c;
+  font-weight: bold;
+  font-size: 11px;
+}
+
+.geocodeRowError{
+  color: #b00020;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* Faded, so a validated row still reads as "handled" without being
+   entirely visually removed - it can still be corrected later if the
+   pick turns out to be wrong after all. */
+.geocodeRowValidated{
+  color: #888;
+}
+
+.geocodeValidatedDivider td{
+  text-align: center;
+  font-weight: bold;
+  font-size: 11px;
+  color: #888;
+  background-color: #f5f5f0;
+  border-top: 2px solid #DDDDDD;
+  border-bottom: 2px solid #DDDDDD;
+  padding: 4px 8px;
+}

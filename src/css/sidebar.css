@@ -78,6 +78,16 @@ https://stackoverflow.com/questions/2836827/how-do-you-add-a-scroll-bar-to-a-div
    not a <button> and styled to look inert - no pointer cursor, no hover
    state, a muted background - so it doesn't read as clickable the way
    every other row in this list is. */
+/* Tools tab only - separates the real tools (currently just "Fix
+   Geocoding") from the still-mocked placeholder entries below them (see
+   toolsScreen.jsx). Delete alongside MOCK_TOOLS itself once the mocks are
+   gone - nothing left to separate at that point. */
+.geocodeSidebarDivider{
+  height: 1px;
+  margin: 6px 8px;
+  background-color: #DDDDDD;
+}
+
 .sidebarTotalUnverified{
   padding: 4px 15px;
   cursor: default;
