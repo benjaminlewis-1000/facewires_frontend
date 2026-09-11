@@ -1,6 +1,17 @@
 import React from 'react';
+import store from 'store';
 import '../css/googlePhotos.css';
 import { getCredentialStatus, saveCredentials, oauthStartUrl } from './googlePhotosActions';
+
+// Computed rather than hardcoded so the number shown always matches
+// whatever api_url this build/environment is actually pointed at (dev vs
+// prod use different domains - see CLAUDE.md) - the value the user needs
+// to paste into Cloud Console as the OAuth client's authorized redirect
+// URI must match this exactly, byte for byte, or Google rejects the
+// callback with a redirect_uri_mismatch error.
+function oauthCallbackUrl() {
+  return store.get('api_url') + '/google_photos/oauth/callback/';
+}
 
 // The actual sync pipeline (session init/poll/complete against
 // api/photos_watch_views.py) lives in picasaScreen.jsx, not here - this
@@ -120,10 +131,27 @@ class GooglePhotosTool extends React.Component {
       return (
         <div className="googlePhotosConnectionPanel">
           <p className="googlePhotosBlurb">
-            Enter the OAuth client from your Google Cloud Console project (Client ID + Client
-            Secret, "Web application" type, with this app's callback URL registered as an
-            authorized redirect URI) to get started.
+            One-time setup in Google Cloud Console before this can connect:
           </p>
+          <ol className="googlePhotosSetupSteps">
+            <li>
+              At <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">console.cloud.google.com</a>,
+              create or reuse a project, then under <strong>APIs &amp; Services → Library</strong>, enable the{' '}
+              <strong>Google Photos Picker API</strong>.
+            </li>
+            <li>
+              Under <strong>APIs &amp; Services → Credentials</strong>, create an OAuth 2.0 Client ID of type{' '}
+              <strong>"Web application"</strong> (not "Desktop app"). Add this exact URL as an authorized redirect URI:
+              <div className="googlePhotosCodeBox">{oauthCallbackUrl()}</div>
+            </li>
+            <li>
+              Under <strong>APIs &amp; Services → OAuth consent screen</strong>, move the app from "Testing" to
+              "Production" - left in Testing, Google expires the connection after 7 days no matter what, meaning
+              you'd have to reconnect weekly. The console will say there if this scope needs its own verification
+              review to publish (a one-time review, not a recurring cost).
+            </li>
+            <li>Copy that Client ID and Client Secret into the form below and click Save.</li>
+          </ol>
           <form className="googlePhotosCredentialForm" onSubmit={this.handleSaveCredentials}>
             <input
               type="text" placeholder="Client ID"
@@ -169,11 +197,21 @@ class GooglePhotosTool extends React.Component {
     const connected = this.state.credentialStatus?.connected;
     return (
       <div className="googlePhotosTool">
-        <p className="googlePhotosBlurb">
-          Google's own API has no way to watch an album for new photos automatically -
-          each sync opens Google Photos so you can reselect what's there, then only the
-          photos not already downloaded are pulled in.
-        </p>
+        <div className="googlePhotosHowItWorks">
+          <p className="googlePhotosBlurb">
+            Google's own API has no way to watch an album for new photos automatically - there's no
+            "check for updates" button Google offers, only a picker the user has to go through by hand
+            every time.
+          </p>
+          <p className="googlePhotosBlurb">
+            <strong>To pick up new photos:</strong> click "Sync now" on an album whenever you want to
+            check it - this opens Google Photos in a new tab. Reselect <em>everything currently in the
+            album</em>, not just the new items (Google doesn't support partial/incremental selection).
+            That's safe to do every time: photos already downloaded here are automatically skipped, so
+            only genuinely new ones get pulled in. There's no reminder built in - do this on whatever
+            schedule makes sense for you (e.g. whenever someone tells you they've added photos).
+          </p>
+        </div>
 
         {this.renderConnectionPanel()}
 
