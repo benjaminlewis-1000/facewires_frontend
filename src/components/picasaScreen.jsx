@@ -18,6 +18,10 @@ import ToolsScreen from './toolsScreen'
 import axiosInstance from './axios_setup'
 import { withRetry } from './apiRetry';
 import { assignFaceToPerson, bulkFaceOperation } from './faceActions';
+import {
+  sha256Hex, isVideoFile, hasAcceptedExtension, uploadSingleShot, initChunkedUpload,
+  uploadChunk, getChunkedStatus, completeChunkedUpload,
+} from './uploadActions';
 import { Message } from 'semantic-ui-react';
 import CircleLoader from "react-spinners/CircleLoader";
 
@@ -25,6 +29,18 @@ import CircleLoader from "react-spinners/CircleLoader";
 // reasonable default — enough to get the concurrency win, low enough
 // to not hammer the backend even if the dataset grows a lot.
 const PAGINATION_CONCURRENCY = 5;
+
+// Chunk uploads run in parallel (the backend explicitly allows this -
+// each index writes its own file, no cross-chunk locking) - same
+// concurrency-pool helper and similar cap as pagination above.
+const UPLOAD_CHUNK_CONCURRENCY = 4;
+
+// Per-chunk retry budget on any failure (matches the upload spec's own
+// reference implementation) - deliberately not this app's withRetry
+// helper, which skips 4xx: a chunk checksum mismatch here is worth
+// retrying (could be genuine transit corruption, not a deterministic
+// client bug), same as any other transient failure.
+const UPLOAD_CHUNK_MAX_ATTEMPTS = 5;
 
 // True for a 401/403 from axios - i.e. the Django session actually
 // expired/was invalid, not a network blip. Used by the three initial
@@ -280,6 +296,20 @@ class PicasaScreen extends React.Component{
       // currently-displayed gallery, in case it was affected - see
       // imageScreen.jsx's componentDidUpdate.
       refreshVersion: 0,
+
+      // In-flight/completed upload jobs (Tools tab's "Upload Photos" -
+      // see uploadActions.js for the underlying API calls). Lives here
+      // rather than in the Upload tool's own component state so an
+      // upload survives switching to a different tab (Tools unmounts on
+      // tab switch, PicasaScreen doesn't) - same reasoning as the undo/
+      // redo stack above. Each entry: {id, file, filename, size,
+      // kind: 'single'|'chunked', status: 'hashing'|'uploading'|
+      // 'completed'|'failed', progress (0-1), error, results (server's
+      // files[] array), uploadId, chunkSize, totalChunks, receivedChunks
+      // (a Set)}. `file` (the real File object) only lives for this
+      // session/tab - it can't survive an actual page reload, see
+      // _runChunkedUpload's pending-uploads lookup for what does.
+      uploads: [],
     };
           
     // console.log(this.state.param_url)
@@ -343,12 +373,35 @@ class PicasaScreen extends React.Component{
     this.performRedo = this.performRedo.bind(this)
     this._handleUndoRedoKeyDown = this._handleUndoRedoKeyDown.bind(this)
 
+    this.startUpload = this.startUpload.bind(this)
+    this.retryUpload = this.retryUpload.bind(this)
+    this.dismissUpload = this.dismissUpload.bind(this)
+
   }
 
   // How often to reconcile locally-bookkept people counts against the
   // backend's actual numbers (e.g. faces sent back to Unassigned get
   // reassigned by someone else in the background over time).
   static PEOPLE_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+  // Threshold below which a file goes through the single-shot upload
+  // endpoint instead of chunked - conservatively under the documented
+  // 25MB default chunk_size (which the backend can change; this only
+  // decides which endpoint to call up front, not the actual chunk math,
+  // which always comes from the live /init/ response - see
+  // _runChunkedUpload). Any video always goes chunked regardless of
+  // size, per the upload spec's own recommendation - those are the files
+  // most likely to be large and/or on a slow connection.
+  static UPLOAD_CHUNK_THRESHOLD_BYTES = 20 * 1024 * 1024;
+
+  // localStorage key (via the `store` package already used elsewhere in
+  // this app) for chunked uploads that haven't completed yet - lets
+  // startUpload recognize "you already started this" if the same file
+  // (by name+size+checksum) is picked again after a reload, and resume
+  // from the backend's own received_chunks instead of restarting from
+  // scratch. Single-shot uploads have no partial-progress concept, so
+  // they aren't tracked here - if interrupted, they simply restart.
+  static PENDING_UPLOADS_KEY = 'pending_chunked_uploads';
 
 
   compareNames(a, b) {
@@ -1030,10 +1083,193 @@ class PicasaScreen extends React.Component{
       })
   }
 
+  ////////////////////////////////////////
+  ///  Tools tab - "Upload Photos"
+  ////////////////////////////////////////
+
+  _pendingUploadSignature(filename, size, checksum){
+    return `${filename}::${size}::${checksum}`
+  }
+
+  _loadPendingUploads(){
+    return store.get(PicasaScreen.PENDING_UPLOADS_KEY) || {}
+  }
+
+  _savePendingUpload(signature, record){
+    const all = this._loadPendingUploads()
+    all[signature] = record
+    store.set(PicasaScreen.PENDING_UPLOADS_KEY, all)
+  }
+
+  _removePendingUpload(signature){
+    const all = this._loadPendingUploads()
+    delete all[signature]
+    store.set(PicasaScreen.PENDING_UPLOADS_KEY, all)
+  }
+
+  updateUploadJob(id, patch){
+    this.setState(prevState => ({
+      uploads: prevState.uploads.map(job => job.id === id ? { ...job, ...patch } : job)
+    }))
+  }
+
+  // Kicks off tracking + the actual upload pipeline for one file - called
+  // once per file dropped/selected, so a multi-file drop gets one
+  // independent job/progress entry per file, all running concurrently.
+  async startUpload(file){
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const kind = (isVideoFile(file.name) || file.size > PicasaScreen.UPLOAD_CHUNK_THRESHOLD_BYTES) ? 'chunked' : 'single'
+    const job = {
+      id, file, filename: file.name, size: file.size, kind,
+      status: 'hashing', progress: 0, error: null, results: null,
+      uploadId: null, chunkSize: null, totalChunks: null, receivedChunks: new Set(),
+    }
+    this.setState(prevState => ({ uploads: [...prevState.uploads, job] }))
+
+    // The backend re-checks extension AND actual content regardless (a
+    // renamed .txt won't pass there either) - this is purely a fast,
+    // no-network rejection for the common case (an obviously-wrong file
+    // type) so it doesn't cost a hash + upload round-trip first. Shaped
+    // exactly like the server's own rejection response so the Upload
+    // tool's results rendering doesn't need two different code paths.
+    if (!hasAcceptedExtension(file.name)){
+      this.updateUploadJob(id, {
+        status: 'completed', progress: 1,
+        results: { status: 'rejected', files: [{ filename: file.name, status: 'rejected', reason: 'Unsupported file type.' }] },
+      })
+      return
+    }
+
+    try {
+      const checksum = await sha256Hex(file)
+      if (kind === 'single'){
+        await this._runSingleShotUpload(id, file, checksum)
+      } else {
+        await this._runChunkedUpload(id, file, checksum)
+      }
+    } catch (error) {
+      console.error('Upload failed', file.name, error)
+      const message = error?.response?.data?.error || 'Upload failed - please try again.'
+      this.updateUploadJob(id, { status: 'failed', error: message })
+    }
+  }
+
+  async _runSingleShotUpload(id, file, checksum){
+    this.updateUploadJob(id, { status: 'uploading', progress: 0 })
+    const response = await uploadSingleShot(file, checksum, (progressEvent) => {
+      if (progressEvent.total){
+        this.updateUploadJob(id, { progress: progressEvent.loaded / progressEvent.total })
+      }
+    })
+    this.updateUploadJob(id, { status: 'completed', progress: 1, results: response.data })
+  }
+
+  async _runChunkedUpload(id, file, checksum){
+    const signature = this._pendingUploadSignature(file.name, file.size, checksum)
+    const pending = this._loadPendingUploads()[signature]
+
+    let uploadId, chunkSize, totalChunks, receivedChunks
+
+    if (pending){
+      // Confirm the session is still alive (48h lifetime, or it may have
+      // already completed/failed some other way) rather than trusting a
+      // possibly-stale localStorage record - a 404 here means expired or
+      // unknown, so fall through to a fresh /init/ instead.
+      try {
+        const statusResp = await getChunkedStatus(pending.uploadId)
+        if (statusResp.data.status === 'in_progress'){
+          uploadId = pending.uploadId
+          chunkSize = statusResp.data.chunk_size
+          totalChunks = statusResp.data.total_chunks
+          receivedChunks = new Set(statusResp.data.received_chunks)
+        }
+      } catch (e) {
+        this._removePendingUpload(signature)
+      }
+    }
+
+    if (!uploadId){
+      const initResp = await initChunkedUpload(file.name, file.size, checksum)
+      uploadId = initResp.data.upload_id
+      chunkSize = initResp.data.chunk_size
+      totalChunks = initResp.data.total_chunks
+      receivedChunks = new Set()
+      this._savePendingUpload(signature, { uploadId })
+    }
+
+    this.updateUploadJob(id, {
+      status: 'uploading', uploadId, chunkSize, totalChunks,
+      receivedChunks, progress: receivedChunks.size / totalChunks,
+    })
+
+    const missingIndices = []
+    for (let i = 0; i < totalChunks; i++){
+      if (!receivedChunks.has(i)) missingIndices.push(i)
+    }
+
+    // Sent in parallel - the backend explicitly allows this (each index
+    // writes its own file, no cross-chunk locking).
+    await mapWithConcurrency(missingIndices, UPLOAD_CHUNK_CONCURRENCY, async (index) => {
+      const blob = file.slice(index * chunkSize, (index + 1) * chunkSize)
+      await this._uploadChunkWithRetry(uploadId, index, blob)
+      this.setState(prevState => ({
+        uploads: prevState.uploads.map(job => {
+          if (job.id !== id) return job
+          const nextReceived = new Set(job.receivedChunks)
+          nextReceived.add(index)
+          return { ...job, receivedChunks: nextReceived, progress: nextReceived.size / job.totalChunks }
+        })
+      }))
+    })
+
+    const completeResp = await completeChunkedUpload(uploadId)
+    this._removePendingUpload(signature)
+    this.updateUploadJob(id, { status: 'completed', progress: 1, results: completeResp.data })
+  }
+
+  async _uploadChunkWithRetry(uploadId, index, blob){
+    const checksum = await sha256Hex(blob)
+    let lastError
+    for (let attempt = 1; attempt <= UPLOAD_CHUNK_MAX_ATTEMPTS; attempt++){
+      try {
+        return await uploadChunk(uploadId, index, blob, checksum)
+      } catch (error) {
+        lastError = error
+      }
+    }
+    throw lastError
+  }
+
+  // Re-runs the whole pipeline for this job's file rather than trying to
+  // resume a half-built in-memory state - for 'chunked', this naturally
+  // picks back up from receivedChunks via the pending-uploads lookup
+  // above (same file/size/checksum -> same signature), so it re-hashes
+  // and re-checks /status/ rather than re-uploading what's already
+  // there. The old (failed) job entry is dropped in favor of the new one
+  // startUpload creates, so there's just one row per file, not a stale
+  // failed one sitting alongside a fresh retry.
+  retryUpload(id){
+    const job = this.state.uploads.find(j => j.id === id)
+    if (!job) return
+    this.dismissUpload(id)
+    this.startUpload(job.file)
+  }
+
+  dismissUpload(id){
+    this.setState(prevState => ({ uploads: prevState.uploads.filter(job => job.id !== id) }))
+  }
+
   renderSidebar() {
 
     if ( this.state.tab === "Tools" ){
-      return <ToolsScreen />
+      return (
+        <ToolsScreen
+          uploads={this.state.uploads}
+          onStartUpload={this.startUpload}
+          onRetryUpload={this.retryUpload}
+          onDismissUpload={this.dismissUpload}
+        />
+      )
     }
       
     if ( this.state.tab === "People" ){
@@ -1139,6 +1375,7 @@ class PicasaScreen extends React.Component{
                 onRedo={this.performRedo}
                 undoLabel={this.state.undoPointer >= 0 ? this.state.undoStack[this.state.undoPointer].label : ''}
                 redoLabel={this.state.undoPointer < this.state.undoStack.length - 1 ? this.state.undoStack[this.state.undoPointer + 1].label : ''}
+                uploadingCount={this.state.uploads.filter(j => j.status === 'hashing' || j.status === 'uploading').length}
               />
               <div>
                 {this.renderSidebar()}

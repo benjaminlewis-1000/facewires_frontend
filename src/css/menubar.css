@@ -182,6 +182,15 @@ input:checked + .slider:before {
   opacity: 0.75;
 }
 
+.uploadingIndicator{
+  display: inline-block;
+  color: #197d9c;
+  font-size: 13px;
+  font-style: italic;
+  margin: 0 10px 0 0;
+  vertical-align: middle;
+}
+
 .undoRedoButton{
   background: white;
   border: 1px solid #197d9c;
