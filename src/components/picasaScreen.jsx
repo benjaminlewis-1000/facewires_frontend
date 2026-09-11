@@ -337,6 +337,10 @@ class PicasaScreen extends React.Component{
       // a boolean flag on the album itself, since a sync session belongs
       // to a single attempt, not the album's persistent record.
       photoSyncSessions: {},
+      // Set from a ?google_photos_connected=1/?google_photos_error=...
+      // query param on mount - see componentDidMount. {type: 'success'|
+      // 'error', message} or null.
+      googlePhotosBanner: null,
     };
           
     // console.log(this.state.param_url)
@@ -453,6 +457,26 @@ class PicasaScreen extends React.Component{
   }
 
   componentDidMount(){
+    // Google Photos "Connect" flow (see CLAUDE.md) leaves the SPA entirely
+    // for a real browser redirect chain out to Google and back - the
+    // backend's OAuth callback lands back here as a full page load with
+    // ?google_photos_connected=1 or ?google_photos_error=... on /faces
+    // (same idea as the app's existing Authelia SSO redirect). Read it
+    // once here rather than in GooglePhotosTool itself, since the user
+    // may well land back on a different tab than Tools - this banner
+    // needs to be visible regardless of which tab is active. Cleaned up
+    // via replaceState so a later re-render/remount doesn't re-show it.
+    const params = new URLSearchParams(window.location.search)
+    const connected = params.get('google_photos_connected')
+    const error = params.get('google_photos_error')
+    if (connected || error) {
+      this.setState({
+        googlePhotosBanner: connected
+          ? { type: 'success', message: 'Google Photos connected.' }
+          : { type: 'error', message: `Couldn't connect Google Photos: ${error}` },
+      })
+      window.history.replaceState(null, '', window.location.pathname)
+    }
 
     function compareDirectories(a, b) {
       // Use toUpperCase() to ignore character casing
@@ -1596,6 +1620,16 @@ class PicasaScreen extends React.Component{
               <div>
                 {this.renderSidebar()}
               </div>
+
+              {this.state.googlePhotosBanner && (
+                <Message
+                  positive={this.state.googlePhotosBanner.type === 'success'}
+                  negative={this.state.googlePhotosBanner.type === 'error'}
+                  onDismiss={() => this.setState({ googlePhotosBanner: null })}
+                  content={this.state.googlePhotosBanner.message}
+                  style={{ position: 'fixed', top: 90, right: 20, zIndex: 200, maxWidth: 320 }}
+                />
+              )}
 
               {this.state.undoError && (
                 <Message

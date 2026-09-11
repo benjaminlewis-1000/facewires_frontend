@@ -610,12 +610,47 @@ its behavior, don't assume this file's history describes what's live.
   `GOOGLE_PHOTOS_STAGING_DIR` (a subdirectory of the existing `UPLOAD_STAGING_DIR`,
   so the existing filepopulator ingestion scan picks them up for free, same as
   Upload Photos above).
-  - Requires a one-time OAuth setup outside the app (Google Cloud Console client
-    registration + `scripts/google_photos_authorize.py`, run locally once) to mint
-    `GOOGLE_PHOTOS_CLIENT_ID`/`_SECRET`/`_REFRESH_TOKEN` env vars - see that script's
-    own docstring. Left in Google's default "Testing" OAuth consent mode, the
-    refresh token expires after 7 days unconditionally; moving it to "Production"
-    (a one-time Console setting) is what actually avoids a recurring login.
+  - Setup is entirely through the app's own GUI, not `.env`/server config - per the
+    user's own request, replacing an earlier version of this feature that used a
+    local bootstrap script and env vars (see git history if that's ever relevant
+    again). The Tools tab's "Connect Google Photos" panel has two states: paste in
+    a Client ID/Secret (saved to `api.models.GooglePhotosCredential`, a singleton DB
+    row - `client_secret` is write-only over the API, never echoed back by `GET
+    /api/google_photos/credentials/`), then click "Connect Google Photos", a plain
+    `<a href>` (not an axios call) that navigates the whole browser to
+    `GET /api/google_photos/oauth/start/`. That view redirects to Google's consent
+    screen; Google redirects back to `GET /api/google_photos/oauth/callback/`, which
+    exchanges the code for a refresh token, stores it on the same DB row, and
+    redirects the browser to the frontend's `/faces?google_photos_connected=1` (or
+    `?google_photos_error=...`) - `picasaScreen.jsx`'s `componentDidMount` reads that
+    param once, shows a dismissible banner regardless of which tab is active (the
+    user may not land back on Tools), and cleans the URL via `replaceState`. This
+    whole round trip is a real full-page browser navigation away from and back to
+    the SPA, the same pattern the app's existing Authelia SSO login already uses -
+    not an XHR/popup flow.
+  - **One-time step still required in Google Cloud Console** before any of the
+    above works (not something the app can do for you - Google requires every OAuth
+    client be registered in advance):
+    1. Create or reuse a project at https://console.cloud.google.com/, then under
+       "APIs & Services" > "Library", enable the **Google Photos Picker API**.
+    2. Under "APIs & Services" > "Credentials", create an OAuth 2.0 Client ID of
+       type **"Web application"** (not "Desktop app" - a fixed server-side redirect
+       needs a real registered URI, unlike a local script). Add this project's own
+       callback as an authorized redirect URI, exactly:
+       `https://<API_DOMAIN>/api/google_photos/oauth/callback/` (the dev/prod
+       `API_DOMAIN` values are the same ones already used elsewhere - `settings.
+       GOOGLE_PHOTOS_OAUTH_REDIRECT_URI` computes this from `HOST_DOMAIN`, so check
+       that setting if unsure of the exact value for a given environment).
+    3. Under "APIs & Services" > "OAuth consent screen", move the app from
+       "Testing" to "Production". Left in Testing, Google expires every refresh
+       token after 7 days unconditionally, which would mean reconnecting weekly -
+       Production removes that limit. Google's console will say directly at this
+       step whether `photospicker.mediaitems.readonly` requires its own
+       verification review to publish; if so, that's a one-time review to get
+       through, not a recurring cost.
+    4. Copy the Client ID and Client Secret from that credential into the Tools
+       tab's "Connect Google Photos" panel, then click "Connect Google Photos" and
+       approve access with the Google account whose shared albums you want to sync.
   - State lives in `picasaScreen.jsx` (`state.photoWatches`/`photoSyncSessions`),
     not `GooglePhotosTool`'s own component state - same reasoning as Upload Photos:
     a sync means the user goes off to a separate Google Photos tab to pick items,

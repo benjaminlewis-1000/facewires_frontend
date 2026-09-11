@@ -1,5 +1,6 @@
 import React from 'react';
 import '../css/googlePhotos.css';
+import { getCredentialStatus, saveCredentials, oauthStartUrl } from './googlePhotosActions';
 
 // The actual sync pipeline (session init/poll/complete against
 // api/photos_watch_views.py) lives in picasaScreen.jsx, not here - this
@@ -17,12 +18,42 @@ function formatDate(isoString) {
 class GooglePhotosTool extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { newTitle: '' };
+    this.state = {
+      newTitle: '',
+      // null while the initial GET is in flight - distinct from "fetched
+      // and not configured", which the connection panel below renders
+      // differently (a form to fill in vs nothing to show yet).
+      credentialStatus: null,
+      clientIdInput: '', clientSecretInput: '',
+      savingCredentials: false, credentialError: null,
+    };
     this.handleAdd = this.handleAdd.bind(this);
+    this.handleSaveCredentials = this.handleSaveCredentials.bind(this);
   }
 
   componentDidMount() {
     this.props.onFetchWatches();
+    this.fetchCredentialStatus();
+  }
+
+  fetchCredentialStatus() {
+    getCredentialStatus()
+      .then(response => this.setState({ credentialStatus: response.data, clientIdInput: response.data.client_id }))
+      .catch(error => console.log('Failed to fetch Google Photos credential status', error))
+  }
+
+  handleSaveCredentials(event) {
+    event.preventDefault();
+    const clientId = this.state.clientIdInput.trim();
+    const clientSecret = this.state.clientSecretInput.trim();
+    if (!clientId || !clientSecret) return;
+    this.setState({ savingCredentials: true, credentialError: null });
+    saveCredentials(clientId, clientSecret)
+      .then(response => this.setState({ credentialStatus: response.data, savingCredentials: false, clientSecretInput: '' }))
+      .catch(error => this.setState({
+        savingCredentials: false,
+        credentialError: error?.response?.data?.error || 'Could not save these credentials.',
+      }))
   }
 
   handleAdd(event) {
@@ -81,8 +112,61 @@ class GooglePhotosTool extends React.Component {
     );
   }
 
+  renderConnectionPanel() {
+    const status = this.state.credentialStatus;
+    if (!status) return null;
+
+    if (!status.configured) {
+      return (
+        <div className="googlePhotosConnectionPanel">
+          <p className="googlePhotosBlurb">
+            Enter the OAuth client from your Google Cloud Console project (Client ID + Client
+            Secret, "Web application" type, with this app's callback URL registered as an
+            authorized redirect URI) to get started.
+          </p>
+          <form className="googlePhotosCredentialForm" onSubmit={this.handleSaveCredentials}>
+            <input
+              type="text" placeholder="Client ID"
+              value={this.state.clientIdInput}
+              onChange={(e) => this.setState({ clientIdInput: e.target.value })}
+            />
+            <input
+              type="password" placeholder="Client Secret"
+              value={this.state.clientSecretInput}
+              onChange={(e) => this.setState({ clientSecretInput: e.target.value })}
+            />
+            <button type="submit" disabled={this.state.savingCredentials}>Save</button>
+          </form>
+          {this.state.credentialError && <p className="googlePhotosWatchError">{this.state.credentialError}</p>}
+        </div>
+      );
+    }
+
+    if (!status.connected) {
+      return (
+        <div className="googlePhotosConnectionPanel">
+          <p className="googlePhotosBlurb">Client saved. Connect your Google account to start syncing albums.</p>
+          <a className="googlePhotosConnectButton" href={oauthStartUrl()}>Connect Google Photos</a>
+          <button onClick={() => this.setState({ credentialStatus: { ...status, configured: false } })}>
+            Change client
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="googlePhotosConnectionPanel googlePhotosConnected">
+        <span>✓ Connected to Google Photos.</span>
+        <button onClick={() => this.setState({ credentialStatus: { ...status, configured: false } })}>
+          Change client
+        </button>
+      </div>
+    );
+  }
+
   render() {
     const watches = this.props.watches || [];
+    const connected = this.state.credentialStatus?.connected;
     return (
       <div className="googlePhotosTool">
         <p className="googlePhotosBlurb">
@@ -91,6 +175,9 @@ class GooglePhotosTool extends React.Component {
           photos not already downloaded are pulled in.
         </p>
 
+        {this.renderConnectionPanel()}
+
+        {!connected ? null : <>
         <form className="googlePhotosAddForm" onSubmit={this.handleAdd}>
           <input
             type="text"
@@ -115,6 +202,7 @@ class GooglePhotosTool extends React.Component {
           ))}
           {watches.length === 0 && <p className="googlePhotosBlurb">No albums added yet.</p>}
         </div>
+        </>}
       </div>
     );
   }

@@ -19,6 +19,46 @@
   padding: 6px 8px;
 }
 
+.googlePhotosConnectionPanel{
+  border: 1px solid #DDDDDD;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.googlePhotosConnectionPanel.googlePhotosConnected{
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  color: #197d9c;
+  font-size: 12px;
+}
+
+.googlePhotosCredentialForm{
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.googlePhotosCredentialForm input{
+  flex: 1;
+  padding: 6px 8px;
+}
+
+.googlePhotosConnectButton{
+  display: inline-block;
+  padding: 6px 12px;
+  background-color: #197d9c;
+  color: #fff;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 12px;
+}
+
 .googlePhotosWatchList{
   display: flex;
   flex-direction: column;
