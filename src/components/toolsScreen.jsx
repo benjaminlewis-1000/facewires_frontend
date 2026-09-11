@@ -1,8 +1,9 @@
 import React from 'react';
 import GeocodeReviewTool from './geocodeReviewTool';
+import UploadTool from './uploadTool';
 
-// The first real tool this tab has ever had - see CLAUDE.md. Everything
-// below it is still the original mocked scaffolding (names/content all
+// The first real tools this tab has had - see CLAUDE.md. Everything
+// below them is still the original mocked scaffolding (names/content all
 // placeholders, no real API calls) - the divider rendered just after
 // REAL_TOOLS in the sidebar (search "geocodeSidebarDivider" below) exists
 // only to visually separate the two; delete it along with MOCK_TOOLS
@@ -10,6 +11,7 @@ import GeocodeReviewTool from './geocodeReviewTool';
 // divider with nothing beneath it.
 const REAL_TOOLS = [
   { id: 'geocode-review', name: 'Fix Geocoding' },
+  { id: 'upload', name: 'Upload Photos' },
 ];
 
 const MOCK_TOOLS = [
@@ -63,8 +65,15 @@ class ToolsScreen extends React.Component {
         </div>
 
         <div className='imageScreen'>
-          {realTool ? (
+          {this.state.selectedToolId === 'geocode-review' ? (
             <GeocodeReviewTool />
+          ) : this.state.selectedToolId === 'upload' ? (
+            <UploadTool
+              uploads={this.props.uploads}
+              onStartUpload={this.props.onStartUpload}
+              onRetryUpload={this.props.onRetryUpload}
+              onDismissUpload={this.props.onDismissUpload}
+            />
           ) : (
           <div style={{ maxWidth: 480, padding: '10px 4px' }}>
             <p>{selectedTool.blurb}</p>

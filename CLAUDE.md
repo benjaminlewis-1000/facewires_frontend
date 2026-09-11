@@ -551,24 +551,46 @@ its behavior, don't assume this file's history describes what's live.
   server-side - same underlying gap as the merge orphan-record issue above
   (no delete-person endpoint yet). The frontend just decrements its count back
   to 0 locally; it'll sit as an empty orphan row until that endpoint exists.
-- Future feature, blocked on backend (not started - requested 2026-08-24): upload
-  images to the backend via the API, with:
-  - Drag-and-drop onto the page, plus a button to open the system file dialog,
-    handling any number of files at once with a progress/loading bar.
-  - Uploads should keep going in the background if the user navigates elsewhere
-    in the app while they're in flight (i.e. not tied to whatever component
-    happened to start them - needs to live somewhere that survives navigation,
-    the same reasoning that put the undo/redo stack in `picasaScreen.jsx` rather
-    than `Gallery`).
-  - After each upload, verify the photo actually made it onto the backend/
-    filesystem rather than just trusting a 200 from the initial request.
-  - User-defined sub-directory name at upload time, so uploads land pre-segmented
-    within the larger photo directory rather than all dumped in one place.
-  - Backend currently only has *read* access to the photo filesystem - no upload
-    endpoint exists at all yet. Needs: a new Django endpoint (accepting the
-    file(s) + the target sub-directory name), a defined default upload root in
-    the backend's `settings.py`, and - since the API container currently mounts
-    the photo directory read-only - either mounting a specific writable
-    sub-directory read/write in `docker-compose.yml`, or some other way to grant
-    write access without opening up the whole photo tree. Needs backend design/
-    implementation before any frontend work here can start.
+- **Tools tab: "Upload Photos"** (built 2026-09-11, backend's `api/upload_views.py`
+  deployed 2026-09-10) - drag-and-drop or a file-picker button, any number of files
+  at once (including a `.zip` of files), each tracked as its own independent job.
+  State (`state.uploads`, an array of job objects) lives in `picasaScreen.jsx`, not
+  the Upload tool component itself, for the same reason the undo/redo stack does -
+  the Tools screen unmounts on tab switch, `PicasaScreen` doesn't, so an upload
+  keeps running in the background regardless of which tab is showing. A small
+  always-visible "Uploading N…" indicator in the menu bar (`tabular_menu.jsx`'s
+  `UploadRemnant`, next to Undo/Redo) surfaces that regardless of tab too.
+  - Two upload paths per the backend spec: single-shot (`POST /api/upload/`) for
+    small non-video files, chunked (`init`/`chunk`/`status`/`complete`, four
+    endpoints) for anything larger or any video regardless of size
+    (`UPLOAD_CHUNK_THRESHOLD_BYTES`, `isVideoFile` - see `uploadActions.js`/
+    `picasaScreen.jsx`'s `startUpload`). Every chunk's checksum (and the whole
+    file's, for both paths) is a client-computed SHA-256 (`crypto.subtle`,
+    hardware-accelerated) the server verifies - a real integrity check, not just
+    a formality.
+  - Chunks upload in parallel via the existing `mapWithConcurrency` helper (the
+    backend explicitly allows this - no cross-chunk locking) and retry up to 5
+    times each on any failure (checksum mismatch included - could be genuine
+    transit corruption, not necessarily a deterministic client bug) - deliberately
+    not this app's `withRetry` helper, which skips 4xx.
+  - **Resume across an actual page reload** (not just a network blip mid-session):
+    `{filename, size, checksum} -> {uploadId}` for in-progress chunked uploads is
+    persisted to `store` (`PENDING_UPLOADS_KEY`). Re-picking a file matching a
+    stored signature calls `/status/` and sends only the still-missing chunk
+    indices instead of restarting - the actual point of chunking beyond "smaller
+    requests," per the backend spec. This only works if you re-select the same
+    file yourself; a File object can't survive a reload on its own, and a
+    single-shot upload has no partial-progress concept to resume at all.
+  - Client-side extension pre-check (`hasAcceptedExtension`) rejects an obviously-
+    wrong file with zero network calls, shaped identically to a server-side
+    rejection so the results UI (`uploadTool.jsx`) doesn't need two code paths -
+    the backend re-checks actual content regardless (a renamed `.txt` won't pass
+    there either).
+  - Drag-and-drop is scoped to the Upload tool's own dropzone, not a page-wide
+    listener - dropping a file anywhere else in the app isn't supported.
+  - No destination-sub-directory field (an earlier version of this request
+    wanted one) - confirmed with the user 2026-09-11 that the backend lands
+    everything in one fixed staging directory, matching the delivered spec.
+  - Still not automated end-to-end: accepted files are picked up by the existing
+    scheduled ingestion scan (not instant, up to ~an hour), not verified by this
+    feature itself beyond the server's `201`/`207` response.

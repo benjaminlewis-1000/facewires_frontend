@@ -104,6 +104,16 @@ export default class MenuExampleTabular extends Component {
           {this.createTabToggle('t2', 't2', 'Tools')}
         </div>
 
+        {/* Always visible regardless of tab, same as UndoRedoRemnant right
+            below - an upload (Tools tab's "Upload Photos") keeps running
+            in the background if you switch to People/Folders, so this is
+            the only way to notice it's still going without switching back. */}
+        {this.props.uploadingCount > 0 && (
+          <div id='UploadRemnant' className='contextMenu'>
+            <span className='uploadingIndicator'>{`Uploading ${this.props.uploadingCount}…`}</span>
+          </div>
+        )}
+
         <div id='UndoRedoRemnant' className='contextMenu'>
           <button
             className='undoRedoButton'

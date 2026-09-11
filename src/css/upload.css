@@ -1,0 +1,136 @@
+.uploadTool{
+  max-width: 700px;
+}
+
+.uploadDropzone{
+  border: 2px dashed #bbb;
+  border-radius: 6px;
+  padding: 30px;
+  text-align: center;
+  color: #666;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.uploadDropzone p{
+  margin: 4px 0;
+}
+
+.uploadDropzoneActive{
+  border-color: #197d9c;
+  background-color: #e8f2f5;
+  color: #197d9c;
+}
+
+.uploadAcceptedTypes{
+  font-size: 11px;
+  color: #999;
+}
+
+.uploadJobList{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.uploadJobRow{
+  border: 1px solid #DDDDDD;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.uploadJobHeader{
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.uploadJobFilename{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.uploadJobSize{
+  color: #666;
+  font-weight: normal;
+  margin: 0 8px;
+  white-space: nowrap;
+}
+
+.uploadJobKind{
+  color: #197d9c;
+  font-weight: normal;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.uploadProgressTrack{
+  position: relative;
+  height: 18px;
+  background-color: #eee;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.uploadProgressFill{
+  height: 100%;
+  background-color: #197d9c;
+  transition: width 0.2s ease;
+}
+
+.uploadProgressLabel{
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #333;
+}
+
+.uploadJobError{
+  color: #b00020;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.uploadJobError button, .uploadJobResults button{
+  font-size: 11px;
+}
+
+.uploadJobResults{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.uploadResultEntry{
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.uploadResult-accepted{
+  color: #197d9c;
+}
+
+.uploadResult-skipped{
+  color: #888;
+}
+
+.uploadResult-rejected{
+  color: #b00020;
+}
+
+.uploadCompleteNote{
+  font-size: 11px;
+  color: #666;
+  font-style: italic;
+  margin: 4px 0;
+}
