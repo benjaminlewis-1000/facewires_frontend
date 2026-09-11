@@ -1,6 +1,7 @@
 import React from 'react';
 import GeocodeReviewTool from './geocodeReviewTool';
 import UploadTool from './uploadTool';
+import GooglePhotosTool from './googlePhotosTool';
 
 // The first real tools this tab has had - see CLAUDE.md. Everything
 // below them is still the original mocked scaffolding (names/content all
@@ -11,6 +12,7 @@ import UploadTool from './uploadTool';
 // divider with nothing beneath it.
 const REAL_TOOLS = [
   { id: 'upload', name: 'Upload Photos' },
+  { id: 'google-photos', name: 'Google Photos' },
   { id: 'geocode-review', name: 'Fix Geocoding' },
 ];
 
@@ -74,6 +76,16 @@ class ToolsScreen extends React.Component {
               onRetryUpload={this.props.onRetryUpload}
               onDismissUpload={this.props.onDismissUpload}
               onDismissAllUploads={this.props.onDismissAllUploads}
+            />
+          ) : this.state.selectedToolId === 'google-photos' ? (
+            <GooglePhotosTool
+              watches={this.props.photoWatches}
+              syncSessions={this.props.photoSyncSessions}
+              onFetchWatches={this.props.onFetchPhotoWatches}
+              onAddWatch={this.props.onAddWatchedAlbum}
+              onRemoveWatch={this.props.onRemoveWatchedAlbum}
+              onStartSync={this.props.onStartPhotoSync}
+              onDismissSync={this.props.onDismissPhotoSync}
             />
           ) : (
           <div style={{ maxWidth: 480, padding: '10px 4px' }}>

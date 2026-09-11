@@ -594,3 +594,38 @@ its behavior, don't assume this file's history describes what's live.
   - Still not automated end-to-end: accepted files are picked up by the existing
     scheduled ingestion scan (not instant, up to ~an hour), not verified by this
     feature itself beyond the server's `201`/`207` response.
+- **Tools tab: "Google Photos"** (built 2026-09-11, backend's
+  `api/photos_watch_views.py`/`api/google_photos_client.py`) - a Tools-tab screen for
+  tracking a small set of user-named Google Photos albums and pulling in newly-picked
+  items. Deliberately semi-automatic, not automatic - researched first and confirmed
+  with the user: Google removed all background/library-wide photo access in March
+  2025 (`sharedAlbums.list`, `albums.share/join/etc`, and the `photoslibrary*` scopes
+  all 403 now). The replacement, the Picker API, has no "what's new?" call at all -
+  every sync requires the user to reopen Google's own picker UI and manually reselect
+  an album's current contents; there's no way to save/reuse a selection either
+  (Google's own docs: "you cannot reuse the same session"). What *is* automated:
+  dedup (`GooglePhotosSyncedItem.google_media_item_id`, keyed on Google's own
+  documented-stable `PickedMediaItem.id`) and download/staging - only items not
+  already synced for that album get downloaded, landing in
+  `GOOGLE_PHOTOS_STAGING_DIR` (a subdirectory of the existing `UPLOAD_STAGING_DIR`,
+  so the existing filepopulator ingestion scan picks them up for free, same as
+  Upload Photos above).
+  - Requires a one-time OAuth setup outside the app (Google Cloud Console client
+    registration + `scripts/google_photos_authorize.py`, run locally once) to mint
+    `GOOGLE_PHOTOS_CLIENT_ID`/`_SECRET`/`_REFRESH_TOKEN` env vars - see that script's
+    own docstring. Left in Google's default "Testing" OAuth consent mode, the
+    refresh token expires after 7 days unconditionally; moving it to "Production"
+    (a one-time Console setting) is what actually avoids a recurring login.
+  - State lives in `picasaScreen.jsx` (`state.photoWatches`/`photoSyncSessions`),
+    not `GooglePhotosTool`'s own component state - same reasoning as Upload Photos:
+    a sync means the user goes off to a separate Google Photos tab to pick items,
+    and the poll loop waiting for `mediaItemsSet` needs to keep running even if the
+    Tools tab itself gets switched away from meanwhile.
+  - No frontend OAuth token ever touches the browser - `WatchedAlbumSessionInitView`/
+    `SessionPollView`/`SessionCompleteView` proxy Google's `sessions.create`/`get`/
+    `mediaItems.list` server-side; the frontend only ever sees a `picker_uri` to open
+    and a `session_id` to poll/complete against its own backend.
+  - Follow-up not built: no reminder/staleness surfacing (e.g. "N days since last
+    synced") beyond just displaying `last_synced_at` - Google's API gives no signal
+    to page against, so there's nothing to actually watch for; this would be a pure
+    UI nudge if ever wanted.

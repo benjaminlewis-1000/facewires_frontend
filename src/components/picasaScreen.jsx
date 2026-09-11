@@ -22,6 +22,10 @@ import {
   sha256Hex, isVideoFile, hasAcceptedExtension, uploadSingleShot, initChunkedUpload,
   uploadChunk, getChunkedStatus, completeChunkedUpload,
 } from './uploadActions';
+import {
+  listWatchedAlbums, createWatchedAlbum, deleteWatchedAlbum,
+  initPickerSession, pollPickerSession, completeSession,
+} from './googlePhotosActions';
 import { Message } from 'semantic-ui-react';
 import CircleLoader from "react-spinners/CircleLoader";
 
@@ -60,6 +64,11 @@ const MAX_UNDO_HISTORY = 20;
 // something this size is exactly the case worth a pause for, since every
 // reversal here is a real write against the live backend.
 const BULK_CONFIRM_THRESHOLD = 10;
+
+// How often startPhotoSync polls the backend (which itself proxies
+// Google's sessions.get) while waiting for the user to finish picking
+// items in the Google Photos tab it opened - see that method below.
+const PHOTO_SYNC_POLL_INTERVAL_MS = 3000;
 
 // Every numeric people-count field a delta can touch - see
 // updatePersonCounts and negateDeltas below.
@@ -310,6 +319,24 @@ class PicasaScreen extends React.Component{
       // session/tab - it can't survive an actual page reload, see
       // _runChunkedUpload's pending-uploads lookup for what does.
       uploads: [],
+
+      // Tools tab's "Google Photos" screen - list of watched albums
+      // (fetched lazily, see fetchPhotoWatches) and any sync currently in
+      // progress. Lives here, not in GooglePhotosTool's own state, for the
+      // same tab-survival reason uploads does above: starting a sync opens
+      // Google's own picker UI in a new tab, and polling for the user to
+      // finish there needs to keep running even if this tab gets switched
+      // away from Tools in the meantime.
+      photoWatches: [],
+      photoWatchesFetched: false,
+      // Keyed by watched-album id. Each entry: {sessionId, status:
+      // 'picking'|'polling'|'completing'|'failed', error, result:
+      // {new_count, already_had_count}}. Absent from this map entirely
+      // means "not currently syncing" - the normal/idle state for a watch
+      // entry, checked as `!!this.state.photoSyncSessions[id]` rather than
+      // a boolean flag on the album itself, since a sync session belongs
+      // to a single attempt, not the album's persistent record.
+      photoSyncSessions: {},
     };
           
     // console.log(this.state.param_url)
@@ -377,6 +404,12 @@ class PicasaScreen extends React.Component{
     this.retryUpload = this.retryUpload.bind(this)
     this.dismissUpload = this.dismissUpload.bind(this)
     this.dismissAllUploads = this.dismissAllUploads.bind(this)
+
+    this.fetchPhotoWatches = this.fetchPhotoWatches.bind(this)
+    this.addWatchedAlbum = this.addWatchedAlbum.bind(this)
+    this.removeWatchedAlbum = this.removeWatchedAlbum.bind(this)
+    this.startPhotoSync = this.startPhotoSync.bind(this)
+    this.dismissPhotoSync = this.dismissPhotoSync.bind(this)
 
   }
 
@@ -1315,6 +1348,125 @@ class PicasaScreen extends React.Component{
     }))
   }
 
+  // Called lazily (GooglePhotosTool's componentDidMount) rather than
+  // alongside the params/people/folders fetches in the constructor -
+  // photoWatchesFetched guards against re-fetching every time the tool
+  // tab is reopened, since the list only actually changes via this
+  // component's own add/remove/sync methods, all of which already keep
+  // state.photoWatches in sync themselves.
+  fetchPhotoWatches(){
+    if (this.state.photoWatchesFetched) return
+    listWatchedAlbums()
+      .then(response => this.setState({ photoWatches: response.data, photoWatchesFetched: true }))
+      .catch(error => console.log('Failed to fetch watched Google Photos albums', error))
+  }
+
+  addWatchedAlbum(title){
+    return createWatchedAlbum(title).then(response => {
+      this.setState(prevState => ({ photoWatches: [...prevState.photoWatches, response.data] }))
+    })
+  }
+
+  removeWatchedAlbum(albumId){
+    return deleteWatchedAlbum(albumId).then(() => {
+      this.setState(prevState => ({
+        photoWatches: prevState.photoWatches.filter(a => a.id !== albumId),
+        photoSyncSessions: Object.fromEntries(
+          Object.entries(prevState.photoSyncSessions).filter(([id]) => Number(id) !== albumId)),
+      }))
+    })
+  }
+
+  // `callback` (setState's own third-argument style) matters here, not
+  // just cosmetic: startPhotoSync calls this and then immediately calls
+  // _pollPhotoSync, which reads the just-set sessionId back off
+  // this.state to decide whether it's still the current poll chain
+  // (isCurrent). setState is async - without waiting for it to actually
+  // commit first, that read could see stale state and isCurrent() would
+  // wrongly report false, silently killing the very first poll before it
+  // ever fires.
+  updatePhotoSyncSession(albumId, patch, callback){
+    this.setState(prevState => ({
+      photoSyncSessions: {
+        ...prevState.photoSyncSessions,
+        [albumId]: { ...prevState.photoSyncSessions[albumId], ...patch },
+      },
+    }), callback)
+  }
+
+  dismissPhotoSync(albumId){
+    this.setState(prevState => {
+      const next = { ...prevState.photoSyncSessions }
+      delete next[albumId]
+      return { photoSyncSessions: next }
+    })
+  }
+
+  // Opens Google's own Picker UI in a new tab and polls our backend (which
+  // proxies Google's sessions.get) until the user finishes selecting
+  // items there. There's no way to shortcut this wait - see
+  // googlePhotosActions.js/CLAUDE.md - Google's Picker API has no "notify
+  // me when done" push, only polling, and no way to skip straight to
+  // "what's new" without the user reselecting the album's contents.
+  async startPhotoSync(albumId){
+    this.updatePhotoSyncSession(albumId, { status: 'picking', sessionId: null, error: null, result: null })
+    try {
+      const initResp = await initPickerSession(albumId)
+      const sessionId = initResp.data.session_id
+      window.open(initResp.data.picker_uri, '_blank')
+      this.updatePhotoSyncSession(albumId, { status: 'polling', sessionId },
+        () => this._pollPhotoSync(albumId, sessionId))
+    } catch (error) {
+      this.updatePhotoSyncSession(albumId, {
+        status: 'failed', error: error?.response?.data?.error || 'Could not start a Google Photos session.',
+      })
+    }
+  }
+
+  _pollPhotoSync(albumId, sessionId){
+    // Guards against a stale timer still firing after the session moved
+    // on for some other reason (the album was removed, or the user
+    // clicked "Sync now" again and started a second session) - a session
+    // id mismatch here means this exact poll chain is no longer current,
+    // so it just stops rather than acting on it.
+    const isCurrent = () => this.state.photoSyncSessions[albumId]?.sessionId === sessionId
+    if (!isCurrent()) return
+
+    pollPickerSession(albumId, sessionId)
+      .then(response => {
+        if (!isCurrent()) return
+        if (response.data.media_items_set){
+          this._finishPhotoSync(albumId, sessionId)
+        } else {
+          setTimeout(() => this._pollPhotoSync(albumId, sessionId), PHOTO_SYNC_POLL_INTERVAL_MS)
+        }
+      })
+      .catch(error => {
+        if (!isCurrent()) return
+        this.updatePhotoSyncSession(albumId, {
+          status: 'failed', error: error?.response?.data?.error || 'Lost contact with Google Photos.',
+        })
+      })
+  }
+
+  _finishPhotoSync(albumId, sessionId){
+    this.updatePhotoSyncSession(albumId, { status: 'completing' })
+    completeSession(albumId, sessionId)
+      .then(response => {
+        this.updatePhotoSyncSession(albumId, { status: 'completed', result: response.data })
+        // Refetch rather than patch in place - last_synced_at/item_count
+        // are computed server-side (photos_watch_views.py's
+        // _serialize_album), simplest single source of truth after a
+        // sync actually changes them.
+        this.setState({ photoWatchesFetched: false }, this.fetchPhotoWatches)
+      })
+      .catch(error => {
+        this.updatePhotoSyncSession(albumId, {
+          status: 'failed', error: error?.response?.data?.error || 'Could not finish syncing this album.',
+        })
+      })
+  }
+
   renderSidebar() {
 
     if ( this.state.tab === "Tools" ){
@@ -1325,6 +1477,13 @@ class PicasaScreen extends React.Component{
           onRetryUpload={this.retryUpload}
           onDismissUpload={this.dismissUpload}
           onDismissAllUploads={this.dismissAllUploads}
+          photoWatches={this.state.photoWatches}
+          photoSyncSessions={this.state.photoSyncSessions}
+          onFetchPhotoWatches={this.fetchPhotoWatches}
+          onAddWatchedAlbum={this.addWatchedAlbum}
+          onRemoveWatchedAlbum={this.removeWatchedAlbum}
+          onStartPhotoSync={this.startPhotoSync}
+          onDismissPhotoSync={this.dismissPhotoSync}
         />
       )
     }

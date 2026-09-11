@@ -1,0 +1,65 @@
+.googlePhotosTool{
+  max-width: 700px;
+}
+
+.googlePhotosBlurb{
+  font-size: 12px;
+  color: #666;
+  margin: 0 0 16px;
+}
+
+.googlePhotosAddForm{
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.googlePhotosAddForm input{
+  flex: 1;
+  padding: 6px 8px;
+}
+
+.googlePhotosWatchList{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.googlePhotosWatchRow{
+  border: 1px solid #DDDDDD;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.googlePhotosWatchHeader{
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.googlePhotosWatchTitle{
+  font-weight: bold;
+}
+
+.googlePhotosWatchMeta{
+  color: #666;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.googlePhotosWatchActions, .googlePhotosWatchStatus{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.googlePhotosWatchStatus button, .googlePhotosWatchActions button{
+  font-size: 11px;
+}
+
+.googlePhotosWatchError{
+  color: #b00020;
+}
