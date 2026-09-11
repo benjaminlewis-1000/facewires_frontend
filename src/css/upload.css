@@ -27,6 +27,16 @@
   color: #999;
 }
 
+.uploadJobListHeader{
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.uploadJobListHeader button{
+  font-size: 11px;
+}
+
 .uploadJobList{
   display: flex;
   flex-direction: column;

@@ -128,9 +128,16 @@ class UploadTool extends React.Component {
         </div>
 
         {uploads.length > 0 && (
-          <div className="uploadJobList">
-            {uploads.map(job => this.renderJob(job))}
-          </div>
+          <>
+            <div className="uploadJobListHeader">
+              {uploads.some(job => job.status === 'completed' || job.status === 'failed') && (
+                <button onClick={this.props.onDismissAllUploads}>Dismiss all</button>
+              )}
+            </div>
+            <div className="uploadJobList">
+              {uploads.map(job => this.renderJob(job))}
+            </div>
+          </>
         )}
       </div>
     );

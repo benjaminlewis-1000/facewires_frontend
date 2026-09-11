@@ -19,6 +19,20 @@ import axiosInstance from './axios_setup';
 // fresh rather than waiting longer.
 export const UPLOAD_REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
 
+// /complete/ isn't a byte-transfer endpoint, but for a zip it does real
+// synchronous server-side work first - unzip, validate, and move every
+// entry - before responding. Confirmed for real 2026-09-11: a zip
+// upload that actually succeeded server-side (every photo landed,
+// confirmed by the user) still showed as "failed" in the UI, because
+// this call was still on the plain 15s default and gave up client-side
+// before the server finished extracting a zip with many entries -
+// exactly the same class of bug UPLOAD_REQUEST_TIMEOUT_MS fixed for the
+// raw chunk/single-shot transfers, just missed here since this endpoint
+// has no bytes of its own to transfer. Given even more headroom than
+// that one, since extraction time scales with entry count in a way a
+// single chunk's transfer time doesn't.
+export const UPLOAD_COMPLETE_TIMEOUT_MS = 10 * 60 * 1000;
+
 export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'heic', 'heif'];
 export const VIDEO_EXTENSIONS = ['mp4', 'mov', 'mpg', 'avi', 'm2ts', 'mts', 'wmv', '3gp', '3gpp', 'm4v', 'mkv'];
 export const ARCHIVE_EXTENSIONS = ['zip'];
@@ -105,5 +119,11 @@ export function getChunkedStatus(uploadId) {
 
 export function completeChunkedUpload(uploadId) {
   const url = store.get('api_url') + '/upload/chunked/' + uploadId + '/complete/';
-  return axiosInstance.post(url);
+  // axios-retry disabled here too - re-POSTing /complete/ after a
+  // request that actually succeeded server-side but whose response the
+  // client didn't fully receive would hit the spec's own 409 ("session
+  // already completed"), which is a confusing failure for something
+  // that already worked, rather than the transient-failure retry
+  // axios-retry is meant to handle.
+  return axiosInstance.post(url, undefined, { timeout: UPLOAD_COMPLETE_TIMEOUT_MS, 'axios-retry': { retries: 0 } });
 }

@@ -10,8 +10,8 @@ import UploadTool from './uploadTool';
 // itself whenever the mocks finally go, rather than leaving a lone
 // divider with nothing beneath it.
 const REAL_TOOLS = [
-  { id: 'geocode-review', name: 'Fix Geocoding' },
   { id: 'upload', name: 'Upload Photos' },
+  { id: 'geocode-review', name: 'Fix Geocoding' },
 ];
 
 const MOCK_TOOLS = [
@@ -73,6 +73,7 @@ class ToolsScreen extends React.Component {
               onStartUpload={this.props.onStartUpload}
               onRetryUpload={this.props.onRetryUpload}
               onDismissUpload={this.props.onDismissUpload}
+              onDismissAllUploads={this.props.onDismissAllUploads}
             />
           ) : (
           <div style={{ maxWidth: 480, padding: '10px 4px' }}>

@@ -376,6 +376,7 @@ class PicasaScreen extends React.Component{
     this.startUpload = this.startUpload.bind(this)
     this.retryUpload = this.retryUpload.bind(this)
     this.dismissUpload = this.dismissUpload.bind(this)
+    this.dismissAllUploads = this.dismissAllUploads.bind(this)
 
   }
 
@@ -1302,6 +1303,18 @@ class PicasaScreen extends React.Component{
     this.setState(prevState => ({ uploads: prevState.uploads.filter(job => job.id !== id) }))
   }
 
+  // Only clears finished jobs (completed/failed) - a still-active
+  // (hashing/uploading) one keeps running regardless either way (this
+  // just stops it from being displayed, not a cancel), but leaving it
+  // visible is what a user would actually expect from "dismiss all"
+  // ("clear out the finished stuff", not "clear out everything even
+  // what's still going").
+  dismissAllUploads(){
+    this.setState(prevState => ({
+      uploads: prevState.uploads.filter(job => job.status !== 'completed' && job.status !== 'failed')
+    }))
+  }
+
   renderSidebar() {
 
     if ( this.state.tab === "Tools" ){
@@ -1311,6 +1324,7 @@ class PicasaScreen extends React.Component{
           onStartUpload={this.startUpload}
           onRetryUpload={this.retryUpload}
           onDismissUpload={this.dismissUpload}
+          onDismissAllUploads={this.dismissAllUploads}
         />
       )
     }
