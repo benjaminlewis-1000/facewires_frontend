@@ -161,15 +161,26 @@ class GooglePhotosTool extends React.Component {
               Under <strong>APIs &amp; Services → Credentials</strong>, create an OAuth 2.0 Client ID of type{' '}
               <strong>"Web application"</strong> (not "Desktop app"). Add this exact URL as an authorized redirect URI:
               <div className="googlePhotosCodeBox">{oauthCallbackUrl()}</div>
+              Once you click Create, Google shows the Client ID and Client Secret in a popup right away -
+              <strong> paste both into the form below and click Save now</strong>, before doing anything else
+              (you can always come back and re-copy them from the Credentials page later if needed, but there's
+              no reason to wait).
             </li>
             <li>
-              Under <strong>APIs &amp; Services → OAuth consent screen</strong>, move the app from "Testing" to
-              "Production" - left in Testing, Google expires the connection after 7 days no matter what, meaning
-              you'd have to reconnect weekly. The console will say there if this scope needs its own verification
-              review to publish (a one-time review, not a recurring cost).
+              Still in Cloud Console, go to <strong>APIs &amp; Services → OAuth consent screen</strong>. Near the
+              top of that page is a <strong>"Publishing status"</strong> line reading "Testing", with a{' '}
+              <strong>PUBLISH APP</strong> button next to it - click that button (and confirm the dialog Google
+              shows) to move it to "Production". Skipping this means Google expires the connection after 7 days
+              no matter what, so you'd have to reconnect weekly. If this scope needs its own verification review
+              to publish, the console will say so right there on that same click (a one-time review, not a
+              recurring cost).
             </li>
-            <li>Copy that Client ID and Client Secret into the form below and click Save.</li>
           </ul>
+          <p className="googlePhotosBlurb">
+            Once you've saved the Client ID/Secret below, a "Connect Google Photos" button appears here in
+            its place - that's the last step, and it's fine to click it even before you've published the
+            app to Production (you'll just need to reconnect again in 7 days if you skip that step).
+          </p>
           <form className="googlePhotosCredentialForm" onSubmit={this.handleSaveCredentials}>
             <input
               type="text" placeholder="Client ID"
