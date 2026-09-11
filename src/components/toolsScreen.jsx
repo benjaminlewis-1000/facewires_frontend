@@ -1,6 +1,7 @@
 import React from 'react';
 import GeocodeReviewTool from './geocodeReviewTool';
 import UploadTool from './uploadTool';
+import GooglePhotosTool from './googlePhotosTool';
 
 // The first real tools this tab has had - see CLAUDE.md. Everything
 // below them is still the original mocked scaffolding (names/content all
@@ -11,6 +12,7 @@ import UploadTool from './uploadTool';
 // divider with nothing beneath it.
 const REAL_TOOLS = [
   { id: 'upload', name: 'Upload Photos' },
+  { id: 'google-photos', name: 'Google Photos' },
   { id: 'geocode-review', name: 'Fix Geocoding' },
 ];
 
@@ -29,6 +31,20 @@ class ToolsScreen extends React.Component {
       mockOption: 'option-a',
       mockCheckboxA: false,
       mockCheckboxB: true,
+      // Google Photos sync soft-disabled per the user's own call
+      // (2026-09-11) - it works fine for a user's own library/fully-added
+      // albums, but a "joined, not saved" shared album isn't reliably
+      // searchable in Google's own picker UI (a Google-side indexing gap,
+      // not fixable here - see CLAUDE.md), which was the specific use
+      // case that prompted this. Rather than remove the feature (it's
+      // still genuinely useful for the cases that DO work), it's grayed
+      // out in the sidebar and a double-click unlocks it for the rest of
+      // this session - a deliberate small speed bump so it isn't
+      // presented as a seamless, fully-solved feature, without hiding it
+      // entirely. Not persisted (store/localStorage) - deliberately
+      // resets on every reload, same reasoning as not persisting it
+      // "permanently unlocked" would undercut the whole point of the bump.
+      googlePhotosUnlocked: false,
     }
   }
 
@@ -39,15 +55,30 @@ class ToolsScreen extends React.Component {
     return (
       <div>
         <div className="sidebarList" id="toolSidebar">
-          {REAL_TOOLS.map(tool => (
-            <button
-              key={tool.id}
-              className={this.state.selectedToolId === tool.id ? 'click-state' : 'base-state'}
-              onClick={() => this.setState({ selectedToolId: tool.id })}
-            >
-              {tool.name}
-            </button>
-          ))}
+          {REAL_TOOLS.map(tool => {
+            const isSoftDisabled = tool.id === 'google-photos' && !this.state.googlePhotosUnlocked
+            if (isSoftDisabled) {
+              return (
+                <button
+                  key={tool.id}
+                  className="sidebarToolDisabled"
+                  title="Known limitation with shared albums not in your library - double-click to use anyway"
+                  onDoubleClick={() => this.setState({ googlePhotosUnlocked: true, selectedToolId: tool.id })}
+                >
+                  {tool.name}
+                </button>
+              )
+            }
+            return (
+              <button
+                key={tool.id}
+                className={this.state.selectedToolId === tool.id ? 'click-state' : 'base-state'}
+                onClick={() => this.setState({ selectedToolId: tool.id })}
+              >
+                {tool.name}
+              </button>
+            )
+          })}
           <div className='geocodeSidebarDivider' />
           {MOCK_TOOLS.map(tool => (
             <button
@@ -74,6 +105,16 @@ class ToolsScreen extends React.Component {
               onRetryUpload={this.props.onRetryUpload}
               onDismissUpload={this.props.onDismissUpload}
               onDismissAllUploads={this.props.onDismissAllUploads}
+            />
+          ) : this.state.selectedToolId === 'google-photos' ? (
+            <GooglePhotosTool
+              watches={this.props.photoWatches}
+              syncSessions={this.props.photoSyncSessions}
+              onFetchWatches={this.props.onFetchPhotoWatches}
+              onAddWatch={this.props.onAddWatchedAlbum}
+              onRemoveWatch={this.props.onRemoveWatchedAlbum}
+              onStartSync={this.props.onStartPhotoSync}
+              onDismissSync={this.props.onDismissPhotoSync}
             />
           ) : (
           <div style={{ maxWidth: 480, padding: '10px 4px' }}>

@@ -594,3 +594,73 @@ its behavior, don't assume this file's history describes what's live.
   - Still not automated end-to-end: accepted files are picked up by the existing
     scheduled ingestion scan (not instant, up to ~an hour), not verified by this
     feature itself beyond the server's `201`/`207` response.
+- **Tools tab: "Google Photos"** (built 2026-09-11, backend's
+  `api/photos_watch_views.py`/`api/google_photos_client.py`) - a Tools-tab screen for
+  tracking a small set of user-named Google Photos albums and pulling in newly-picked
+  items. Deliberately semi-automatic, not automatic - researched first and confirmed
+  with the user: Google removed all background/library-wide photo access in March
+  2025 (`sharedAlbums.list`, `albums.share/join/etc`, and the `photoslibrary*` scopes
+  all 403 now). The replacement, the Picker API, has no "what's new?" call at all -
+  every sync requires the user to reopen Google's own picker UI and manually reselect
+  an album's current contents; there's no way to save/reuse a selection either
+  (Google's own docs: "you cannot reuse the same session"). What *is* automated:
+  dedup (`GooglePhotosSyncedItem.google_media_item_id`, keyed on Google's own
+  documented-stable `PickedMediaItem.id`) and download/staging - only items not
+  already synced for that album get downloaded, landing in
+  `GOOGLE_PHOTOS_STAGING_DIR` (a subdirectory of the existing `UPLOAD_STAGING_DIR`,
+  so the existing filepopulator ingestion scan picks them up for free, same as
+  Upload Photos above).
+  - Setup is entirely through the app's own GUI, not `.env`/server config - per the
+    user's own request, replacing an earlier version of this feature that used a
+    local bootstrap script and env vars (see git history if that's ever relevant
+    again). The Tools tab's "Connect Google Photos" panel has two states: paste in
+    a Client ID/Secret (saved to `api.models.GooglePhotosCredential`, a singleton DB
+    row - `client_secret` is write-only over the API, never echoed back by `GET
+    /api/google_photos/credentials/`), then click "Connect Google Photos", a plain
+    `<a href>` (not an axios call) that navigates the whole browser to
+    `GET /api/google_photos/oauth/start/`. That view redirects to Google's consent
+    screen; Google redirects back to `GET /api/google_photos/oauth/callback/`, which
+    exchanges the code for a refresh token, stores it on the same DB row, and
+    redirects the browser to the frontend's `/faces?google_photos_connected=1` (or
+    `?google_photos_error=...`) - `picasaScreen.jsx`'s `componentDidMount` reads that
+    param once, shows a dismissible banner regardless of which tab is active (the
+    user may not land back on Tools), and cleans the URL via `replaceState`. This
+    whole round trip is a real full-page browser navigation away from and back to
+    the SPA, the same pattern the app's existing Authelia SSO login already uses -
+    not an XHR/popup flow.
+  - **One-time step still required in Google Cloud Console** before any of the
+    above works (not something the app can do for you - Google requires every OAuth
+    client be registered in advance):
+    1. Create or reuse a project at https://console.cloud.google.com/, then under
+       "APIs & Services" > "Library", enable the **Google Photos Picker API**.
+    2. Under "APIs & Services" > "Credentials", create an OAuth 2.0 Client ID of
+       type **"Web application"** (not "Desktop app" - a fixed server-side redirect
+       needs a real registered URI, unlike a local script). Add this project's own
+       callback as an authorized redirect URI, exactly:
+       `https://<API_DOMAIN>/api/google_photos/oauth/callback/` (the dev/prod
+       `API_DOMAIN` values are the same ones already used elsewhere - `settings.
+       GOOGLE_PHOTOS_OAUTH_REDIRECT_URI` computes this from `HOST_DOMAIN`, so check
+       that setting if unsure of the exact value for a given environment).
+    3. Under "APIs & Services" > "OAuth consent screen", move the app from
+       "Testing" to "Production". Left in Testing, Google expires every refresh
+       token after 7 days unconditionally, which would mean reconnecting weekly -
+       Production removes that limit. Google's console will say directly at this
+       step whether `photospicker.mediaitems.readonly` requires its own
+       verification review to publish; if so, that's a one-time review to get
+       through, not a recurring cost.
+    4. Copy the Client ID and Client Secret from that credential into the Tools
+       tab's "Connect Google Photos" panel, then click "Connect Google Photos" and
+       approve access with the Google account whose shared albums you want to sync.
+  - State lives in `picasaScreen.jsx` (`state.photoWatches`/`photoSyncSessions`),
+    not `GooglePhotosTool`'s own component state - same reasoning as Upload Photos:
+    a sync means the user goes off to a separate Google Photos tab to pick items,
+    and the poll loop waiting for `mediaItemsSet` needs to keep running even if the
+    Tools tab itself gets switched away from meanwhile.
+  - No frontend OAuth token ever touches the browser - `WatchedAlbumSessionInitView`/
+    `SessionPollView`/`SessionCompleteView` proxy Google's `sessions.create`/`get`/
+    `mediaItems.list` server-side; the frontend only ever sees a `picker_uri` to open
+    and a `session_id` to poll/complete against its own backend.
+  - Follow-up not built: no reminder/staleness surfacing (e.g. "N days since last
+    synced") beyond just displaying `last_synced_at` - Google's API gives no signal
+    to page against, so there's nothing to actually watch for; this would be a pure
+    UI nudge if ever wanted.

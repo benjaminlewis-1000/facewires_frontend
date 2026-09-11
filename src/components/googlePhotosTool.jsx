@@ -1,0 +1,278 @@
+import React from 'react';
+import store from 'store';
+import '../css/googlePhotos.css';
+import { getCredentialStatus, saveCredentials, oauthStartUrl } from './googlePhotosActions';
+
+// Computed rather than hardcoded so the number shown always matches
+// whatever api_url this build/environment is actually pointed at (dev vs
+// prod use different domains - see CLAUDE.md) - the value the user needs
+// to paste into Cloud Console as the OAuth client's authorized redirect
+// URI must match this exactly, byte for byte, or Google rejects the
+// callback with a redirect_uri_mismatch error.
+function oauthCallbackUrl() {
+  return store.get('api_url') + '/google_photos/oauth/callback/';
+}
+
+// The actual sync pipeline (session init/poll/complete against
+// api/photos_watch_views.py) lives in picasaScreen.jsx, not here - this
+// component is a thin, unmounts-on-tab-switch view over watches/
+// syncSessions/onFetchWatches/onAddWatch/onRemoveWatch/onStartSync/
+// onDismissSync props threaded down from there. Same reasoning as
+// UploadTool's own equivalent comment - a sync waits on the user
+// finishing selection in a separate Google Photos tab, which can easily
+// outlast a visit to this one.
+function formatDate(isoString) {
+  if (!isoString) return 'never'
+  return new Date(isoString).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+class GooglePhotosTool extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      newTitle: '',
+      // null while the initial GET is in flight - distinct from "fetched
+      // and not configured", which the connection panel below renders
+      // differently (a form to fill in vs nothing to show yet).
+      credentialStatus: null,
+      credentialFetchError: null,
+      clientIdInput: '', clientSecretInput: '',
+      savingCredentials: false, credentialError: null,
+    };
+    this.handleAdd = this.handleAdd.bind(this);
+    this.handleSaveCredentials = this.handleSaveCredentials.bind(this);
+  }
+
+  componentDidMount() {
+    this.props.onFetchWatches();
+    this.fetchCredentialStatus();
+  }
+
+  fetchCredentialStatus() {
+    getCredentialStatus()
+      .then(response => this.setState({ credentialStatus: response.data, clientIdInput: response.data.client_id, credentialFetchError: null }))
+      .catch(error => {
+        console.log('Failed to fetch Google Photos credential status', error)
+        // Previously silent (console.log only) - left credentialStatus
+        // null forever, so renderConnectionPanel() rendered nothing at
+        // all with no indication why. Confirmed as the actual cause of a
+        // real "the tool page has no form on it" report (2026-09-11):
+        // the backend didn't have these routes deployed yet, so this
+        // request 404'd and the whole panel just silently vanished.
+        this.setState({
+          credentialFetchError: error?.response?.status === 404
+            ? 'This backend doesn\'t have the Google Photos feature deployed yet.'
+            : 'Could not reach the server to check Google Photos connection status.',
+        })
+      })
+  }
+
+  handleSaveCredentials(event) {
+    event.preventDefault();
+    const clientId = this.state.clientIdInput.trim();
+    const clientSecret = this.state.clientSecretInput.trim();
+    if (!clientId || !clientSecret) return;
+    this.setState({ savingCredentials: true, credentialError: null });
+    saveCredentials(clientId, clientSecret)
+      .then(response => this.setState({ credentialStatus: response.data, savingCredentials: false, clientSecretInput: '' }))
+      .catch(error => this.setState({
+        savingCredentials: false,
+        credentialError: error?.response?.data?.error || 'Could not save these credentials.',
+      }))
+  }
+
+  handleAdd(event) {
+    event.preventDefault();
+    const title = this.state.newTitle.trim();
+    if (!title) return;
+    this.props.onAddWatch(title);
+    this.setState({ newTitle: '' });
+  }
+
+  renderSyncStatus(watch, session) {
+    const { onStartSync, onRemoveWatch, onDismissSync } = this.props;
+
+    if (!session) {
+      return (
+        <div className="googlePhotosWatchActions">
+          <button onClick={() => onStartSync(watch.id)}>Sync now</button>
+          <button onClick={() => onRemoveWatch(watch.id)}>Remove</button>
+        </div>
+      );
+    }
+
+    if (session.status === 'picking' || session.status === 'polling') {
+      return (
+        <div className="googlePhotosWatchStatus">
+          <span>Waiting for you to finish selecting in Google Photos…</span>
+          {session.status === 'polling' && (
+            <button onClick={() => onStartSync(watch.id)}>Reopen Google Photos</button>
+          )}
+        </div>
+      );
+    }
+
+    if (session.status === 'completing') {
+      return <div className="googlePhotosWatchStatus"><span>Downloading new photos…</span></div>;
+    }
+
+    if (session.status === 'failed') {
+      return (
+        <div className="googlePhotosWatchStatus googlePhotosWatchError">
+          <span>{session.error}</span>
+          <button onClick={() => onDismissSync(watch.id)}>Dismiss</button>
+        </div>
+      );
+    }
+
+    // completed
+    return (
+      <div className="googlePhotosWatchStatus">
+        <span>
+          {session.result.new_count} new photo{session.result.new_count === 1 ? '' : 's'} downloaded
+          {session.result.already_had_count > 0 ? `, ${session.result.already_had_count} already had` : ''}.
+        </span>
+        <button onClick={() => onDismissSync(watch.id)}>Dismiss</button>
+      </div>
+    );
+  }
+
+  renderConnectionPanel() {
+    const status = this.state.credentialStatus;
+    if (!status) {
+      return this.state.credentialFetchError
+        ? <p className="googlePhotosWatchError">{this.state.credentialFetchError}</p>
+        : null
+    }
+
+    if (!status.configured) {
+      return (
+        <div className="googlePhotosConnectionPanel">
+          <p className="googlePhotosBlurb">
+            One-time setup in Google Cloud Console before this can connect:
+          </p>
+          <ul className="googlePhotosSetupSteps">
+            <li>
+              At <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">console.cloud.google.com</a>,
+              create or reuse a project, then under <strong>APIs &amp; Services → Library</strong>, enable the{' '}
+              <strong>Google Photos Picker API</strong>.
+            </li>
+            <li>
+              Under <strong>APIs &amp; Services → Credentials</strong>, create an OAuth 2.0 Client ID of type{' '}
+              <strong>"Web application"</strong> (not "Desktop app"). Add this exact URL as an authorized redirect URI:
+              <div className="googlePhotosCodeBox">{oauthCallbackUrl()}</div>
+              Once you click Create, Google shows the Client ID and Client Secret in a popup right away -
+              <strong> paste both into the form below and click Save now</strong>, before doing anything else
+              (you can always come back and re-copy them from the Credentials page later if needed, but there's
+              no reason to wait).
+            </li>
+            <li>
+              Still in Cloud Console, go to <strong>APIs &amp; Services → OAuth consent screen</strong>. Near the
+              top of that page is a <strong>"Publishing status"</strong> line reading "Testing", with a{' '}
+              <strong>PUBLISH APP</strong> button next to it - click that button (and confirm the dialog Google
+              shows) to move it to "Production". Skipping this means Google expires the connection after 7 days
+              no matter what, so you'd have to reconnect weekly. If this scope needs its own verification review
+              to publish, the console will say so right there on that same click (a one-time review, not a
+              recurring cost).
+            </li>
+          </ul>
+          <p className="googlePhotosBlurb">
+            Once you've saved the Client ID/Secret below, a "Connect Google Photos" button appears here in
+            its place - that's the last step, and it's fine to click it even before you've published the
+            app to Production (you'll just need to reconnect again in 7 days if you skip that step).
+          </p>
+          <form className="googlePhotosCredentialForm" onSubmit={this.handleSaveCredentials}>
+            <input
+              type="text" placeholder="Client ID"
+              value={this.state.clientIdInput}
+              onChange={(e) => this.setState({ clientIdInput: e.target.value })}
+            />
+            <input
+              type="password" placeholder="Client Secret"
+              value={this.state.clientSecretInput}
+              onChange={(e) => this.setState({ clientSecretInput: e.target.value })}
+            />
+            <button type="submit" disabled={this.state.savingCredentials}>Save</button>
+          </form>
+          {this.state.credentialError && <p className="googlePhotosWatchError">{this.state.credentialError}</p>}
+        </div>
+      );
+    }
+
+    if (!status.connected) {
+      return (
+        <div className="googlePhotosConnectionPanel">
+          <p className="googlePhotosBlurb">Client saved. Connect your Google account to start syncing albums.</p>
+          <a className="googlePhotosConnectButton" href={oauthStartUrl()}>Connect Google Photos</a>
+          <button onClick={() => this.setState({ credentialStatus: { ...status, configured: false } })}>
+            Change client
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="googlePhotosConnectionPanel googlePhotosConnected">
+        <span>✓ Connected to Google Photos.</span>
+        <button onClick={() => this.setState({ credentialStatus: { ...status, configured: false } })}>
+          Change client
+        </button>
+      </div>
+    );
+  }
+
+  render() {
+    const watches = this.props.watches || [];
+    const connected = this.state.credentialStatus?.connected;
+    return (
+      <div className="googlePhotosTool">
+        <div className="googlePhotosHowItWorks">
+          <p className="googlePhotosBlurb">
+            Google's own API has no way to watch an album for new photos automatically - there's no
+            "check for updates" button Google offers, only a picker the user has to go through by hand
+            every time.
+          </p>
+          <p className="googlePhotosBlurb">
+            <strong>To pick up new photos:</strong> click "Sync now" on an album whenever you want to
+            check it - this opens Google Photos in a new tab. Reselect <em>everything currently in the
+            album</em>, not just the new items (Google doesn't support partial/incremental selection).
+            That's safe to do every time: photos already downloaded here are automatically skipped, so
+            only genuinely new ones get pulled in. There's no reminder built in - do this on whatever
+            schedule makes sense for you (e.g. whenever someone tells you they've added photos).
+          </p>
+        </div>
+
+        {this.renderConnectionPanel()}
+
+        {!connected ? null : <>
+        <form className="googlePhotosAddForm" onSubmit={this.handleAdd}>
+          <input
+            type="text"
+            placeholder="Name this album (e.g. Mom's trip photos)"
+            value={this.state.newTitle}
+            onChange={(e) => this.setState({ newTitle: e.target.value })}
+          />
+          <button type="submit">Add album</button>
+        </form>
+
+        <div className="googlePhotosWatchList">
+          {watches.map(watch => (
+            <div key={watch.id} className="googlePhotosWatchRow">
+              <div className="googlePhotosWatchHeader">
+                <span className="googlePhotosWatchTitle">{watch.title}</span>
+                <span className="googlePhotosWatchMeta">
+                  {watch.item_count} photo{watch.item_count === 1 ? '' : 's'} · last synced {formatDate(watch.last_synced_at)}
+                </span>
+              </div>
+              {this.renderSyncStatus(watch, this.props.syncSessions[watch.id])}
+            </div>
+          ))}
+          {watches.length === 0 && <p className="googlePhotosBlurb">No albums added yet.</p>}
+        </div>
+        </>}
+      </div>
+    );
+  }
+}
+
+export default GooglePhotosTool;

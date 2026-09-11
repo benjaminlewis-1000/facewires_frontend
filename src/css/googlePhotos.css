@@ -1,0 +1,133 @@
+.googlePhotosTool{
+  max-width: 700px;
+}
+
+.googlePhotosBlurb{
+  font-size: 12px;
+  color: #666;
+  margin: 0 0 16px;
+}
+
+.googlePhotosAddForm{
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.googlePhotosAddForm input{
+  flex: 1;
+  padding: 6px 8px;
+}
+
+.googlePhotosHowItWorks{
+  margin-bottom: 16px;
+}
+
+.googlePhotosSetupSteps{
+  font-size: 12px;
+  color: #444;
+  padding-left: 20px;
+  margin: 8px 0;
+  list-style-type: disc;
+}
+
+.googlePhotosSetupSteps li{
+  margin-bottom: 10px;
+}
+
+.googlePhotosCodeBox{
+  font-family: monospace;
+  font-size: 11px;
+  background-color: #f2f2f2;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  padding: 4px 6px;
+  margin-top: 4px;
+  word-break: break-all;
+  display: inline-block;
+}
+
+.googlePhotosConnectionPanel{
+  border: 1px solid #DDDDDD;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.googlePhotosConnectionPanel.googlePhotosConnected{
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  color: #197d9c;
+  font-size: 12px;
+}
+
+.googlePhotosCredentialForm{
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.googlePhotosCredentialForm input{
+  flex: 1;
+  padding: 6px 8px;
+}
+
+.googlePhotosConnectButton{
+  display: inline-block;
+  padding: 6px 12px;
+  background-color: #197d9c;
+  color: #fff;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.googlePhotosWatchList{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.googlePhotosWatchRow{
+  border: 1px solid #DDDDDD;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.googlePhotosWatchHeader{
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.googlePhotosWatchTitle{
+  font-weight: bold;
+}
+
+.googlePhotosWatchMeta{
+  color: #666;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.googlePhotosWatchActions, .googlePhotosWatchStatus{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.googlePhotosWatchStatus button, .googlePhotosWatchActions button{
+  font-size: 11px;
+}
+
+.googlePhotosWatchError{
+  color: #b00020;
+}
