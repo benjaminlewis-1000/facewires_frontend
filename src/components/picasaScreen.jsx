@@ -1149,7 +1149,13 @@ class PicasaScreen extends React.Component{
       }
     } catch (error) {
       console.error('Upload failed', file.name, error)
-      const message = error?.response?.data?.error || 'Upload failed - please try again.'
+      // error.isChunkUploadFailure carries its own specific, already-
+      // human-readable summary (which chunk, why) - _runChunkedUpload's
+      // own construction of it, not a raw axios/server error, so it has
+      // no `.response` to read a message off of the usual way.
+      const message = error?.isChunkUploadFailure
+        ? error.message
+        : (error?.response?.data?.error || 'Upload failed - please try again.')
       this.updateUploadJob(id, { status: 'failed', error: message })
     }
   }
@@ -1208,10 +1214,24 @@ class PicasaScreen extends React.Component{
     }
 
     // Sent in parallel - the backend explicitly allows this (each index
-    // writes its own file, no cross-chunk locking).
+    // writes its own file, no cross-chunk locking). Each worker catches
+    // its OWN failure rather than letting it propagate straight out of
+    // mapWithConcurrency (which would reject its whole Promise.all on
+    // the first one) - a chunk that's still genuinely failing after every
+    // retry shouldn't orphan sibling chunks that are mid-flight or still
+    // queued behind it; those still complete and are durably received
+    // server-side regardless of what happens to the JS Promise chain
+    // afterward, and a retry (see retryUpload) already knows to skip
+    // whatever's in receivedChunks rather than re-sending it.
+    const chunkFailures = []
     await mapWithConcurrency(missingIndices, UPLOAD_CHUNK_CONCURRENCY, async (index) => {
       const blob = file.slice(index * chunkSize, (index + 1) * chunkSize)
-      await this._uploadChunkWithRetry(uploadId, index, blob)
+      try {
+        await this._uploadChunkWithRetry(uploadId, index, blob)
+      } catch (error) {
+        chunkFailures.push({ index, error })
+        return
+      }
       this.setState(prevState => ({
         uploads: prevState.uploads.map(job => {
           if (job.id !== id) return job
@@ -1222,11 +1242,31 @@ class PicasaScreen extends React.Component{
       }))
     })
 
+    if (chunkFailures.length > 0){
+      const { index, error } = chunkFailures[0]
+      const isTimeout = error?.code === 'ECONNABORTED' || /timeout/i.test(error?.message || '')
+      const detail = isTimeout
+        ? 'the connection was too slow to finish it in time'
+        : (error?.response?.data?.error || error?.message || 'unknown error')
+      const summary = chunkFailures.length === 1
+        ? `Chunk ${index} failed after ${UPLOAD_CHUNK_MAX_ATTEMPTS} attempts (${detail}).`
+        : `${chunkFailures.length} chunks failed after ${UPLOAD_CHUNK_MAX_ATTEMPTS} attempts each (e.g. chunk ${index}: ${detail}).`
+      const aggregateError = new Error(summary)
+      aggregateError.isChunkUploadFailure = true
+      throw aggregateError
+    }
+
     const completeResp = await completeChunkedUpload(uploadId)
     this._removePendingUpload(signature)
     this.updateUploadJob(id, { status: 'completed', progress: 1, results: completeResp.data })
   }
 
+  // Exponential backoff between attempts (1s, 2s, 4s, 8s) - retrying the
+  // exact same request instantly is only useful for a true one-off
+  // blip; a slow/degraded connection (the actual cause found in a real
+  // 865MB upload failure, 2026-09-11 - see UPLOAD_REQUEST_TIMEOUT_MS's
+  // own comment) needs real time to recover, or at least isn't made
+  // worse by giving it some.
   async _uploadChunkWithRetry(uploadId, index, blob){
     const checksum = await sha256Hex(blob)
     let lastError
@@ -1235,6 +1275,9 @@ class PicasaScreen extends React.Component{
         return await uploadChunk(uploadId, index, blob, checksum)
       } catch (error) {
         lastError = error
+        if (attempt < UPLOAD_CHUNK_MAX_ATTEMPTS){
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)))
+        }
       }
     }
     throw lastError
