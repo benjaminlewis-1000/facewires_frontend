@@ -13,6 +13,14 @@ import { withRetry } from './apiRetry';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
 
+// How many faces ahead of the open modal image get their full-size image
+// silently pre-fetched (see prefetchModalWindow) - auto-advance is the
+// dominant direction, so this is sized generously. MODAL_PREFETCH_BEHIND is
+// just a small buffer so a single Back press also lands warm, without
+// keeping the whole history of everywhere the user has already been.
+const MODAL_PREFETCH_AHEAD = 10
+const MODAL_PREFETCH_BEHIND = 2
+
 // "December 20, 2012", no time component - pulled straight from the
 // ISO date string's own YYYY-MM-DD prefix rather than through a JS Date
 // object, deliberately: Date parsing + toLocaleDateString would convert
@@ -191,7 +199,17 @@ class Gallery extends React.Component{
     // keeps the DOM small, not withholding data from itemsRef.
     this.itemsRef = []
     this._typeById = {}
+    this._idToIndex = {}
     this.buildItems()
+
+    // Face id -> already-issued Image() for prefetchModalWindow's forward
+    // pre-fetch (see the constant comments above) - a Map purely to keep
+    // those Image objects alive (letting one get GC'd can drop its network
+    // buffer) and to dedupe repeat calls against a fetch already in flight.
+    // Not React state: doesn't affect what's rendered, only warms the
+    // browser's own image cache ahead of when loadModalImage/
+    // showAdjacentModalImage set the real modal <img> to the same URL.
+    this._modalPrefetchCache = new Map()
 
     this.state = {
       imgsSelected: [],
@@ -308,6 +326,8 @@ class Gallery extends React.Component{
 
     this.itemsRef = items
     this._typeById = typeById
+    this._idToIndex = {}
+    for (const [idx, faceId] of items) this._idToIndex[faceId] = idx
 
     // Verify screen "Group by cluster" mode - groups faces by
     // Face.verification_cluster_group (this.props.clusterGroups,
@@ -1299,11 +1319,11 @@ class Gallery extends React.Component{
   doubleClickHandler(event, face_id) {
     event.preventDefault()
     this.unselectAll()
-    this.setState({
-      modalItemIndex: this.itemsRef.findIndex(([, id]) => id === face_id),
-    })
+    const newIndex = this.itemsRef.findIndex(([, id]) => id === face_id)
+    this.setState({ modalItemIndex: newIndex })
     this.loadModalImage(face_id)
     this.fetchModalDate(face_id)
+    this.prefetchModalWindow(newIndex)
     this.toggleModal()
   }
 
@@ -1418,6 +1438,45 @@ class Gallery extends React.Component{
     return url
   }
 
+  // Warms the browser's image cache for up to MODAL_PREFETCH_AHEAD faces
+  // ahead of centerIndex (plus a small MODAL_PREFETCH_BEHIND buffer behind
+  // it), so auto-advance mostly lands on an already-loaded image instead of
+  // a blank modal waiting on a fresh request. Skips hidden faces the same
+  // way pageModalSkippingHidden does - a hidden entry is a real gap, not
+  // something worth pre-fetching. Deliberately just a plain `new Image()`
+  // request against the exact same URL buildModalUrl/loadModalImage will
+  // set on the real <img> moments later - no separate blob/store plumbing,
+  // the browser's own cache does the work once the request completes.
+  // Video faces (this._videoFaceIdSet) only get the accurate (non-&fast)
+  // URL pre-fetched - the fast-frame-then-swap behavior in loadModalImage
+  // is unaffected, this just warms the frame it eventually swaps to.
+  prefetchModalWindow(centerIndex){
+    if (centerIndex < 0) return
+
+    let aheadFound = 0
+    for (let idx = centerIndex + 1; idx < this.itemsRef.length && aheadFound < MODAL_PREFETCH_AHEAD; idx++){
+      const [, faceId] = this.itemsRef[idx]
+      if (this.state.hidden.indexOf(faceId) !== -1) continue
+      aheadFound++
+      if (this._modalPrefetchCache.has(faceId)) continue
+      const img = new Image()
+      img.src = this.buildModalUrl(faceId)
+      this._modalPrefetchCache.set(faceId, img)
+    }
+
+    // Bounds cache growth as the user keeps paging forward, without ever
+    // discarding something still ahead of them just because they stepped
+    // back - only entries now further behind than the small back buffer
+    // get dropped.
+    const behindThreshold = centerIndex - MODAL_PREFETCH_BEHIND
+    for (const faceId of this._modalPrefetchCache.keys()){
+      const idx = this._idToIndex[faceId]
+      if (idx === undefined || idx < behindThreshold){
+        this._modalPrefetchCache.delete(faceId)
+      }
+    }
+  }
+
   // Pages the open modal to the previous/next image in this.itemsRef
   // (delta -1/+1) without closing it. Folders-tab only (see render) -
   // itemsRef there is just the folder's photos in a fixed order (no
@@ -1430,6 +1489,7 @@ class Gallery extends React.Component{
     this.setState({ modalItemIndex: newIndex })
     this.loadModalImage(id)
     this.fetchModalDate(id)
+    this.prefetchModalWindow(newIndex)
   }
 
   // What happens after a modal hotkey resolves the currently-open face -
@@ -1474,6 +1534,7 @@ class Gallery extends React.Component{
         this.setState({ modalItemIndex: idx, modalSendToOtherPerson: false })
         this.loadModalImage(faceId)
         this.fetchModalDate(faceId)
+        this.prefetchModalWindow(idx)
         return true
       }
       idx += delta
