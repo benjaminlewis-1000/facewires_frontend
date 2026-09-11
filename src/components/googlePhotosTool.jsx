@@ -133,7 +133,7 @@ class GooglePhotosTool extends React.Component {
           <p className="googlePhotosBlurb">
             One-time setup in Google Cloud Console before this can connect:
           </p>
-          <ol className="googlePhotosSetupSteps">
+          <ul className="googlePhotosSetupSteps">
             <li>
               At <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">console.cloud.google.com</a>,
               create or reuse a project, then under <strong>APIs &amp; Services → Library</strong>, enable the{' '}
@@ -151,7 +151,7 @@ class GooglePhotosTool extends React.Component {
               review to publish (a one-time review, not a recurring cost).
             </li>
             <li>Copy that Client ID and Client Secret into the form below and click Save.</li>
-          </ol>
+          </ul>
           <form className="googlePhotosCredentialForm" onSubmit={this.handleSaveCredentials}>
             <input
               type="text" placeholder="Client ID"

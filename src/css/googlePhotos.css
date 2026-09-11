@@ -28,6 +28,7 @@
   color: #444;
   padding-left: 20px;
   margin: 8px 0;
+  list-style-type: disc;
 }
 
 .googlePhotosSetupSteps li{
