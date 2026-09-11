@@ -34,4 +34,35 @@ axiosRetry(axiosInstance, {
     retryDelay: (retryCount, error) => axiosRetry.exponentialDelay(retryCount, error, 1000),
 });
 
+// Every real API endpoint in this app returns JSON. Getting back HTML
+// instead - with a plain 200 status, not an error - means Authelia
+// intercepted the request server-side (forward-auth at the reverse
+// proxy) and served its own login page because the session had expired,
+// most likely after the tab sat idle a while (isLoggedIn.jsx's own check
+// already detects exactly this for its one call). Without this
+// interceptor, axios sees a "successful" response and every .then() down
+// the line tries to treat that HTML string as JSON - picasaScreen.jsx's
+// three initial-load fetches (compile_api_list's `[...firstPageData.results]`)
+// crash with a plain TypeError, which isAuthFailure() (status-code based)
+// doesn't recognize as an auth problem either, so it fell through to the
+// generic "Something went wrong" error screen instead of quietly leaving
+// MainApp's own background isLoggedIn() check to redirect to login -
+// reported by the user 2026-09-11 as exactly that, after the tab had been
+// idle a while. Synthesizing a 401 here means every existing
+// isAuthFailure() check (and any future one) recognizes this the same
+// way it already recognizes a real 401/403, with no per-call-site changes
+// needed.
+axiosInstance.interceptors.response.use(
+    (response) => {
+        const contentType = response.headers['content-type'] || '';
+        if (contentType.includes('text/html')) {
+            const authError = new Error('Received HTML instead of JSON - session likely expired (Authelia SSO redirect).');
+            authError.response = { ...response, status: 401 };
+            return Promise.reject(authError);
+        }
+        return response;
+    },
+    (error) => Promise.reject(error),
+);
+
 export default axiosInstance;
