@@ -37,30 +37,54 @@ axiosRetry(axiosInstance, {
 // Every real API endpoint in this app returns JSON. Getting back HTML
 // instead - with a plain 200 status, not an error - means Authelia
 // intercepted the request server-side (forward-auth at the reverse
-// proxy) and served its own login page because the session had expired,
-// most likely after the tab sat idle a while (isLoggedIn.jsx's own check
+// proxy) and served its own login page (isLoggedIn.jsx's own check
 // already detects exactly this for its one call). Without this
 // interceptor, axios sees a "successful" response and every .then() down
 // the line tries to treat that HTML string as JSON - picasaScreen.jsx's
 // three initial-load fetches (compile_api_list's `[...firstPageData.results]`)
 // crash with a plain TypeError, which isAuthFailure() (status-code based)
 // doesn't recognize as an auth problem either, so it fell through to the
-// generic "Something went wrong" error screen instead of quietly leaving
-// MainApp's own background isLoggedIn() check to redirect to login -
-// reported by the user 2026-09-11 as exactly that, after the tab had been
-// idle a while. Synthesizing a 401 here means every existing
-// isAuthFailure() check (and any future one) recognizes this the same
-// way it already recognizes a real 401/403, with no per-call-site changes
-// needed.
+// generic "Something went wrong" error screen.
+//
+// This isn't always a real logout, though - per the user (2026-09-11,
+// after the reported bug): after the tab sits idle a while, the very
+// first request back can hit this HTML response while Authelia is mid-
+// refresh of the session cookie, and a moment later (or on a plain
+// reload) the exact same request succeeds - the session was never
+// actually dead. Bouncing straight to a fresh login screen for that
+// window would "fix" the visible error at the cost of a needless re-
+// login the user didn't actually need. So: retry the identical request a
+// few times with a short, increasing delay first (HTML_RETRY_DELAYS_MS)
+// - long enough to ride out a real refresh-in-progress, most of which
+// resolve on the first or second retry with the user never noticing
+// anything happened. Only once every retry still comes back HTML is it
+// treated as a genuine expired session: synthesized as a 401 so every
+// existing isAuthFailure() check (and any future one) recognizes it the
+// same way it already recognizes a real 401/403, with no per-call-site
+// changes needed - at that point MainApp's own background isLoggedIn()
+// check is what actually redirects to a fresh login.
+const HTML_RETRY_DELAYS_MS = [1000, 2000, 4000];
+
 axiosInstance.interceptors.response.use(
-    (response) => {
+    async (response) => {
         const contentType = response.headers['content-type'] || '';
-        if (contentType.includes('text/html')) {
-            const authError = new Error('Received HTML instead of JSON - session likely expired (Authelia SSO redirect).');
+        if (!contentType.includes('text/html')) return response;
+
+        const config = response.config;
+        // Tracked on the (reused, not cloned) config object across the
+        // recursive retries below, rather than a closure variable - each
+        // retry re-enters this same interceptor via axiosInstance.request,
+        // so this is what keeps the count accurate instead of resetting
+        // per attempt, and is what bounds the recursion to exactly
+        // HTML_RETRY_DELAYS_MS.length attempts.
+        config._htmlRetryCount = (config._htmlRetryCount || 0) + 1;
+        if (config._htmlRetryCount > HTML_RETRY_DELAYS_MS.length) {
+            const authError = new Error('Received HTML instead of JSON after retries - session expired (Authelia SSO redirect).');
             authError.response = { ...response, status: 401 };
-            return Promise.reject(authError);
+            throw authError;
         }
-        return response;
+        await new Promise(resolve => setTimeout(resolve, HTML_RETRY_DELAYS_MS[config._htmlRetryCount - 1]));
+        return axiosInstance.request(config);
     },
     (error) => Promise.reject(error),
 );
