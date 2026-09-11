@@ -35,6 +35,7 @@ class GooglePhotosTool extends React.Component {
       // and not configured", which the connection panel below renders
       // differently (a form to fill in vs nothing to show yet).
       credentialStatus: null,
+      credentialFetchError: null,
       clientIdInput: '', clientSecretInput: '',
       savingCredentials: false, credentialError: null,
     };
@@ -49,8 +50,21 @@ class GooglePhotosTool extends React.Component {
 
   fetchCredentialStatus() {
     getCredentialStatus()
-      .then(response => this.setState({ credentialStatus: response.data, clientIdInput: response.data.client_id }))
-      .catch(error => console.log('Failed to fetch Google Photos credential status', error))
+      .then(response => this.setState({ credentialStatus: response.data, clientIdInput: response.data.client_id, credentialFetchError: null }))
+      .catch(error => {
+        console.log('Failed to fetch Google Photos credential status', error)
+        // Previously silent (console.log only) - left credentialStatus
+        // null forever, so renderConnectionPanel() rendered nothing at
+        // all with no indication why. Confirmed as the actual cause of a
+        // real "the tool page has no form on it" report (2026-09-11):
+        // the backend didn't have these routes deployed yet, so this
+        // request 404'd and the whole panel just silently vanished.
+        this.setState({
+          credentialFetchError: error?.response?.status === 404
+            ? 'This backend doesn\'t have the Google Photos feature deployed yet.'
+            : 'Could not reach the server to check Google Photos connection status.',
+        })
+      })
   }
 
   handleSaveCredentials(event) {
@@ -125,7 +139,11 @@ class GooglePhotosTool extends React.Component {
 
   renderConnectionPanel() {
     const status = this.state.credentialStatus;
-    if (!status) return null;
+    if (!status) {
+      return this.state.credentialFetchError
+        ? <p className="googlePhotosWatchError">{this.state.credentialFetchError}</p>
+        : null
+    }
 
     if (!status.configured) {
       return (
