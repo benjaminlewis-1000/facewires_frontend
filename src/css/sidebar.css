@@ -62,6 +62,22 @@ https://stackoverflow.com/questions/2836827/how-do-you-add-a-scroll-bar-to-a-div
   color: #06084f; /* White text */
 }
 
+/* Soft-disabled sidebar tool (currently just Google Photos - see
+   toolsScreen.jsx) - grayed out to signal "not a seamless, fully-solved
+   feature" without hiding it outright. Deliberately doesn't get the
+   normal hover highlight either, so it doesn't visually invite a plain
+   single click the way an active row does. */
+.sidebarToolDisabled{
+  background-color: #fcfff7;
+  color: #999;
+  font-style: italic;
+}
+
+.sidebarToolDisabled:hover{
+  background-color: #fcfff7 !important;
+  color: #999 !important;
+}
+
 /* Subordinate sidebar row (currently just ".ignore"'s "Flagged for
    review" row) - indented under its parent row with a small corner-tab
    notch on the left so it reads as "part of" the row above it rather
