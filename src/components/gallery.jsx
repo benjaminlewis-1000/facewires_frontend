@@ -1612,6 +1612,28 @@ class Gallery extends React.Component{
     this.setState({hidden: uniq_selected})
   }
 
+  // Fast path for PicasaScreen's undo/redo (see picasaScreen.jsx's
+  // tryGalleryVisibilityPatch) - lets an undo/redo update this
+  // already-mounted Gallery's visible set directly instead of forcing a
+  // full refetch+remount. Every undoable action kind already hides its
+  // faces from view immediately via setHidden/runBulkOperation the same
+  // way a live (non-undo) action does - itemsRef itself is never pruned,
+  // only `hidden` changes (see the comment on itemsRef in the
+  // constructor) - so undoing is just as simple as removing these ids
+  // from `hidden` again, provided they're still part of this exact
+  // gallery's loaded item list. Returns false (does nothing) if any id
+  // isn't in itemsRef at all - the caller falls back to a full refresh
+  // in that case, since there'd be nothing loaded here to reveal.
+  applyUndoRedoPatch(faceIds, hide){
+    if (!faceIds.every(id => id in this._idToIndex)) return false
+    this.setState(prevState => ({
+      hidden: hide
+        ? [...new Set(prevState.hidden.concat(faceIds))]
+        : prevState.hidden.filter(id => !faceIds.includes(id))
+    }))
+    return true
+  }
+
   render(){
     const { rows } = this.computeVisibleRows()
     const columns = Math.max(1, this.state.columnCount)

@@ -404,6 +404,19 @@ class PicasaScreen extends React.Component{
     this.performRedo = this.performRedo.bind(this)
     this._handleUndoRedoKeyDown = this._handleUndoRedoKeyDown.bind(this)
 
+    // Forwarded down through ImageScreen onto whichever Gallery is
+    // currently mounted (imageScreen.jsx's buildScreen) - null whenever
+    // no Gallery is mounted (e.g. mid-refetch, or a different tab/toggle
+    // entirely). Lets performUndo/performRedo patch an already-visible
+    // grid's hidden set directly (tryGalleryVisibilityPatch below)
+    // instead of unconditionally forcing a full refetch+remount via
+    // bumpRefreshVersion - the common case (undoing an action just taken
+    // on the gallery you're still looking at) needs no server round trip
+    // at all, since the affected faces are already loaded, just filtered
+    // out of view the same way runBulkOperation/setHidden already do for
+    // a live (non-undo) action.
+    this.galleryRef = React.createRef()
+
     this.startUpload = this.startUpload.bind(this)
     this.retryUpload = this.retryUpload.bind(this)
     this.dismissUpload = this.dismissUpload.bind(this)
@@ -1081,6 +1094,35 @@ class PicasaScreen extends React.Component{
     }
   }
 
+  // Attempts the fast, no-refetch path for reflecting an undo/redo in the
+  // currently-mounted Gallery. Returns true if it succeeded (caller
+  // should skip bumpRefreshVersion entirely) - false means either no
+  // Gallery is mounted, it's showing a different person/folder than this
+  // record's context, or (rarer) the affected faces simply aren't loaded
+  // there, all of which mean there's nothing to patch and the existing
+  // full-refresh fallback is the only correct option.
+  //
+  // The gallery to patch is always whichever person's gallery the action
+  // was ORIGINALLY fired from - context.currentPersonId for
+  // close_unassigned/confirm_proposed (recorded directly, gallery.jsx's
+  // runBulkOperation), or context.priorPersonId for assign_to_person
+  // (mutableSelect.jsx's sourceCountDelta always resolves to
+  // current_person_id too, just under a different field name - see
+  // CLAUDE.md). Every one of these kinds already hides the affected
+  // faces from that exact gallery immediately via setHidden when the
+  // action first fires (for live, non-undo use) - so reversing that is
+  // just as simple as un-hiding them again, and redoing is re-hiding,
+  // PROVIDED you're still looking at that same gallery and it hasn't
+  // unmounted/refetched since.
+  tryGalleryVisibilityPatch(record, hide){
+    const galleryPersonId = record.kind === 'assign_to_person'
+      ? record.context.priorPersonId
+      : record.context.currentPersonId
+    const gallery = this.galleryRef.current
+    if (!gallery || gallery.props.current_person_id !== galleryPersonId) return false
+    return gallery.applyUndoRedoPatch(record.faceIds, hide)
+  }
+
   performUndo(){
     const { undoStack, undoPointer, undoBusy } = this.state
     if (undoPointer < 0 || undoBusy) return
@@ -1097,7 +1139,7 @@ class PicasaScreen extends React.Component{
     this.runUndoRedoCall(record, true)
       .then(() => {
         this.setState({ undoPointer: undoPointer - 1, undoBusy: false })
-        this.bumpRefreshVersion()
+        if (!this.tryGalleryVisibilityPatch(record, false)) this.bumpRefreshVersion()
       })
       .catch(error => {
         console.log("Error undoing action", record, error)
@@ -1129,7 +1171,7 @@ class PicasaScreen extends React.Component{
     this.runUndoRedoCall(record, false)
       .then(() => {
         this.setState({ undoPointer: undoPointer + 1, undoBusy: false })
-        this.bumpRefreshVersion()
+        if (!this.tryGalleryVisibilityPatch(record, true)) this.bumpRefreshVersion()
       })
       .catch(error => {
         console.log("Error redoing action", record, error)
@@ -1528,6 +1570,7 @@ class PicasaScreen extends React.Component{
           onRenamePerson={this.openRenameModal}
           onRecordUndo={this.pushUndoable}
           refreshVersion={this.state.refreshVersion}
+          galleryRef={this.galleryRef}
           unlabeled={this.state.unlabeled_toggle}
           only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}
