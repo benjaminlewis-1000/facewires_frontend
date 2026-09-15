@@ -376,6 +376,7 @@ class ImageScreen extends React.Component{
     var body = null
     if (! this.state.loading){
       body = <Gallery
+                    ref={this.props.galleryRef}
                     tab={this.props.tab}
                     poss_ids = {this.state.possible_ids}
                     img_ids={folderImgIds}
