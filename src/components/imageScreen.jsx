@@ -140,37 +140,45 @@ class ImageScreen extends React.Component{
       // pull in .ignore's already-declared faces too.
       if (! ((this.props.unlabeled || this.props.reviewFlaggedOnly) && this.props.tab === "People") || this.props.tab !== 'People' || this.props.api_id === this.props.unassigned_person_id) {
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/' + req_type
-        axiosInstance.get(imagery_url, {
-            params: {
-              only_unverified: this.props.only_unverified,
-              // Verify screen's ".ignore" subordinate row ("Flagged &
-              // unverified") - see picasaScreen.jsx's
-              // reviewFlaggedUnverifiedOnly. Harmless to always include;
-              // the backend only honors it for the .ignore person, and
-              // only alongside only_unverified=true (PersonParamView's
-              // face_declared/do_only_unverified branch).
-              ...(this.props.reviewFlaggedUnverifiedOnly ? { flagged: true } : {}),
+        this._fetchPaginatedIds(imagery_url, {
+          only_unverified: this.props.only_unverified,
+          // Verify screen's ".ignore" subordinate row ("Flagged &
+          // unverified") - see picasaScreen.jsx's
+          // reviewFlaggedUnverifiedOnly. Harmless to always include;
+          // the backend only honors it for the .ignore person, and
+          // only alongside only_unverified=true (PersonParamView's
+          // face_declared/do_only_unverified branch).
+          ...(this.props.reviewFlaggedUnverifiedOnly ? { flagged: true } : {}),
+        }, generation, 1,
+          (pageData, isFirstPage) => {
+            this.setState(prevState => ({
+              imagery_ids: isFirstPage ? pageData.id_list : [...prevState.imagery_ids, ...pageData.id_list],
+              clusterGroups: isFirstPage
+                ? (pageData.cluster_groups || {})
+                : { ...prevState.clusterGroups, ...(pageData.cluster_groups || {}) },
+            }))
+            this.mergeVideoFaceIds(pageData.video_face_ids)
+            if (isFirstPage){
+              this.setState({loading_definite: false})
+              // Only the fetch that finishes last should flip the
+              // overall loading flag - if we did it unconditionally here,
+              // Gallery could mount before the still-in-flight "possible"
+              // fetch (below) has had a chance to populate possible_ids.
+              if (!this.state.loading_poss){
+                this.setState({loading: false})
+              }
             }
-          })
-          .then( (response) => {
-            if (generation !== this._fetchGeneration) return
-            this.setState({imagery_ids: response.data.id_list});
-            this.setState({clusterGroups: response.data.cluster_groups || {}})
-            this.mergeVideoFaceIds(response.data.video_face_ids)
-            this.setState({loading_definite: false})
-            // Only the fetch that finishes last should flip the
-            // overall loading flag - if we did it unconditionally here,
-            // Gallery could mount before the still-in-flight "possible"
-            // fetch (below) has had a chance to populate possible_ids.
-            if (!this.state.loading_poss){
-              this.setState({loading: false})
+          },
+          (e, isFirstPage) => {
+            console.error(debugTag, `GET (definite) FAILED${isFirstPage ? ' - loading state will stay stuck without this' : ' (background page - already-shown results are unaffected)'}`, e)
+            // A later background page failing just stops the stream
+            // silently - whatever already loaded stays visible/usable,
+            // no error state needed for a mid-stream trickle glitch.
+            if (isFirstPage){
+              this.setState({loading_definite: false, loading: false})
             }
-          })
-          .catch( (e) => {
-            if (generation !== this._fetchGeneration) return
-            console.error(debugTag, "GET (definite) FAILED - loading state will stay stuck without this", e)
-            this.setState({loading_definite: false, loading: false})
-          });
+          }
+        )
       }else{
         this.setState({imagery_ids: []});
         this.setState({loading_definite: false})
@@ -182,26 +190,30 @@ class ImageScreen extends React.Component{
       // concept either way.
       if (this.props.tab === 'People' && !this.props.only_unverified){
         imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
-        axiosInstance.get(imagery_url, {
-            params: this.props.reviewFlaggedOnly ? { flagged: true } : {}
-          })
-          .then( (response) => {
-            if (generation !== this._fetchGeneration) return
-            this.setState({possible_ids: response.data.id_list});
-            this.mergeVideoFaceIds(response.data.video_face_ids)
-            this.setState({loading_poss: false})
-            // Same reasoning as the "definite" handler above - only
-            // flip loading once both fetches for this generation are
-            // actually done.
-            if (!this.state.loading_definite){
-              this.setState({loading: false})
+        this._fetchPaginatedIds(imagery_url,
+          this.props.reviewFlaggedOnly ? { flagged: true } : {}, generation, 1,
+          (pageData, isFirstPage) => {
+            this.setState(prevState => ({
+              possible_ids: isFirstPage ? pageData.id_list : [...prevState.possible_ids, ...pageData.id_list],
+            }))
+            this.mergeVideoFaceIds(pageData.video_face_ids)
+            if (isFirstPage){
+              this.setState({loading_poss: false})
+              // Same reasoning as the "definite" handler above - only
+              // flip loading once both fetches for this generation are
+              // actually done.
+              if (!this.state.loading_definite){
+                this.setState({loading: false})
+              }
             }
-          })
-          .catch( (e) => {
-            if (generation !== this._fetchGeneration) return
-            console.error(debugTag, "GET (possible) FAILED - loading state will stay stuck without this", e)
-            this.setState({loading_poss: false, loading: false})
-          });
+          },
+          (e, isFirstPage) => {
+            console.error(debugTag, `GET (possible) FAILED${isFirstPage ? ' - loading state will stay stuck without this' : ' (background page - already-shown results are unaffected)'}`, e)
+            if (isFirstPage){
+              this.setState({loading_poss: false, loading: false})
+            }
+          }
+        )
       }
       else{
         // No "possible" concept outside the People tab (e.g. Folders),
@@ -218,6 +230,40 @@ class ImageScreen extends React.Component{
       }
     }
 
+  }
+
+  // Walks a paginate_obj_ids endpoint (django_picasa's PersonParamView)
+  // page by page, following `has_more` until exhausted - see CLAUDE.md
+  // for why: that endpoint used to always return an entire queue's worth
+  // of ids in one response (all ~100k of .ignore's, for example), which
+  // took several seconds to query/serialize/download/iterate before a
+  // single tile could show. `onPage(pageData, isFirstPage)` fires once
+  // per page as it resolves - callers flip their own loading flag off
+  // after just the FIRST page rather than waiting for the whole set, so
+  // Gallery mounts immediately and the rest streams in behind it as a
+  // sequence of background requests (not concurrent - simpler, and there's
+  // no need to race background pages against each other, since the actual
+  // goal here is fast first paint, not fast total completion).
+  //
+  // `generation` is checked before acting on EVERY page, not just the
+  // first - this._fetchGeneration already exists to abandon a stale
+  // in-flight fetch on a person/tab switch; without checking it again on
+  // each background page here too, a switch mid-load could keep
+  // appending a previous person's still-arriving pages onto the new
+  // person's list.
+  _fetchPaginatedIds(url, params, generation, page, onPage, onError){
+    axiosInstance.get(url, { params: { ...params, page } })
+      .then((response) => {
+        if (generation !== this._fetchGeneration) return
+        onPage(response.data, page === 1)
+        if (response.data.has_more){
+          this._fetchPaginatedIds(url, params, generation, page + 1, onPage, onError)
+        }
+      })
+      .catch((e) => {
+        if (generation !== this._fetchGeneration) return
+        onError(e, page === 1)
+      })
   }
 
   // face_declared and face_poss can each carry their own video_face_ids
