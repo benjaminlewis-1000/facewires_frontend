@@ -206,21 +206,30 @@ class LazyImage extends React.PureComponent {
         }
         {
           this.props.ignore_tab ? (
-            // Same action as the "no" (x) button on other people's
-            // proposed-match tiles (see the 'proposed' case below) -
-            // close_assigned sends this face to Unassigned and, if it was
-            // only a possible match (not yet declared to .ignore), marks
-            // .ignore as a rejected candidate so it won't be re-suggested.
-            // Previously called close_ignored, which moved the face to a
-            // second "hard ignore" person (.realignore) instead - changed
-            // per explicit user request (2026-08-27): the red X here
-            // should behave like every other X in the app, not escalate to
-            // a separate, unreviewable ignore tier. buildCountDeltas'
-            // close_ignored case is left wired up even though this button
-            // no longer reaches it - harmless, and still callable from
-            // wherever else 'close_ignored' might be fired in the future.
+            // Two different tile types share this same X button here
+            // (see the file-level comment above on ignore_tab mixing
+            // 'defined'/'proposed' tiles), and per the user's own request
+            // (2026-09-16) they now mean genuinely different things:
+            //
+            // - 'proposed' (still a candidate, not yet declared to
+            //   .ignore): flags it for review (mobile_review_hidden,
+            //   api/views.py's bulk_thread) instead of outright rejecting
+            //   it - moves it into the "Flagged for review" sub-queue
+            //   rather than sending it away to Unassigned/reclassify.
+            //   Doesn't touch poss_ident1/declared_name at all, so it
+            //   stays exactly the candidate it already was.
+            // - 'defined' (already declared to .ignore): unchanged -
+            //   close_assigned still un-ignores it back to Unassigned.
+            //   "Flag for review" doesn't really apply to a face that's
+            //   already been committed to .ignore, only to one still
+            //   being evaluated as a candidate.
+            //
+            // Previously called close_ignored (moved to a second "hard
+            // ignore" person, .realignore), then close_assigned
+            // unconditionally for both tile types (2026-08-27) - see git
+            // history for that intermediate step.
             <button className={this.props.hidden ? 'hidden_img' : 'delete'}
-                    onClick={ (e)=>{this.props.api_action('close_assigned', this.props.face_id) } }
+                    onClick={ (e)=>{this.props.api_action(this.state.type === 'proposed' ? 'flag_for_review' : 'close_assigned', this.props.face_id) } }
                     >
                     x
                     </button>
