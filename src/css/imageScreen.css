@@ -150,6 +150,49 @@
     background-color: #3c91ab;
 }
 
+/* People tab's face_poss confidence-order arrows (unlabeled view only -
+   see imageScreen.jsx) - same header slot as .folderSortToggle/
+   .no_classify_checkbox. Two small round buttons rather than one
+   label-flipping button: the active direction is filled solid, the
+   other stays outlined, so the current state reads at a glance. */
+.possSortArrows{
+    float: right;
+    right: 10%;
+    position: relative;
+    top: 45%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    gap: 6px;
+}
+
+.possSortArrow{
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid #197d9c;
+    background-color: white;
+    color: #197d9c;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.possSortArrow:hover{
+    background-color: #e8f2f5;
+}
+
+.possSortArrowActive{
+    background-color: #197d9c;
+    color: white;
+}
+
+.possSortArrowActive:hover{
+    background-color: #3c91ab;
+}
+
 /* Hotkey reminder for gallery.jsx's grid-level C/X/R/Q shortcuts (People
    tab, "Only Unlabeled Faces" view only) - centered in .screenHeader,
    same look as the full-size modal's own hint (.modalHotkeyHint,
