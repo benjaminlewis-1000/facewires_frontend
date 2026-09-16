@@ -1031,6 +1031,18 @@ class Gallery extends React.Component{
       case 'verify_face':
         addDelta(current_person_id, { num_unverified_faces: -n })
         break
+      case 'flag_for_review':
+        // Only ever fires on 'proposed' .ignore candidates (lazyImg.jsx's
+        // X button gates this to that tile type specifically - an
+        // already-declared .ignore face keeps the old close_assigned
+        // behavior instead, per the user's own call, 2026-09-16).
+        // num_possibilities and num_review_flagged are two views of the
+        // same pool server-side (PersonListView subtracts
+        // num_review_flagged back out of the raw possibility count - see
+        // api/views.py) - mirror that same transfer locally instead of
+        // waiting on the next people-list poll.
+        addDelta(ignore_person_id, { num_possibilities: -n, num_review_flagged: n })
+        break
       default:
         break
     }
@@ -1080,7 +1092,7 @@ class Gallery extends React.Component{
   api_action(action_type, face_id){
     console.log("Action Triggered: ", action_type, face_id)
 
-    var action_valid = ['close_unassigned', 'close_ignored', 'close_assigned', 'confirm_proposed', 'verify_face'].includes(action_type)
+    var action_valid = ['close_unassigned', 'close_ignored', 'close_assigned', 'confirm_proposed', 'verify_face', 'flag_for_review'].includes(action_type)
     if (!action_valid) {
       console.error("Invalid action_type passed to api_action: ", action_type);
       return;
