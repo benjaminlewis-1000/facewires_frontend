@@ -103,7 +103,7 @@ class ImageScreen extends React.Component{
     this.bumpHighlightVersion = this.bumpHighlightVersion.bind(this)
     this.openRename = this.openRename.bind(this)
     this.setFolderSort = this.setFolderSort.bind(this)
-    this.toggleSortOrder = this.toggleSortOrder.bind(this)
+    this.setSortOrder = this.setSortOrder.bind(this)
     this.toggleGroupByCluster = this.toggleGroupByCluster.bind(this)
     this.mergeVideoFaceIds = this.mergeVideoFaceIds.bind(this)
 
@@ -269,16 +269,18 @@ class ImageScreen extends React.Component{
     )
   }
 
-  // Flips which end of the confidence ranking shows first and restarts
+  // Sets which end of the confidence ranking shows first and restarts
   // the face_poss fetch from page 1 with the new order - can't just
   // reverse the already-loaded array client-side the way Folders' own
   // sort toggle does (setFolderSort), since face_poss is paginated and
   // only a subset may be loaded at any moment for a queue the size of
-  // .ignore's.
-  toggleSortOrder(){
-    this.setState(prevState => ({
-      possSortAscending: !prevState.possSortAscending, possible_ids: [],
-    }), () => this._startPossibleIdsFetch(false))
+  // .ignore's. A no-op if the requested direction is already current -
+  // the two-arrow control (render()) always has both arrows clickable,
+  // so clicking the already-active one shouldn't refire a fetch.
+  setSortOrder(ascending){
+    if (ascending === this.state.possSortAscending) return
+    this.setState({ possSortAscending: ascending, possible_ids: [] },
+      () => this._startPossibleIdsFetch(false))
   }
 
   // Walks a paginate_obj_ids endpoint (django_picasa's PersonParamView)
@@ -553,23 +555,39 @@ class ImageScreen extends React.Component{
               <span className='sortArrowGlyph'>{this.state.folderSortNewestFirst ? '↓' : '↑'}</span>
               {this.state.folderSortNewestFirst ? 'Newest first' : 'Oldest first'}
             </button>
-          ) : this.props.tab === 'People' && !this.props.only_unverified ? (
-            // Inverts which end of the classifier's weight_1 confidence
+          ) : this.props.tab === 'People' && this.props.unlabeled ? (
+            // Sets which end of the classifier's weight_1 confidence
             // ranking shows first for this person's possible-match queue
-            // (face_poss) - shown whenever that queue is actually fetched
-            // (see componentDidUpdate), not just while the "Only Unlabeled
-            // Faces" toggle is on, since a normal person's default gallery
-            // already mixes in their own possible matches too. Takes over
-            // this slot from "Further Images Unlikely" below (already
-            // known-dead UI on this tab per CLAUDE.md) rather than adding
-            // a fourth floated element to an already-crowded header.
-            <button
-              className='folderSortToggle'
-              onClick={this.toggleSortOrder}
-            >
-              <span className='sortArrowGlyph'>{this.state.possSortAscending ? '↑' : '↓'}</span>
-              {this.state.possSortAscending ? 'Lowest confidence first' : 'Highest confidence first'}
-            </button>
+            // (face_poss) - only where that ranking is actually being
+            // reviewed (the "Only Unlabeled Faces" toggle), per the
+            // user's own call (2026-09-16) - a normal person's default
+            // gallery also fetches face_poss, but isn't the review flow
+            // this ordering matters for. Takes over this slot from
+            // "Further Images Unlikely" below (already known-dead UI on
+            // this tab per CLAUDE.md) rather than adding a fourth floated
+            // element to an already-crowded header.
+            //
+            // Two always-visible arrows rather than one label-flipping
+            // button (contrast Folders' own .folderSortToggle just above)
+            // - the currently-active direction is the filled/solid arrow,
+            // the other stays outlined, so the current state reads at a
+            // glance without having to parse a text label.
+            <span className='possSortArrows' title='Order possible matches by confidence'>
+              <button
+                className={'possSortArrow' + (this.state.possSortAscending ? ' possSortArrowActive' : '')}
+                onClick={() => this.setSortOrder(true)}
+                title='Lowest confidence first'
+              >
+                ↑
+              </button>
+              <button
+                className={'possSortArrow' + (!this.state.possSortAscending ? ' possSortArrowActive' : '')}
+                onClick={() => this.setSortOrder(false)}
+                title='Highest confidence first'
+              >
+                ↓
+              </button>
+            </span>
           ) : (
             <span className='no_classify_checkbox'>
                 &emsp;&emsp;&emsp;
