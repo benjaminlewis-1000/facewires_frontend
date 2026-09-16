@@ -52,6 +52,17 @@ class ImageScreen extends React.Component{
       // first" is just that same array reversed client-side (see
       // buildScreen below) - no new API/fixture needed.
       folderSortNewestFirst: true,
+      // People tab's "possible match" queue (face_poss) - which candidate
+      // shows first, ranked by the classifier's own confidence
+      // (weight_1). false (default) matches the backend's original
+      // behavior: highest-confidence match first. Unlike Folders' own
+      // sort toggle, this can't just reverse an already-loaded array
+      // client-side - face_poss is paginated (FACE_PAGE_SIZE-sized
+      // pages, streamed in - see _fetchPaginatedIds) precisely because a
+      // queue like .ignore's can be huge, so only a subset may be loaded
+      // at any moment. Toggling re-fetches from page 1 with the new
+      // order instead (see toggleSortOrder/_startPossibleIdsFetch).
+      possSortAscending: false,
       // Verify screen only - {faceId: groupId} for faces the nightly
       // face_manager.cluster_unverified_faces job grouped as visually
       // similar (PersonParamView's face_declared response, only
@@ -81,12 +92,18 @@ class ImageScreen extends React.Component{
     // the (now-stale) response is dropped instead of clobbering state
     // that a later, faster-resolving request already set correctly.
     this._fetchGeneration = 0
+    // Separate counter, scoped only to the face_poss pagination chain -
+    // toggleSortOrder needs to abandon/restart just that chain without
+    // also invalidating the still-relevant face_declared ("definite")
+    // chain that _fetchGeneration guards (see _startPossibleIdsFetch).
+    this._possFetchGeneration = 0
 
     this.toggle_unlikely = this.toggle_unlikely.bind(this)
     this.handleCheckbox = this.handleCheckbox.bind(this)
     this.bumpHighlightVersion = this.bumpHighlightVersion.bind(this)
     this.openRename = this.openRename.bind(this)
     this.setFolderSort = this.setFolderSort.bind(this)
+    this.toggleSortOrder = this.toggleSortOrder.bind(this)
     this.toggleGroupByCluster = this.toggleGroupByCluster.bind(this)
     this.mergeVideoFaceIds = this.mergeVideoFaceIds.bind(this)
 
@@ -149,7 +166,7 @@ class ImageScreen extends React.Component{
           // only alongside only_unverified=true (PersonParamView's
           // face_declared/do_only_unverified branch).
           ...(this.props.reviewFlaggedUnverifiedOnly ? { flagged: true } : {}),
-        }, generation, 1,
+        }, () => this._fetchGeneration, generation, 1,
           (pageData, isFirstPage) => {
             this.setState(prevState => ({
               imagery_ids: isFirstPage ? pageData.id_list : [...prevState.imagery_ids, ...pageData.id_list],
@@ -189,31 +206,7 @@ class ImageScreen extends React.Component{
       // already covers it, but this view genuinely has no possible-match
       // concept either way.
       if (this.props.tab === 'People' && !this.props.only_unverified){
-        imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
-        this._fetchPaginatedIds(imagery_url,
-          this.props.reviewFlaggedOnly ? { flagged: true } : {}, generation, 1,
-          (pageData, isFirstPage) => {
-            this.setState(prevState => ({
-              possible_ids: isFirstPage ? pageData.id_list : [...prevState.possible_ids, ...pageData.id_list],
-            }))
-            this.mergeVideoFaceIds(pageData.video_face_ids)
-            if (isFirstPage){
-              this.setState({loading_poss: false})
-              // Same reasoning as the "definite" handler above - only
-              // flip loading once both fetches for this generation are
-              // actually done.
-              if (!this.state.loading_definite){
-                this.setState({loading: false})
-              }
-            }
-          },
-          (e, isFirstPage) => {
-            console.error(debugTag, `GET (possible) FAILED${isFirstPage ? ' - loading state will stay stuck without this' : ' (background page - already-shown results are unaffected)'}`, e)
-            if (isFirstPage){
-              this.setState({loading_poss: false, loading: false})
-            }
-          }
-        )
+        this._startPossibleIdsFetch(true)
       }
       else{
         // No "possible" concept outside the People tab (e.g. Folders),
@@ -232,6 +225,62 @@ class ImageScreen extends React.Component{
 
   }
 
+  // Fetches face_poss from page 1, ordered by the classifier's weight_1
+  // confidence (ascending/descending per state.possSortAscending - see
+  // toggleSortOrder). Shared by componentDidUpdate's person/tab-switch
+  // trigger (isInitialLoad=true, which also owns the loading_poss/loading
+  // flip) and toggleSortOrder itself (isInitialLoad=false - the gallery's
+  // already showing, so there's no overall loading gate to flip, just a
+  // fresh possible_ids list to stream back in with the new order).
+  //
+  // Uses its own generation counter (_possFetchGeneration), separate from
+  // the shared _fetchGeneration face_declared/directory use - toggling
+  // sort order needs to abandon/restart only this chain, without also
+  // invalidating the still-relevant, unrelated face_declared chain.
+  _startPossibleIdsFetch(isInitialLoad){
+    const possGeneration = ++this._possFetchGeneration
+    const debugTag = `[ImageScreen ${this.props.api_id}]`
+    const imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
+    this._fetchPaginatedIds(imagery_url, {
+      ...(this.props.reviewFlaggedOnly ? { flagged: true } : {}),
+      order: this.state.possSortAscending ? 'asc' : 'desc',
+    }, () => this._possFetchGeneration, possGeneration, 1,
+      (pageData, isFirstPage) => {
+        this.setState(prevState => ({
+          possible_ids: isFirstPage ? pageData.id_list : [...prevState.possible_ids, ...pageData.id_list],
+        }))
+        this.mergeVideoFaceIds(pageData.video_face_ids)
+        if (isFirstPage && isInitialLoad){
+          this.setState({loading_poss: false})
+          // Same reasoning as the "definite" handler above - only flip
+          // loading once both fetches for this generation are actually
+          // done.
+          if (!this.state.loading_definite){
+            this.setState({loading: false})
+          }
+        }
+      },
+      (e, isFirstPage) => {
+        console.error(debugTag, `GET (possible) FAILED${isFirstPage ? ' - loading state will stay stuck without this' : ' (background page - already-shown results are unaffected)'}`, e)
+        if (isFirstPage && isInitialLoad){
+          this.setState({loading_poss: false, loading: false})
+        }
+      }
+    )
+  }
+
+  // Flips which end of the confidence ranking shows first and restarts
+  // the face_poss fetch from page 1 with the new order - can't just
+  // reverse the already-loaded array client-side the way Folders' own
+  // sort toggle does (setFolderSort), since face_poss is paginated and
+  // only a subset may be loaded at any moment for a queue the size of
+  // .ignore's.
+  toggleSortOrder(){
+    this.setState(prevState => ({
+      possSortAscending: !prevState.possSortAscending, possible_ids: [],
+    }), () => this._startPossibleIdsFetch(false))
+  }
+
   // Walks a paginate_obj_ids endpoint (django_picasa's PersonParamView)
   // page by page, following `has_more` until exhausted - see CLAUDE.md
   // for why: that endpoint used to always return an entire queue's worth
@@ -245,23 +294,30 @@ class ImageScreen extends React.Component{
   // no need to race background pages against each other, since the actual
   // goal here is fast first paint, not fast total completion).
   //
-  // `generation` is checked before acting on EVERY page, not just the
-  // first - this._fetchGeneration already exists to abandon a stale
-  // in-flight fetch on a person/tab switch; without checking it again on
-  // each background page here too, a switch mid-load could keep
-  // appending a previous person's still-arriving pages onto the new
-  // person's list.
-  _fetchPaginatedIds(url, params, generation, page, onPage, onError){
+  // `generation`/`getCurrentGeneration` are checked before acting on
+  // EVERY page, not just the first - a generation counter (either
+  // this._fetchGeneration, for face_declared/directory, or
+  // this._possFetchGeneration, for face_poss - see
+  // _startPossibleIdsFetch) already exists to abandon a stale in-flight
+  // fetch on a person/tab switch or a sort-order toggle; without
+  // checking it again on each background page here too, a switch/toggle
+  // mid-load could keep appending stale pages onto the wrong list.
+  // Parameterized by a getter (rather than hardcoding
+  // this._fetchGeneration) specifically so face_poss can be governed by
+  // its own independent counter - toggling sort order needs to restart
+  // just that chain without also invalidating the still-relevant
+  // face_declared chain.
+  _fetchPaginatedIds(url, params, getCurrentGeneration, generation, page, onPage, onError){
     axiosInstance.get(url, { params: { ...params, page } })
       .then((response) => {
-        if (generation !== this._fetchGeneration) return
+        if (generation !== getCurrentGeneration()) return
         onPage(response.data, page === 1)
         if (response.data.has_more){
-          this._fetchPaginatedIds(url, params, generation, page + 1, onPage, onError)
+          this._fetchPaginatedIds(url, params, getCurrentGeneration, generation, page + 1, onPage, onError)
         }
       })
       .catch((e) => {
-        if (generation !== this._fetchGeneration) return
+        if (generation !== getCurrentGeneration()) return
         onError(e, page === 1)
       })
   }
@@ -484,17 +540,35 @@ class ImageScreen extends React.Component{
             // Single button, alternating direction each click - matches
             // the backend's default order_by('-dateTaken') when newest
             // ("newest first"), just that same id list reversed
-            // client-side when not (see buildScreen). Was going to sit
-            // right next to the People-tab "Further Images Unlikely"
-            // checkbox below, which is already known-dead UI on this tab
-            // (see CLAUDE.md) - hidden here now that there's something
-            // real to show in its place.
+            // client-side when not (see buildScreen). Sits in the same
+            // slot as the People-tab controls below (the sort toggle /
+            // "Further Images Unlikely" checkbox) - only one of the three
+            // is ever relevant for a given tab/toggle combination, so
+            // they share one spot rather than stacking up floated
+            // elements in an already-crowded header.
             <button
               className='folderSortToggle'
               onClick={() => this.setFolderSort(!this.state.folderSortNewestFirst)}
             >
               <span className='sortArrowGlyph'>{this.state.folderSortNewestFirst ? '↓' : '↑'}</span>
               {this.state.folderSortNewestFirst ? 'Newest first' : 'Oldest first'}
+            </button>
+          ) : this.props.tab === 'People' && !this.props.only_unverified ? (
+            // Inverts which end of the classifier's weight_1 confidence
+            // ranking shows first for this person's possible-match queue
+            // (face_poss) - shown whenever that queue is actually fetched
+            // (see componentDidUpdate), not just while the "Only Unlabeled
+            // Faces" toggle is on, since a normal person's default gallery
+            // already mixes in their own possible matches too. Takes over
+            // this slot from "Further Images Unlikely" below (already
+            // known-dead UI on this tab per CLAUDE.md) rather than adding
+            // a fourth floated element to an already-crowded header.
+            <button
+              className='folderSortToggle'
+              onClick={this.toggleSortOrder}
+            >
+              <span className='sortArrowGlyph'>{this.state.possSortAscending ? '↑' : '↓'}</span>
+              {this.state.possSortAscending ? 'Lowest confidence first' : 'Highest confidence first'}
             </button>
           ) : (
             <span className='no_classify_checkbox'>
