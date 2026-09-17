@@ -567,27 +567,36 @@ class ImageScreen extends React.Component{
             // this tab per CLAUDE.md) rather than adding a fourth floated
             // element to an already-crowded header.
             //
-            // Two always-visible arrows rather than one label-flipping
-            // button (contrast Folders' own .folderSortToggle just above)
-            // - the currently-active direction is the filled/solid arrow,
-            // the other stays outlined, so the current state reads at a
-            // glance without having to parse a text label.
-            <span className='possSortArrows' title='Order possible matches by confidence'>
-              <button
-                className={'possSortArrow' + (this.state.possSortAscending ? ' possSortArrowActive' : '')}
-                onClick={() => this.setSortOrder(true)}
-                title='Lowest confidence first'
-              >
-                ↑
-              </button>
-              <button
-                className={'possSortArrow' + (!this.state.possSortAscending ? ' possSortArrowActive' : '')}
-                onClick={() => this.setSortOrder(false)}
-                title='Highest confidence first'
-              >
-                ↓
-              </button>
-            </span>
+            // Single button whose icon flips between a "sort descending"
+            // and "sort ascending" glyph (three bars + an arrow, the
+            // standard sort-direction convention) rather than two
+            // separate always-visible arrows - per the user's own
+            // follow-up (2026-09-17).
+            <button
+              className='possSortToggleIcon'
+              onClick={() => this.setSortOrder(!this.state.possSortAscending)}
+              title={this.state.possSortAscending ? 'Lowest confidence first (click for highest first)' : 'Highest confidence first (click for lowest first)'}
+            >
+              {this.state.possSortAscending ? (
+                // Ascending: bars grow top-to-bottom, arrow points up.
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <line x1="3" y1="6" x2="8" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="3" y1="16" x2="16" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="20" y1="19" x2="20" y2="5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <polyline points="16,9 20,5 24,9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ) : (
+                // Descending (default): bars shrink top-to-bottom, arrow points down.
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                  <line x1="3" y1="6" x2="16" y2="6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="3" y1="11" x2="12" y2="11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="3" y1="16" x2="8" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="20" y1="5" x2="20" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <polyline points="16,15 20,19 24,15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
           ) : (
             <span className='no_classify_checkbox'>
                 &emsp;&emsp;&emsp;
