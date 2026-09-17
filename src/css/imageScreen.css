@@ -150,47 +150,31 @@
     background-color: #3c91ab;
 }
 
-/* People tab's face_poss confidence-order arrows (unlabeled view only -
+/* People tab's face_poss confidence-order toggle (unlabeled view only -
    see imageScreen.jsx) - same header slot as .folderSortToggle/
-   .no_classify_checkbox. Two small round buttons rather than one
-   label-flipping button: the active direction is filled solid, the
-   other stays outlined, so the current state reads at a glance. */
-.possSortArrows{
+   .no_classify_checkbox. A single icon-only button whose SVG glyph flips
+   between a "sort descending"/"sort ascending" icon (three bars + an
+   arrow) rather than a text label, per the user's own preference. */
+.possSortToggleIcon{
     float: right;
     right: 10%;
     position: relative;
     top: 45%;
     transform: translateY(-50%);
-    display: inline-flex;
-    gap: 6px;
-}
-
-.possSortArrow{
-    width: 30px;
-    height: 30px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     border: 1px solid #197d9c;
     background-color: white;
     color: #197d9c;
-    font-size: 15px;
-    line-height: 1;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 
-.possSortArrow:hover{
+.possSortToggleIcon:hover{
     background-color: #e8f2f5;
-}
-
-.possSortArrowActive{
-    background-color: #197d9c;
-    color: white;
-}
-
-.possSortArrowActive:hover{
-    background-color: #3c91ab;
 }
 
 /* Hotkey reminder for gallery.jsx's grid-level C/X/R/Q shortcuts (People
