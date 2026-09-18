@@ -19,6 +19,15 @@
     margin-top: calc(var(--menu-bar-height) + var(--screen-header-height) - 2px)
 }
 
+/* Only applied (gallery.jsx, keyed off props.unlabeled) when
+   .possMediaFilterBar is actually being shown below .screenHeader -
+   pushes the gallery down by that row's own height on top of the usual
+   offset, and shrinks the available scroll height (see .galleryGrid's
+   own inline height style in gallery.jsx) by the same amount. */
+.imageScreen.imageScreenWithFilterBar{
+    margin-top: calc(var(--menu-bar-height) + var(--screen-header-height) + var(--poss-media-filter-bar-height) - 2px);
+}
+
 .imageScreen, .img_thumb, .img_thumb_active, #screenWrapper{
     background-color:  #fcfff7;
 }
@@ -45,6 +54,58 @@
     line-height: var(--screen-header-height);
     padding: 4px;
 
+}
+
+/* People tab's "Only Unlabeled Faces" view only - image/video
+   confirm-filter row, own dedicated bar directly under .screenHeader
+   rather than a fourth control squeezed into that already-tight row
+   (see .folderSortToggle/.possSortToggleIcon just above/below). Mirrors
+   .screenHeader's own fixed positioning (same left/width), just shifted
+   down by --screen-header-height, and .imageScreen's own margin-top is
+   grown by this row's height to match (imageScreenWithFilterBar above)
+   so the gallery content starts right below it instead of underneath. */
+.possMediaFilterBar{
+    background-color: #fcfff7;
+    border-bottom: 1px solid #DDDDDD;
+    z-index: 99;
+    position: fixed;
+    margin-left: 10%;
+    width: 90%;
+    top: calc(var(--menu-bar-height) + var(--screen-header-height));
+    height: var(--poss-media-filter-bar-height);
+    line-height: var(--poss-media-filter-bar-height);
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.possMediaFilterLabel{
+    color: #666;
+    font-size: 12px;
+}
+
+.possMediaFilterOption{
+    border: 1px solid #197d9c;
+    background-color: white;
+    color: #197d9c;
+    border-radius: 12px;
+    padding: 2px 12px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.possMediaFilterOption:hover{
+    background-color: #e8f2f5;
+}
+
+.possMediaFilterOptionActive{
+    background-color: #197d9c;
+    color: white;
+}
+
+.possMediaFilterOptionActive:hover{
+    background-color: #3c91ab;
 }
 
 .transition{

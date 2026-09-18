@@ -9,6 +9,15 @@
      to push the gallery below both bars. */
   --screen-header-height: 80px;
 
+  /* Height of the People-tab "Only Unlabeled Faces" view's own
+     image/video confirm-filter row (imageScreen.jsx's
+     .possMediaFilterBar), which sits directly under .screenHeader only
+     in that one view - imageScreen.css/gallery.jsx add this on top of
+     --screen-header-height (via .imageScreenWithFilterBar) to push the
+     gallery, and shrink its own scroll height, only when that row is
+     actually shown. */
+  --poss-media-filter-bar-height: 34px;
+
   /* Semantic UI's tabular-menu active tab gets a small built-in top
      inset that inactive tabs don't have (menubar.css .menuTab). This is
      the padding added to inactive tabs to match the active tab's

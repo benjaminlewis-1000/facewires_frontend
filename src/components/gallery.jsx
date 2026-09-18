@@ -1719,7 +1719,7 @@ class Gallery extends React.Component{
 
     return(
 
-      <div className='imageScreen'>
+      <div className={'imageScreen' + (this.props.unlabeled ? ' imageScreenWithFilterBar' : '')}>
         {this.state.errorMessage && (
           <Message
             negative
@@ -1865,7 +1865,9 @@ class Gallery extends React.Component{
         <List
           listRef={this.listRef}
           className='galleryGrid'
-          style={{ height: 'calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - 13px)' }}
+          style={{ height: this.props.unlabeled
+            ? 'calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - var(--poss-media-filter-bar-height) - 13px)'
+            : 'calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - 13px)' }}
           rowComponent={GalleryRow}
           rowCount={rows.length}
           rowHeight={this.tileSize}
