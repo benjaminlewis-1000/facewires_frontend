@@ -185,7 +185,21 @@ class PersonSidebar extends React.Component {
     // at the top of the screen -- "only unlabeled faces" and 
     // "only unverified faces" respectively
     if (unlabeled || value.person_name === "Unassigned"){
-      text = `${value.person_name}   (${value.num_possibilities})`
+      // While this exact row is the one currently selected, "Only
+      // Unlabeled Faces" is on, and imageScreen.jsx's "Confirm from"
+      // filter is set to something other than "Both" - show the real
+      // filtered total (picasaScreen.jsx's possFilteredCount, a live
+      // COUNT(*) from PersonParamView) instead of the person's overall
+      // num_possibilities, so this number matches what's actually in
+      // the gallery below rather than the unfiltered total. Every other
+      // row (not currently selected) always shows its own plain total -
+      // the filter only ever applies to whichever person you're
+      // actively reviewing.
+      const showFilteredCount = selected && unlabeled
+        && this.props.possMediaFilter && this.props.possMediaFilter !== 'all'
+        && this.props.possFilteredCount !== null && this.props.possFilteredCount !== undefined
+      const possibilityCount = showFilteredCount ? this.props.possFilteredCount : value.num_possibilities
+      text = `${value.person_name}   (${possibilityCount})`
     }else if (unverified){
       text = `${value.person_name}   (${value.num_unverified_faces})`
     }else{
