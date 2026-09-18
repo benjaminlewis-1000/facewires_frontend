@@ -63,6 +63,18 @@ class ImageScreen extends React.Component{
       // at any moment. Toggling re-fetches from page 1 with the new
       // order instead (see toggleSortOrder/_startPossibleIdsFetch).
       possSortAscending: false,
+      // Same queue (face_poss), a separate filter dimension: restrict
+      // confirm-review to image-sourced faces, video-sourced faces, or
+      // 'all' (default, no restriction) - see setMediaFilter/
+      // _startPossibleIdsFetch. Same reasoning as possSortAscending for
+      // why this has to be a real backend param and refetch rather than
+      // a client-side filter over whatever's already loaded: face_poss
+      // is paginated, so a client-side-only filter would only ever see
+      // whatever fraction of a huge queue like .ignore's has streamed in
+      // so far, potentially looking sparse or empty long before the rest
+      // of the queue (which might contain plenty of matches) finishes
+      // loading in the background.
+      possMediaFilter: 'all',
       // Verify screen only - {faceId: groupId} for faces the nightly
       // face_manager.cluster_unverified_faces job grouped as visually
       // similar (PersonParamView's face_declared response, only
@@ -104,6 +116,7 @@ class ImageScreen extends React.Component{
     this.openRename = this.openRename.bind(this)
     this.setFolderSort = this.setFolderSort.bind(this)
     this.setSortOrder = this.setSortOrder.bind(this)
+    this.setMediaFilter = this.setMediaFilter.bind(this)
     this.toggleGroupByCluster = this.toggleGroupByCluster.bind(this)
     this.mergeVideoFaceIds = this.mergeVideoFaceIds.bind(this)
 
@@ -244,6 +257,7 @@ class ImageScreen extends React.Component{
     this._fetchPaginatedIds(imagery_url, {
       ...(this.props.reviewFlaggedOnly ? { flagged: true } : {}),
       order: this.state.possSortAscending ? 'asc' : 'desc',
+      media: this.state.possMediaFilter,
     }, () => this._possFetchGeneration, possGeneration, 1,
       (pageData, isFirstPage) => {
         this.setState(prevState => ({
@@ -280,6 +294,15 @@ class ImageScreen extends React.Component{
   setSortOrder(ascending){
     if (ascending === this.state.possSortAscending) return
     this.setState({ possSortAscending: ascending, possible_ids: [] },
+      () => this._startPossibleIdsFetch(false))
+  }
+
+  // Restricts the confirm-review queue (face_poss) to image-sourced
+  // faces, video-sourced faces, or 'all' - same restart-from-page-1
+  // reasoning as setSortOrder above.
+  setMediaFilter(mediaFilter){
+    if (mediaFilter === this.state.possMediaFilter) return
+    this.setState({ possMediaFilter: mediaFilter, possible_ids: [] },
       () => this._startPossibleIdsFetch(false))
   }
 
@@ -626,6 +649,31 @@ class ImageScreen extends React.Component{
           )}
 
         </div>
+
+        {this.props.tab === 'People' && this.props.unlabeled && (
+          // Restricts the confirm-review queue (face_poss) to image-
+          // sourced faces, video-sourced faces, or both - own dedicated
+          // row rather than squeezing a third control into .screenHeader
+          // (already tight with the hotkey hints + sort icon), per the
+          // user's own call (2026-09-18). Only shown alongside the sort
+          // icon above, in the same "Only Unlabeled Faces" review view.
+          <div className='possMediaFilterBar'>
+            <span className='possMediaFilterLabel'>Confirm from:</span>
+            {[
+              { value: 'all', label: 'Both' },
+              { value: 'image', label: 'Images only' },
+              { value: 'video', label: 'Video only' },
+            ].map(option => (
+              <button
+                key={option.value}
+                className={'possMediaFilterOption' + (this.state.possMediaFilter === option.value ? ' possMediaFilterOptionActive' : '')}
+                onClick={() => this.setMediaFilter(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <Menu id={PERSON_NAME_MENU_ID}>
           <Item onClick={this.openRename}>
