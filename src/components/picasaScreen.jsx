@@ -306,6 +306,29 @@ class PicasaScreen extends React.Component{
       // imageScreen.jsx's componentDidUpdate.
       refreshVersion: 0,
 
+      // People tab's "Only Unlabeled Faces" confirm queue - restricts it
+      // to image-sourced faces, video-sourced faces, or 'all' (default).
+      // Lifted up here (rather than kept local to ImageScreen, like the
+      // confidence sort toggle) specifically so PersonSidebar can also
+      // read it - the sidebar count next to the currently-selected
+      // person needs to reflect the active filter (see
+      // possFilteredCount below), and PersonSidebar is ImageScreen's
+      // sibling, not its parent/child, so this has to live one level up
+      // to be shared between them. Reset to 'all' on every person/folder
+      // switch (setApiUrl) - carrying a filter selection (and especially
+      // its stale count) over to an unrelated gallery would be actively
+      // misleading, not just irrelevant.
+      possMediaFilter: 'all',
+      // The true total number of the *currently selected* person's
+      // possibilities matching possMediaFilter (django_picasa's
+      // PersonParamView, `total_matching` - a real COUNT(*) query, only
+      // returned on that fetch's first page). null means "don't
+      // override the sidebar's normal num_possibilities" - either the
+      // filter is 'all' (no override needed, they'd match anyway) or a
+      // fetch for a new filter/person is still in flight and hasn't
+      // reported a fresh count yet.
+      possFilteredCount: null,
+
       // In-flight/completed upload jobs (Tools tab's "Upload Photos" -
       // see uploadActions.js for the underlying API calls). Lives here
       // rather than in the Upload tool's own component state so an
@@ -416,6 +439,9 @@ class PicasaScreen extends React.Component{
     // out of view the same way runBulkOperation/setHidden already do for
     // a live (non-undo) action.
     this.galleryRef = React.createRef()
+
+    this.setPossMediaFilter = this.setPossMediaFilter.bind(this)
+    this.setPossFilteredCount = this.setPossFilteredCount.bind(this)
 
     this.startUpload = this.startUpload.bind(this)
     this.retryUpload = this.retryUpload.bind(this)
@@ -742,6 +768,7 @@ class PicasaScreen extends React.Component{
       this.setState({api_id: childId})
       this.setState({selectedIndex: index})
       this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false})
+      this.setState({possMediaFilter: 'all', possFilteredCount: null})
     }else if (childType === 'person'){
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
@@ -751,6 +778,11 @@ class PicasaScreen extends React.Component{
       // selectReviewFlaggedUnverified below are the only paths that turn
       // either back on.
       this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false})
+      // A different person's confirm queue is a different image/video
+      // mix entirely - carrying over the previous person's filter
+      // selection (and definitely their stale filtered count) would be
+      // actively misleading, not just irrelevant.
+      this.setState({possMediaFilter: 'all', possFilteredCount: null})
     }
     // console.log(this.state.image_api_id)
   }
@@ -1069,6 +1101,22 @@ class PicasaScreen extends React.Component{
 
   bumpRefreshVersion(){
     this.setState(prevState => ({ refreshVersion: prevState.refreshVersion + 1 }))
+  }
+
+  // Called by ImageScreen when the user clicks a different "Confirm
+  // from" option - clears possFilteredCount immediately (the old
+  // count no longer applies to the new filter) rather than leaving a
+  // stale number in the sidebar until the new fetch's first page
+  // reports a fresh one.
+  setPossMediaFilter(mediaFilter){
+    this.setState({ possMediaFilter: mediaFilter, possFilteredCount: null })
+  }
+
+  // Called by ImageScreen whenever a face_poss fetch's first page
+  // reports a fresh total_matching (PersonParamView) - keeps the
+  // sidebar's override in sync with whatever's actually being shown.
+  setPossFilteredCount(count){
+    this.setState({ possFilteredCount: count })
   }
 
   // Fires the actual reversing (or, for redo, re-applying) API call(s) for
@@ -1557,7 +1605,7 @@ class PicasaScreen extends React.Component{
     if ( this.state.tab === "People" ){
       return (
       <div>
-        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly} onSelectReviewFlaggedUnverified={this.selectReviewFlaggedUnverified} />
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly} onSelectReviewFlaggedUnverified={this.selectReviewFlaggedUnverified} possMediaFilter={this.state.possMediaFilter} possFilteredCount={this.state.possFilteredCount} />
         <ImageScreen
           tab={this.state.tab}
           api_source={this.state.api_source}
@@ -1571,6 +1619,9 @@ class PicasaScreen extends React.Component{
           onRecordUndo={this.pushUndoable}
           refreshVersion={this.state.refreshVersion}
           galleryRef={this.galleryRef}
+          possMediaFilter={this.state.possMediaFilter}
+          onSetMediaFilter={this.setPossMediaFilter}
+          onFilteredCountChange={this.setPossFilteredCount}
           unlabeled={this.state.unlabeled_toggle}
           only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}

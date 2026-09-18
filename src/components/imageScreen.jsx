@@ -63,18 +63,6 @@ class ImageScreen extends React.Component{
       // at any moment. Toggling re-fetches from page 1 with the new
       // order instead (see toggleSortOrder/_startPossibleIdsFetch).
       possSortAscending: false,
-      // Same queue (face_poss), a separate filter dimension: restrict
-      // confirm-review to image-sourced faces, video-sourced faces, or
-      // 'all' (default, no restriction) - see setMediaFilter/
-      // _startPossibleIdsFetch. Same reasoning as possSortAscending for
-      // why this has to be a real backend param and refetch rather than
-      // a client-side filter over whatever's already loaded: face_poss
-      // is paginated, so a client-side-only filter would only ever see
-      // whatever fraction of a huge queue like .ignore's has streamed in
-      // so far, potentially looking sparse or empty long before the rest
-      // of the queue (which might contain plenty of matches) finishes
-      // loading in the background.
-      possMediaFilter: 'all',
       // Verify screen only - {faceId: groupId} for faces the nightly
       // face_manager.cluster_unverified_faces job grouped as visually
       // similar (PersonParamView's face_declared response, only
@@ -250,20 +238,36 @@ class ImageScreen extends React.Component{
   // the shared _fetchGeneration face_declared/directory use - toggling
   // sort order needs to abandon/restart only this chain, without also
   // invalidating the still-relevant, unrelated face_declared chain.
-  _startPossibleIdsFetch(isInitialLoad){
+  // `mediaFilterOverride`, when passed, is used instead of
+  // this.props.possMediaFilter - needed because setMediaFilter calls
+  // this synchronously right after telling PicasaScreen (its parent) to
+  // update that prop, and a parent's setState doesn't land in this.props
+  // until the next render - reading this.props.possMediaFilter in that
+  // same tick would still see the OLD value. Same class of bug as an
+  // earlier session fix in picasaScreen.jsx's Google Photos poll -
+  // passing the intended value explicitly sidesteps it entirely.
+  _startPossibleIdsFetch(isInitialLoad, mediaFilterOverride){
     const possGeneration = ++this._possFetchGeneration
     const debugTag = `[ImageScreen ${this.props.api_id}]`
+    const mediaFilter = mediaFilterOverride !== undefined ? mediaFilterOverride : this.props.possMediaFilter
     const imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
     this._fetchPaginatedIds(imagery_url, {
       ...(this.props.reviewFlaggedOnly ? { flagged: true } : {}),
       order: this.state.possSortAscending ? 'asc' : 'desc',
-      media: this.state.possMediaFilter,
+      media: mediaFilter,
     }, () => this._possFetchGeneration, possGeneration, 1,
       (pageData, isFirstPage) => {
         this.setState(prevState => ({
           possible_ids: isFirstPage ? pageData.id_list : [...prevState.possible_ids, ...pageData.id_list],
         }))
         this.mergeVideoFaceIds(pageData.video_face_ids)
+        if (isFirstPage){
+          // Keeps the sidebar's per-person override (personSidebar.jsx)
+          // in sync with whatever's actually loaded here - fires on
+          // every fresh first page, not just the initial load, so
+          // switching "Confirm from" updates the sidebar count too.
+          this.props.onFilteredCountChange && this.props.onFilteredCountChange(pageData.total_matching)
+        }
         if (isFirstPage && isInitialLoad){
           this.setState({loading_poss: false})
           // Same reasoning as the "definite" handler above - only flip
@@ -299,11 +303,15 @@ class ImageScreen extends React.Component{
 
   // Restricts the confirm-review queue (face_poss) to image-sourced
   // faces, video-sourced faces, or 'all' - same restart-from-page-1
-  // reasoning as setSortOrder above.
+  // reasoning as setSortOrder above. possMediaFilter itself is owned by
+  // PicasaScreen now, not local state (see its own state comment) - the
+  // sidebar's per-person count override needs to read it too, and
+  // PersonSidebar is this component's sibling, not its parent/child.
   setMediaFilter(mediaFilter){
-    if (mediaFilter === this.state.possMediaFilter) return
-    this.setState({ possMediaFilter: mediaFilter, possible_ids: [] },
-      () => this._startPossibleIdsFetch(false))
+    if (mediaFilter === this.props.possMediaFilter) return
+    this.props.onSetMediaFilter(mediaFilter)
+    this.setState({ possible_ids: [] },
+      () => this._startPossibleIdsFetch(false, mediaFilter))
   }
 
   // Walks a paginate_obj_ids endpoint (django_picasa's PersonParamView)
@@ -666,7 +674,7 @@ class ImageScreen extends React.Component{
             ].map(option => (
               <button
                 key={option.value}
-                className={'possMediaFilterOption' + (this.state.possMediaFilter === option.value ? ' possMediaFilterOptionActive' : '')}
+                className={'possMediaFilterOption' + (this.props.possMediaFilter === option.value ? ' possMediaFilterOptionActive' : '')}
                 onClick={() => this.setMediaFilter(option.value)}
               >
                 {option.label}
