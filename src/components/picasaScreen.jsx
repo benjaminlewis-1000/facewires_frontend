@@ -72,7 +72,7 @@ const PHOTO_SYNC_POLL_INTERVAL_MS = 3000;
 
 // Every numeric people-count field a delta can touch - see
 // updatePersonCounts and negateDeltas below.
-const COUNT_FIELDS = ['num_faces', 'num_possibilities', 'num_unverified_faces'];
+const COUNT_FIELDS = ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces'];
 
 // Undo applies the exact inverse of whatever deltas an action originally
 // applied; redo re-applies them as-is. Keeping this as a pure negation
@@ -310,24 +310,18 @@ class PicasaScreen extends React.Component{
       // to image-sourced faces, video-sourced faces, or 'all' (default).
       // Lifted up here (rather than kept local to ImageScreen, like the
       // confidence sort toggle) specifically so PersonSidebar can also
-      // read it - the sidebar count next to the currently-selected
-      // person needs to reflect the active filter (see
-      // possFilteredCount below), and PersonSidebar is ImageScreen's
-      // sibling, not its parent/child, so this has to live one level up
-      // to be shared between them. Reset to 'all' on every person/folder
-      // switch (setApiUrl) - carrying a filter selection (and especially
-      // its stale count) over to an unrelated gallery would be actively
-      // misleading, not just irrelevant.
+      // read it - every row's displayed count needs to reflect the
+      // active filter (PersonListView's num_possibilities_video/
+      // num_possibilities_image, kept live via gallery.jsx's
+      // buildCountDeltas the same way num_possibilities itself already
+      // is), and PersonSidebar is ImageScreen's sibling, not its parent/
+      // child, so this has to live one level up to be shared between
+      // them. Reset to 'all' on every person/folder switch (setApiUrl)
+      // for consistency with the sort toggle, even though - unlike that
+      // one - carrying this particular filter over to a new person isn't
+      // actually misleading (every row already shows its own correct
+      // split regardless of who's selected).
       possMediaFilter: 'all',
-      // The true total number of the *currently selected* person's
-      // possibilities matching possMediaFilter (django_picasa's
-      // PersonParamView, `total_matching` - a real COUNT(*) query, only
-      // returned on that fetch's first page). null means "don't
-      // override the sidebar's normal num_possibilities" - either the
-      // filter is 'all' (no override needed, they'd match anyway) or a
-      // fetch for a new filter/person is still in flight and hasn't
-      // reported a fresh count yet.
-      possFilteredCount: null,
 
       // In-flight/completed upload jobs (Tools tab's "Upload Photos" -
       // see uploadActions.js for the underlying API calls). Lives here
@@ -441,7 +435,6 @@ class PicasaScreen extends React.Component{
     this.galleryRef = React.createRef()
 
     this.setPossMediaFilter = this.setPossMediaFilter.bind(this)
-    this.setPossFilteredCount = this.setPossFilteredCount.bind(this)
 
     this.startUpload = this.startUpload.bind(this)
     this.retryUpload = this.retryUpload.bind(this)
@@ -768,7 +761,6 @@ class PicasaScreen extends React.Component{
       this.setState({api_id: childId})
       this.setState({selectedIndex: index})
       this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false})
-      this.setState({possMediaFilter: 'all', possFilteredCount: null})
     }else if (childType === 'person'){
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
@@ -778,11 +770,11 @@ class PicasaScreen extends React.Component{
       // selectReviewFlaggedUnverified below are the only paths that turn
       // either back on.
       this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false})
-      // A different person's confirm queue is a different image/video
-      // mix entirely - carrying over the previous person's filter
-      // selection (and definitely their stale filtered count) would be
-      // actively misleading, not just irrelevant.
-      this.setState({possMediaFilter: 'all', possFilteredCount: null})
+      // possMediaFilter deliberately NOT reset here - it's now a
+      // cross-person setting (every row in the sidebar reflects it, not
+      // just whoever's selected), so switching to review a different
+      // person's videos while "Video only" is active should keep
+      // showing just their videos, not silently fall back to "Both".
     }
     // console.log(this.state.image_api_id)
   }
@@ -901,7 +893,7 @@ class PicasaScreen extends React.Component{
         if (!delta) return person
 
         const updated = { ...person }
-        for (const field of ['num_faces', 'num_possibilities', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_unverified']){
+        for (const field of ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_unverified']){
           if (delta[field]){
             updated[field] = Math.max(0, (updated[field] || 0) + delta[field])
           }
@@ -1104,19 +1096,9 @@ class PicasaScreen extends React.Component{
   }
 
   // Called by ImageScreen when the user clicks a different "Confirm
-  // from" option - clears possFilteredCount immediately (the old
-  // count no longer applies to the new filter) rather than leaving a
-  // stale number in the sidebar until the new fetch's first page
-  // reports a fresh one.
+  // from" option.
   setPossMediaFilter(mediaFilter){
-    this.setState({ possMediaFilter: mediaFilter, possFilteredCount: null })
-  }
-
-  // Called by ImageScreen whenever a face_poss fetch's first page
-  // reports a fresh total_matching (PersonParamView) - keeps the
-  // sidebar's override in sync with whatever's actually being shown.
-  setPossFilteredCount(count){
-    this.setState({ possFilteredCount: count })
+    this.setState({ possMediaFilter: mediaFilter })
   }
 
   // Fires the actual reversing (or, for redo, re-applying) API call(s) for
@@ -1605,7 +1587,7 @@ class PicasaScreen extends React.Component{
     if ( this.state.tab === "People" ){
       return (
       <div>
-        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly} onSelectReviewFlaggedUnverified={this.selectReviewFlaggedUnverified} possMediaFilter={this.state.possMediaFilter} possFilteredCount={this.state.possFilteredCount} />
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly} onSelectReviewFlaggedUnverified={this.selectReviewFlaggedUnverified} possMediaFilter={this.state.possMediaFilter} />
         <ImageScreen
           tab={this.state.tab}
           api_source={this.state.api_source}
@@ -1621,7 +1603,6 @@ class PicasaScreen extends React.Component{
           galleryRef={this.galleryRef}
           possMediaFilter={this.state.possMediaFilter}
           onSetMediaFilter={this.setPossMediaFilter}
-          onFilteredCountChange={this.setPossFilteredCount}
           unlabeled={this.state.unlabeled_toggle}
           only_unverified={this.state.only_unverified_toggle}
           selectedIndex={this.state.selectedIndex}

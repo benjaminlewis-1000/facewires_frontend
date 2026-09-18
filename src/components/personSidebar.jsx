@@ -185,20 +185,24 @@ class PersonSidebar extends React.Component {
     // at the top of the screen -- "only unlabeled faces" and 
     // "only unverified faces" respectively
     if (unlabeled || value.person_name === "Unassigned"){
-      // While this exact row is the one currently selected, "Only
-      // Unlabeled Faces" is on, and imageScreen.jsx's "Confirm from"
-      // filter is set to something other than "Both" - show the real
-      // filtered total (picasaScreen.jsx's possFilteredCount, a live
-      // COUNT(*) from PersonParamView) instead of the person's overall
-      // num_possibilities, so this number matches what's actually in
-      // the gallery below rather than the unfiltered total. Every other
-      // row (not currently selected) always shows its own plain total -
-      // the filter only ever applies to whichever person you're
-      // actively reviewing.
-      const showFilteredCount = selected && unlabeled
-        && this.props.possMediaFilter && this.props.possMediaFilter !== 'all'
-        && this.props.possFilteredCount !== null && this.props.possFilteredCount !== undefined
-      const possibilityCount = showFilteredCount ? this.props.possFilteredCount : value.num_possibilities
+      // While "Only Unlabeled Faces" is on and imageScreen.jsx's
+      // "Confirm from" filter is set to something other than "Both" -
+      // show every row's real image/video split (PersonListView's
+      // num_possibilities_video/num_possibilities_image, kept live
+      // across every confirm/reject/flag action by gallery.jsx's
+      // buildCountDeltas the same way num_possibilities itself already
+      // is) instead of the unfiltered total. Applies to every person
+      // row, not just the one currently selected/being reviewed - the
+      // filter reflects "how many of each person's candidates are
+      // photos vs video," which is meaningful to see across the whole
+      // list even before you've clicked into any one of them.
+      const showMediaSplit = unlabeled && this.props.possMediaFilter && this.props.possMediaFilter !== 'all'
+      let possibilityCount = value.num_possibilities
+      if (showMediaSplit){
+        possibilityCount = this.props.possMediaFilter === 'video'
+          ? (value.num_possibilities_video ?? value.num_possibilities)
+          : (value.num_possibilities_image ?? value.num_possibilities)
+      }
       text = `${value.person_name}   (${possibilityCount})`
     }else if (unverified){
       text = `${value.person_name}   (${value.num_unverified_faces})`

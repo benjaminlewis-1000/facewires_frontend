@@ -772,6 +772,21 @@ class Gallery extends React.Component{
       this.setState(prevState => ({ itemsVersion: prevState.itemsVersion + 1 }))
     }
 
+    // _videoFaceIdSet used to be safe to build once, in the constructor -
+    // imageScreen.jsx used to fetch every id up front, so
+    // this.props.videoFaceIds was already complete by the time a Gallery
+    // instance existed at all. Real gap introduced by this session's
+    // face_poss pagination work: Gallery now mounts after just page 1,
+    // with later background pages (and whatever video ids they carry)
+    // still merging into this.props.videoFaceIds afterward -
+    // constructor-only construction meant those never made it into
+    // _videoFaceIdSet, silently misclassifying any face from a later
+    // page as non-video (both the modal's fast/accurate two-stage load
+    // and, now, buildCountDeltas' video/image split).
+    if (prevProps.videoFaceIds !== this.props.videoFaceIds){
+      this._videoFaceIdSet = new Set(this.props.videoFaceIds || [])
+    }
+
     // Rebuild peopleOptions when someone new shows up (or a merge removes
     // one) so a brand-new person created via one tile's "send to other
     // person" search immediately becomes searchable from every other
@@ -926,6 +941,22 @@ class Gallery extends React.Component{
       else if (this._typeById[id] === 'proposed') proposedCount++
     })
     const n = faceIds.length
+    const proposedFaceIds = faceIds.filter(id => this._typeById[id] === 'proposed')
+
+    // Splits a set of face ids into {video, image} counts, using the
+    // same this._videoFaceIdSet the modal's fast/accurate two-stage load
+    // already relies on - backs every num_possibilities delta below with
+    // a matching num_possibilities_video/num_possibilities_image delta,
+    // so PersonSidebar's per-row "Confirm from" split
+    // (django_picasa_dev's PersonListView) stays live across every
+    // action instead of only updating on the next periodic people-list
+    // poll, same reasoning as num_possibilities itself already being
+    // locally adjusted here rather than waiting on that poll.
+    const splitVideoImage = (ids) => {
+      let video = 0
+      for (const id of ids) if (this._videoFaceIdSet.has(id)) video++
+      return { video, image: ids.length - video }
+    }
 
     const deltas = []
     const addDelta = (id, fields) => {
@@ -936,8 +967,15 @@ class Gallery extends React.Component{
     }
 
     switch (action_type){
-      case 'confirm_proposed':
-        addDelta(current_person_id, { num_possibilities: -n, num_faces: n, num_unverified_faces: n })
+      case 'confirm_proposed': {
+        // Guaranteed all-proposed (see the comment just below), so the
+        // split of the whole faceIds list is exactly the split needed
+        // for both deltas here.
+        const { video, image } = splitVideoImage(faceIds)
+        addDelta(current_person_id, {
+          num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image,
+          num_faces: n, num_unverified_faces: n,
+        })
         // Same reasoning as close_assigned/close_unassigned's Unassigned
         // deltas elsewhere in this switch: confirm_proposed only ever
         // fires on 'proposed' tiles (see lazyImg.jsx - the checkmark
@@ -950,9 +988,10 @@ class Gallery extends React.Component{
         // target person's count but left Unassigned's sidebar number
         // stale (reported for the .ignore person specifically, but this
         // applied to confirming a candidate for any person).
-        addDelta(unassigned_person_id, { num_possibilities: -n })
+        addDelta(unassigned_person_id, { num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image })
         break
-      case 'close_assigned':
+      }
+      case 'close_assigned': {
         if (definedCount) {
           addDelta(current_person_id, { num_faces: -definedCount })
           // The verify gallery (only_unverified) only ever shows faces
@@ -964,7 +1003,10 @@ class Gallery extends React.Component{
           // num_unverified_faces at all.
           if (this.props.only_unverified) addDelta(current_person_id, { num_unverified_faces: -definedCount })
         }
-        if (proposedCount) addDelta(current_person_id, { num_possibilities: -proposedCount })
+        if (proposedCount) {
+          const { video, image } = splitVideoImage(proposedFaceIds)
+          addDelta(current_person_id, { num_possibilities: -proposedCount, num_possibilities_video: -video, num_possibilities_image: -image })
+        }
         // Faces actually moved into Unassigned here (the 'defined'
         // sub-case - associate_person(blank_person.id) on the backend,
         // when the face was declared to current_person_id) really do land
@@ -979,10 +1021,15 @@ class Gallery extends React.Component{
         // case, where the face becoming visible in Unassigned's queue
         // *is* new, so only skip it specifically when current_person_id is
         // .ignore.
-        const newlyUnassignedCount = current_person_id === ignore_person_id ? definedCount : n
-        addDelta(unassigned_person_id, { num_possibilities: newlyUnassignedCount })
+        const newlyUnassignedIds = current_person_id === ignore_person_id
+          ? faceIds.filter(id => this._typeById[id] === 'defined')
+          : faceIds
+        const newlyUnassignedCount = newlyUnassignedIds.length
+        const { video: uVideo, image: uImage } = splitVideoImage(newlyUnassignedIds)
+        addDelta(unassigned_person_id, { num_possibilities: newlyUnassignedCount, num_possibilities_video: uVideo, num_possibilities_image: uImage })
         break
-      case 'close_unassigned':
+      }
+      case 'close_unassigned': {
         // "Send to ignore" is reachable from any face's context menu, not
         // just the Unassigned tab - it was always debiting
         // unassigned_person_id regardless of where the face actually came
@@ -991,14 +1038,16 @@ class Gallery extends React.Component{
         // num_unverified_faces at all. Same source-determination as
         // close_assigned just above.
         if (current_person_id === unassigned_person_id) {
-          addDelta(unassigned_person_id, { num_possibilities: -n })
+          const { video, image } = splitVideoImage(faceIds)
+          addDelta(unassigned_person_id, { num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image })
         } else {
           if (definedCount) {
             addDelta(current_person_id, { num_faces: -definedCount })
             if (this.props.only_unverified) addDelta(current_person_id, { num_unverified_faces: -definedCount })
           }
           if (proposedCount) {
-            addDelta(current_person_id, { num_possibilities: -proposedCount })
+            const { video, image } = splitVideoImage(proposedFaceIds)
+            addDelta(current_person_id, { num_possibilities: -proposedCount, num_possibilities_video: -video, num_possibilities_image: -image })
             // Same reasoning as close_assigned's newlyUnassignedCount
             // comment above: a 'proposed' face here still has
             // declared_name === Unassigned (reject_association()/soft
@@ -1009,12 +1058,13 @@ class Gallery extends React.Component{
             // hotkeys or a normal proposed tile's context menu correctly
             // debited the specific person's count but silently left
             // Unassigned's sidebar number stale.
-            addDelta(unassigned_person_id, { num_possibilities: -proposedCount })
+            addDelta(unassigned_person_id, { num_possibilities: -proposedCount, num_possibilities_video: -video, num_possibilities_image: -image })
           }
         }
         addDelta(ignore_person_id, { num_faces: n })
         break
-      case 'close_ignored':
+      }
+      case 'close_ignored': {
         // Same defined/proposed split as close_assigned/close_unassigned
         // above - this only ever fires while viewing the .ignore person
         // (gallery.jsx's Delete-key handler), but that gallery can show
@@ -1026,12 +1076,16 @@ class Gallery extends React.Component{
         // .ignore's num_faces count whenever a 'proposed' tile was
         // included (nothing had ever incremented it for that face).
         if (definedCount) addDelta(ignore_person_id, { num_faces: -definedCount })
-        if (proposedCount) addDelta(ignore_person_id, { num_possibilities: -proposedCount })
+        if (proposedCount) {
+          const { video, image } = splitVideoImage(proposedFaceIds)
+          addDelta(ignore_person_id, { num_possibilities: -proposedCount, num_possibilities_video: -video, num_possibilities_image: -image })
+        }
         break
+      }
       case 'verify_face':
         addDelta(current_person_id, { num_unverified_faces: -n })
         break
-      case 'flag_for_review':
+      case 'flag_for_review': {
         // Only ever fires on 'proposed' .ignore candidates (lazyImg.jsx's
         // X button gates this to that tile type specifically - an
         // already-declared .ignore face keeps the old close_assigned
@@ -1041,8 +1095,13 @@ class Gallery extends React.Component{
         // num_review_flagged back out of the raw possibility count - see
         // api/views.py) - mirror that same transfer locally instead of
         // waiting on the next people-list poll.
-        addDelta(ignore_person_id, { num_possibilities: -n, num_review_flagged: n })
+        const { video, image } = splitVideoImage(faceIds)
+        addDelta(ignore_person_id, {
+          num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image,
+          num_review_flagged: n,
+        })
         break
+      }
       default:
         break
     }

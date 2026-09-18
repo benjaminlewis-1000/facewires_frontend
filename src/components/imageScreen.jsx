@@ -261,13 +261,6 @@ class ImageScreen extends React.Component{
           possible_ids: isFirstPage ? pageData.id_list : [...prevState.possible_ids, ...pageData.id_list],
         }))
         this.mergeVideoFaceIds(pageData.video_face_ids)
-        if (isFirstPage){
-          // Keeps the sidebar's per-person override (personSidebar.jsx)
-          // in sync with whatever's actually loaded here - fires on
-          // every fresh first page, not just the initial load, so
-          // switching "Confirm from" updates the sidebar count too.
-          this.props.onFilteredCountChange && this.props.onFilteredCountChange(pageData.total_matching)
-        }
         if (isFirstPage && isInitialLoad){
           this.setState({loading_poss: false})
           // Same reasoning as the "definite" handler above - only flip
