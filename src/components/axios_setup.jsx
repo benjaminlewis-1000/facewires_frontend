@@ -1,6 +1,7 @@
 import store from 'store';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
+import { isAuthFailure, bounceToLogin } from './authRedirect';
 
 // Grab the base API url from your config store with a reliable fallback
 const apiBaseUrl = store.get('api_url') || 'https://picasa.exploretheworld.tech/api';
@@ -60,9 +61,18 @@ axiosRetry(axiosInstance, {
 // anything happened. Only once every retry still comes back HTML is it
 // treated as a genuine expired session: synthesized as a 401 so every
 // existing isAuthFailure() check (and any future one) recognizes it the
-// same way it already recognizes a real 401/403, with no per-call-site
-// changes needed - at that point MainApp's own background isLoggedIn()
-// check is what actually redirects to a fresh login.
+// same way it already recognizes a real 401/403.
+//
+// Correction to this comment's old claim: "MainApp's own background
+// isLoggedIn() check is what actually redirects to a fresh login" is only
+// true for the very first page load - that check runs exactly once, at
+// mount. Any auth failure discovered later (this HTML-retry path, a plain
+// 401/403 response, the 10-minute people-list poll, a person-switch fetch)
+// used to just silently no-op at every call site, each trusting this same
+// now-false assumption - see CLAUDE.md's "background-tab bug" writeup.
+// bounceToLogin() below is the actual fix: called directly from both
+// failure paths in this interceptor, so a confirmed auth failure redirects
+// no matter when in the session's life it's discovered.
 const HTML_RETRY_DELAYS_MS = [1000, 2000, 4000];
 
 axiosInstance.interceptors.response.use(
@@ -79,6 +89,7 @@ axiosInstance.interceptors.response.use(
         // HTML_RETRY_DELAYS_MS.length attempts.
         config._htmlRetryCount = (config._htmlRetryCount || 0) + 1;
         if (config._htmlRetryCount > HTML_RETRY_DELAYS_MS.length) {
+            bounceToLogin();
             const authError = new Error('Received HTML instead of JSON after retries - session expired (Authelia SSO redirect).');
             authError.response = { ...response, status: 401 };
             throw authError;
@@ -86,7 +97,13 @@ axiosInstance.interceptors.response.use(
         await new Promise(resolve => setTimeout(resolve, HTML_RETRY_DELAYS_MS[config._htmlRetryCount - 1]));
         return axiosInstance.request(config);
     },
-    (error) => Promise.reject(error),
+    (error) => {
+        // A real 401/403 straight from the server (not the synthesized-
+        // from-HTML case above, which calls bounceToLogin() itself before
+        // ever reaching here) - same redirect, same reasoning.
+        if (isAuthFailure(error)) bounceToLogin();
+        return Promise.reject(error);
+    },
 );
 
 export default axiosInstance;

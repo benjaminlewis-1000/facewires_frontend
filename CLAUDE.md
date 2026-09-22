@@ -512,19 +512,71 @@ its behavior, don't assume this file's history describes what's live.
     `unlabeled || only_unverified`.
   - `confirm_proposed` is back in the undo/redo stack (see "Undo/redo" under Architecture) -
     the `close_assigned` backend bug that excluded it is confirmed fixed and live on prod.
-- Bug to investigate: after the tab sits in the background for a while
-  (laptop asleep, tab backgrounded, etc.) and the user comes back and
-  clicks to a different person, no images render. Not yet diagnosed -
-  plausible suspects worth checking first: the session cookie/CSRF
-  token expiring while backgrounded (face images are plain `<img src>`
-  tags hitting `/keyed_image/...` directly, not through axiosInstance,
-  so an expired-session redirect there would fail silently with no
-  error banner); the browser throttling background-tab timers, which
-  could stall `PicasaScreen`'s 10-minute people-list refresh interval
-  or `ImageScreen`'s fetch-generation bookkeeping; or `store`
-  (localStorage) losing `access_key`/`api_url` some other way. Needs
-  reproducing with dev tools open (Network tab, and check for console
-  errors) to narrow down.
+- **Fixed (2026-09-22): background-tab bug** - after the tab sat in the
+  background for a while (laptop asleep, tab backgrounded, etc.) and the
+  user came back and clicked to a different person, no images rendered,
+  with no error shown anywhere. Root-caused by reading the actual code
+  paths rather than guessing: `/keyed_image/...`'s `access_key` check
+  turned out to be a red herring - it's `settings.RANDOM_ACCESS_KEY`, a
+  static server-wide value that never expires or rotates, not tied to the
+  session at all. The real cause: `MainApp.isLoggedIn()` (`mainApp.jsx`)
+  only ever ran once, at mount. Any auth failure discovered later in the
+  session's life - the 10-minute people-list poll, a person-switch fetch
+  in `imageScreen.jsx`, a bulk action - either silently `return`ed
+  (`picasaScreen.jsx`'s three initial-fetch catch blocks, each trusting a
+  comment that assumed "MainApp's check will call bounceToLogin()
+  momentarily" - true only for the initial-mount race) or, in
+  `imageScreen.jsx`, just logged to console and cleared `loading`,
+  leaving an empty gallery with no recovery except a manual reload.
+  Fixed with a new shared `src/components/authRedirect.js`
+  (`isAuthFailure`/`bounceToLogin`, deduplicating what used to be
+  separately, inconsistently defined in `mainApp.jsx` and
+  `picasaScreen.jsx`): `axios_setup.jsx`'s response interceptor now calls
+  `bounceToLogin()` itself on any confirmed 401/403 (both the
+  exhausted-HTML-retry-synthesized case and a plain error response),
+  wherever/whenever it's discovered, not just at mount; `MainApp` also
+  gained a `document.visibilitychange` listener (with matching
+  `componentWillUnmount` cleanup) that re-checks the session the instant
+  the tab becomes visible again, so a dead session is caught the moment
+  the user returns rather than on whatever they happen to click next.
+  Verified headlessly: a session that dies while backgrounded now
+  produces exactly one redirect to the real Authelia login URL within
+  the expected ~7s (matching the existing HTML-retry backoff), instead
+  of silently failing forever.
+  - **Separate, still-open question surfaced while investigating this**:
+    the user reported having to fully re-authenticate (real credentials,
+    not just a silent SSO bounce) roughly once a day even with Authelia's
+    "remember me" checked - investigated in depth (session mostly not
+    reproduced from code alone, see below) but not yet resolved. Ruled
+    out via direct inspection: `picasa_api` restarts (Django sessions are
+    DB-backed, `db_picasa` hasn't restarted in weeks), `authelia-redis`
+    losing data (no persistent volume, but hasn't itself restarted in 3+
+    weeks; `maxmemory-policy: noeviction` with only ~2MB used rules out
+    eviction), `DJANGO_SECRET_KEY`/the OIDC client secret rotating
+    (stable env values). Confirmed working correctly: a real fresh
+    logout+login while `remember_me` was checked produced a genuine
+    ~30-day Redis TTL session (`authelia-session:*`, `docker exec
+    authelia-redis redis-cli TTL <key>`) - so the checkbox itself isn't
+    broken. Found but unexplained: several *other* live sessions sitting
+    at Authelia's un-remembered `12 hour` tier at the same time - possibly
+    the PhotoVerify mobile app's own OIDC handshake (bearer-token auth,
+    `api/authentication.py`'s `AutheliaOIDCAuthentication`, which likely
+    never presents/honors a remember-me checkbox), possibly stale
+    pre-remember-me logins - not confirmed either way. Also worth knowing
+    for next time this comes up: `django_picasa`'s
+    `SESSION_EXPIRE_AT_BROWSER_CLOSE = True` makes Django's *own* session
+    cookie a true browser-session cookie (no `Expires`/`Max-Age` at all)
+    independent of Authelia's cookie entirely - closing/restarting the
+    browser itself (not just the tab) drops it regardless of Django's
+    30-minute sliding `SESSION_COOKIE_AGE` or anything Authelia's
+    `remember_me` does, though this alone doesn't explain a same-browser-
+    session logout. Status: monitoring whether the fresh 30-day session
+    holds; if the user gets logged out again before it should have
+    expired, check Redis immediately after (`TTL` on the live key) to see
+    whether the session vanished outright (something purged it) or a
+    fresh short-TTL one silently replaced it (something re-triggered a
+    non-remembered login) - that distinction is the next real diagnostic
+    step, not yet done.
 - Feature follow-up, blocked on backend: "Merge into..." (personSidebar.jsx
   context menu -> picasaScreen.jsx's submitMerge) currently only
   reassigns the source person's *confirmed* faces (num_faces) to the
