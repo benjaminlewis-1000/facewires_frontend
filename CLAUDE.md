@@ -904,3 +904,38 @@ its behavior, don't assume this file's history describes what's live.
     through a hardcoded whitelist that didn't include the two new fields —
     correctly-computed deltas were silently dropped before ever reaching
     `state.people`; both whitelists updated.
+  - **Media filter extended to "Flagged for review", zero-count people hidden**
+    (2026-09-22, backend `cbcc080` on `backend_upgrade` - **not yet promoted to
+    prod as of this writing**, frontend `fe9d264` on `vite_upgrade`): the media
+    filter above only ever adjusted the main possibility count - `.ignore`'s
+    "Flagged for review" subordinate row kept showing its unfiltered total
+    regardless of the active filter. `PersonListView` now also exposes
+    `num_review_flagged_video`/`num_review_flagged_image` (reusing
+    `num_flagged_video`, already computed there for `.ignore`'s own split -
+    no new query), and `personSidebar.jsx`'s flagged-row renderer/
+    `gallery.jsx`'s `buildCountDeltas` apply the same split/live-delta
+    treatment the main rows already had. Since `facewire_dev` talks to the
+    same prod API as `facewire` (`config.js`'s `API_URL` isn't
+    dev/prod-branched, only `FRONTEND_URL` is), this half won't show real
+    numbers on `facewire_dev` until `backend_upgrade` is promoted.
+    Separately, per the same follow-up: `personSidebar.jsx`'s existing (but
+    filter-blind) `only_unlabeled && num_possibilities === 0` sidebar-hide
+    check now uses the *filtered* count instead of the raw total - a person
+    with candidates overall but none matching the active filter now
+    disappears from the list instead of showing "(0)". `.ignore` gets a
+    carve-out mirroring the existing verify-screen one (it won't hide just
+    because its own filtered count is 0 if "Flagged for review" still has
+    something, since that row lives under `.ignore`'s own sidebar entry),
+    and the person-list reassignment logic (`componentDidUpdate`) now also
+    re-runs when `possMediaFilter` itself changes, so switching the filter
+    out from under the currently-selected person correctly jumps to the
+    next visible one. **Known, deliberately-accepted gap**: if you're
+    actively viewing the "Flagged for review" sub-view and resolve its last
+    item under the current filter, the row disappears with no auto-advance
+    (unlike a person's own row, this one has no equivalent reassignment
+    hook) - rare enough not to be worth the added complexity unless it
+    actually comes up. Also, `mutableSelect.jsx`'s "send to other person"
+    action (`sourceCountDelta`) still doesn't split *any* video/image count
+    live (a pre-existing gap predating this feature, affecting the main
+    `num_possibilities_video`/`image` fields too, not just the new flagged
+    ones) - left as-is, matching existing precedent, not introduced here.
