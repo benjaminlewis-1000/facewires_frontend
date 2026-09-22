@@ -883,7 +883,7 @@ class PicasaScreen extends React.Component{
         if (!delta) return person
 
         const updated = { ...person }
-        for (const field of ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_unverified']){
+        for (const field of ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_video', 'num_review_flagged_image', 'num_review_flagged_unverified']){
           if (delta[field]){
             updated[field] = Math.max(0, (updated[field] || 0) + delta[field])
           }
