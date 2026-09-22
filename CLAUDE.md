@@ -89,9 +89,17 @@ paginating through DRF-style `{results, next, count}` responses via `compile_api
 
 `Gallery` (`gallery.jsx`) is the core interaction surface: a virtualized (`react-window`) grid of `LazyImage` tiles
 (`lazyImg.jsx`), single/shift/ctrl-click multi-select, double-click to open a full-size modal, and bulk
-face operations (`close_unassigned`, `close_ignored`, `close_assigned`, `confirm_proposed`, `verify_face`)
-sent via `PATCH /faces/bulk_operation/`. Keyboard shortcuts: `Delete` closes ignored faces (when on the
-`.ignore`/unassigned person tab), `Shift+R` closes assigned faces.
+face operations (`close_unassigned`, `close_ignored`, `close_assigned`, `confirm_proposed`, `verify_face`,
+`flag_for_review` — added 2026-09-16, see below) sent via `PATCH /faces/bulk_operation/`. Keyboard
+shortcuts: `Delete` closes ignored faces (when on the `.ignore`/unassigned person tab), `Shift+R` closes
+assigned faces.
+
+**Correction to the 2026-08-26 virtualization note below**: "there was never real backend pagination to
+preserve" stopped being true on 2026-09-15 — `ImageScreen` now streams `face_declared`/`face_poss` in
+pages again (see the "Stream large face galleries" entry near the bottom of "Currently in progress/open"),
+specifically to fix slow first-paint on huge queues like `.ignore`'s ~100k faces. `gallery.jsx` itself
+still needed zero changes for this — react-window and `buildItems()`'s reference-based rebuild already
+handled a growing `itemsRef` correctly.
 
 **Special people:** two person records have magic names and are treated specially throughout
 (`picasaScreen.jsx`, `personSidebar.jsx`, `gallery.jsx`): `_NO_FACE_ASSIGNED_`/`Unassigned` (faces not yet
@@ -594,6 +602,23 @@ its behavior, don't assume this file's history describes what's live.
   - Still not automated end-to-end: accepted files are picked up by the existing
     scheduled ingestion scan (not instant, up to ~an hour), not verified by this
     feature itself beyond the server's `201`/`207` response.
+  - Follow-up fixes (2026-09-11): a real 865MB upload was failing because every
+    chunk PUT/single-shot POST inherited `axiosInstance`'s global 15s timeout —
+    nowhere near enough to transfer a ~25MB chunk on a slow connection, and every
+    retry reused the same undersized timeout so retrying never actually helped.
+    Chunk/single-shot calls now get their own 5-minute timeout, `axios-retry` is
+    disabled per-request on these calls (the app's own 5-attempt retry loop in
+    `picasaScreen.jsx` is now the sole retry layer — it already covers what
+    axios-retry would, plus a 4xx checksum mismatch that axios-retry never
+    retries), backoff is now real exponential (1s/2s/4s/8s), and one failing
+    chunk no longer aborts sibling chunks mid-flight (each `mapWithConcurrency`
+    worker now catches its own rejection). A second, separate bug: a `.zip`
+    upload could fully succeed server-side (real synchronous unzip/validate/move
+    work in `/complete/`) but still show "failed" in the UI, because
+    `completeChunkedUpload()` was the one upload call left on the 15s default —
+    given its own 10-minute timeout instead, with retry still disabled (retrying
+    a `/complete/` call that actually succeeded just hits the backend's 409
+    "already completed").
 - **Tools tab: "Google Photos"** (built 2026-09-11, backend's
   `api/photos_watch_views.py`/`api/google_photos_client.py`) - a Tools-tab screen for
   tracking a small set of user-named Google Photos albums and pulling in newly-picked
@@ -664,3 +689,166 @@ its behavior, don't assume this file's history describes what's live.
     synced") beyond just displaying `last_synced_at` - Google's API gives no signal
     to page against, so there's nothing to actually watch for; this would be a pure
     UI nudge if ever wanted.
+  - Soft-disabled in the sidebar (2026-09-11, per the user's own call): grayed out
+    behind a double-click-to-unlock-for-this-session gate. It works for a user's
+    own library/fully-added albums, but a shared-and-joined-but-not-saved album
+    isn't reliably searchable in Google's own picker UI — a Google-side indexing
+    gap with no fix available from this app. Not removed outright since it still
+    works for the cases that do apply; just not presented as a seamless, fully-
+    solved feature.
+- **Session of 2026-09-03 through 2026-09-18** — a long batch of fixes/features
+  landed on `vite_upgrade` after the 2026-09-01 entry above and were never
+  written up here until now (found via `git log`, not from a live session
+  memory — check commit bodies on `dev_facewire` for full detail on any of
+  these). All of it is merged to `master`/deployed to prod as of 2026-09-18
+  (confirmed: `origin/master` and `origin/vite_upgrade` point at the same
+  commit, and both prod checkouts — `facewires_frontend` and `django_picasa` —
+  are pulled and running containers built from it).
+  - **Real bug, `gallery.jsx` (0620df5, 2026-09-04)**: `Gallery` never removed
+    its document `keydown` listener on unmount. Since `ImageScreen` tears down
+    and remounts a fresh `Gallery` on every person switch, every previous
+    instance's listener stayed attached forever — a single keypress (V/A/X/C/
+    R/Delete) fired every still-live stale instance's handler at once, each
+    acting on whatever `state.imgsSelected`/`props.current_person_id` was
+    frozen on it when it was last navigated away from, including a real
+    `bulk_operation` PATCH against the live backend. This was the actual root
+    cause of faces getting verified/actioned well beyond what was visibly
+    selected — worse the longer a session ran. Fixed by adding the missing
+    `componentWillUnmount`. Same commit also blocks the browser's native
+    Ctrl/Cmd+A while viewing an unlabeled/unverified gallery (was indistinguishable
+    from the plain `a` cluster-verify hotkey).
+  - **"Group by cluster" verify mode** (a128c17/20b4124/03040d8, 2026-09-04):
+    new checkbox alongside "Only Unverified Faces" that groups a person's
+    unverified faces by `Face.verification_cluster_group` (the nightly
+    `face_manager.cluster_unverified_faces` job's per-person visual-similarity
+    groups — see `django_picasa`'s CLAUDE.md) so a whole coherent batch can be
+    reviewed/verified together. One cluster is always expanded (its own
+    un-virtualized section above the main grid, pre-selected into
+    `imgsSelected` so the existing `V`/`verify_face` call needs no new bulk-
+    action code); every other cluster collapses to one representative tile
+    with a remaining-count badge. `A` verifies the expanded cluster and
+    auto-advances to the next one (`advanceToNextCluster`); `V` is a no-op on
+    an untouched, still-fully-auto-selected cluster (forces `A` for that case)
+    but works normally once the selection's been manually adjusted. Cluster
+    selection lives in its own `state.clusterSelected`, fully decoupled from
+    the main grid's `imgsSelected` — two real bugs came from those being the
+    same state before this: clicking any other tile while a cluster was
+    expanded silently wiped the cluster selection down to just that other
+    face, and shift-clicking a cluster tile swept in unrelated faces via the
+    main grid's global range-select. Clusters are sorted largest-first and
+    carry over across a person switch.
+  - **Auth/session-flakiness fixes** (e2d2bdf, 0e142d2, 9a07d2a, ac75c9e,
+    2026-09-03/11): Authelia's forward-auth serves an expired session's login
+    page as a plain `200 OK` HTML body, not a 401/403 — axios treated that as
+    success, so `PicasaScreen`'s initial fetches tried to parse HTML as JSON
+    and threw a generic error a beat before `MainApp`'s own `isLoggedIn()`
+    redirect kicked in, reading to the user as "we can't log you in right
+    now" / "Something went wrong" for what was just a routine re-login. Fixed
+    with a response interceptor (`axios_setup.jsx`) that synthesizes a 401 for
+    any 2xx response with an HTML content-type, so every existing
+    `isAuthFailure()` check (401/403-based) recognizes it uniformly, plus a
+    3-attempt retry-with-backoff (1s/2s/4s) before treating a stale-cookie HTML
+    response as a real logout — the same request often succeeds on its own a
+    moment later if Authelia was just mid-refresh. Separately, the geocode
+    review tool's correct-action PATCH was pulled out of `withRetry` — the
+    backend's own Nominatim call already retries internally, so a second retry
+    layer here just re-triggered that wait and pushed some calls past axios's
+    15s timeout, losing a specific error message (e.g. a rate-limit cooldown)
+    in favor of a generic timeout.
+  - **Fast/accurate two-stage video-modal loading** (cadb63e, 2026-09-09):
+    `face_source` now supports `fast=true` for video-sourced faces (~<1s
+    approximate frame) alongside the existing accurate endpoint (~1-2s),
+    sidecar-listed per id via a `video_face_ids` field on `paginate_obj_ids`
+    responses (merged from both `face_declared` and `face_poss` fetches).
+    `Gallery`'s `loadModalImage` opens the modal with the fast frame
+    immediately for video-sourced faces and swaps to the accurate one once it
+    resolves; ordinary photo faces skip the extra request entirely. This
+    `video_face_ids` list is the same one later reused (2026-09-18) to split
+    sidebar possibility counts by image/video — see below.
+  - **`.ignore` gained a second sidebar sub-row**: "Flagged & unverified"
+    (a597d17, 2026-09-10) — faces already declared to `.ignore` but not yet
+    verified, that were also flagged via the mobile app's ignore-review flow.
+    Mirrors the existing "Flagged for review" row's complementary-partition
+    shape, one step further along the pipeline (declared-but-unverified
+    instead of still-proposed).
+  - **`.ignore`'s X button now distinguishes flag-vs-reject** (bd7cee6/backend
+    `flag_for_review` bulk op, 2026-09-16, per explicit user request): X on a
+    still-*proposed* (undeclared) `.ignore` candidate now sets
+    `mobile_review_hidden` (same flag the "Flagged for review" row already
+    filters on) instead of rejecting the candidate outright to
+    Unassigned/reclassify. X on an already-*declared* `.ignore` face is
+    unchanged (`close_assigned`, back to Unassigned) — "flag for review"
+    doesn't apply to a face already committed to `.ignore`.
+  - **Undo/redo skip-refetch optimization** (1841341, 2026-09-15): undo/redo
+    used to unconditionally force a full `ImageScreen` refetch + `Gallery`
+    remount, even though the affected faces are almost always already loaded.
+    `PicasaScreen` now holds a ref to whichever `Gallery` is currently mounted
+    and, when it matches the person the action originally fired from, patches
+    its `hidden` set directly (`Gallery.applyUndoRedoPatch`) instead — falls
+    back to the old refetch whenever the gallery doesn't match or the face
+    isn't loaded there (e.g. still-unstreamed background page, see below).
+  - **Streamed/paginated face galleries** (backend `6f96791` "Add real
+    pagination to PersonParamView" + frontend `277593e` "Stream large face
+    galleries page by page", 2026-09-15) — the change referenced in the
+    correction note up in "Architecture" above. `.ignore` at ~100k faces used
+    to block on one giant fetch before any tile could render. `ImageScreen`
+    now mounts `Gallery` after just the first page and fetches subsequent
+    pages sequentially in the background, appending via a new array reference
+    each time so `gallery.jsx`'s existing `componentDidUpdate`/`buildItems()`
+    picks them up unchanged. Every background page is still checked against
+    `_fetchGeneration`, so a person/tab switch mid-load can't leak a stale
+    page onto the wrong gallery.
+  - **Confidence sort toggle for the unlabeled-faces queue** (7e305b1 →
+    eb8ef51 → 2b0d8f1, 2026-09-16/17): a "Highest/Lowest confidence first"
+    control in `.screenHeader`, shown only on "Only Unlabeled Faces" (the
+    actual review flow the ordering matters for) — shares the same header
+    slot as Folders' own sort toggle / the dead "Further Images Unlikely"
+    checkbox rather than adding a fourth floated element. Since `face_poss` is
+    now paginated (previous bullet), toggling can't just reverse an
+    already-loaded array client-side — it restarts the fetch from page 1 with
+    a new `order` param, using its own `_possFetchGeneration` so it doesn't
+    also restart the unrelated `face_declared` chain. Went through two rounds
+    of user-driven icon refinement (two always-visible arrows → one single
+    icon-toggling button, final settled design).
+  - **Image/video confirm-filter row** (44a31d5 + backend `000531a`,
+    2026-09-18): new "Confirm from: Both / Images only / Video only" bar,
+    shown only on "Only Unlabeled Faces", directly below `.screenHeader` in
+    its own row (the user's own placement choice among options offered).
+    Backend-driven (`media` param on `PersonParamView`), not client-side,
+    since `face_poss` is paginated — filtering only what's already streamed in
+    could look sparse/empty long before a huge queue like `.ignore` finishes
+    loading. Same restart-from-page-1-on-change pattern as the sort toggle.
+    New `--poss-media-filter-bar-height` CSS var + `.imageScreenWithFilterBar`
+    modifier push the gallery's scroll area down/shorter only when the row is
+    actually shown.
+  - **Sidebar counts reflect the active media filter, live, for every person**
+    (c205a4d → `03493d4` + backend `344b7dd`/`4fa9306`, 2026-09-18) — first
+    shipped scoped to just the selected person (backed by a real `COUNT(*)` on
+    page 1 of the fetch), then extended to every row per the user's explicit
+    follow-up ("change it for all people in the list"), backed instead by two
+    new correlated-subquery fields on `PersonListView`
+    (`num_possibilities_video`/`num_possibilities_image`, mirroring the
+    existing `num_possibilities` subquery pattern in
+    `face_manager/live_counts.py` — see that file's own docstring on why a
+    joined `Count(distinct=True)` there hung 10+ minutes on real data; a new
+    covering index, `face_manager_face_poss_ident1_video_covering`, keeps the
+    filtered subquery an index-only scan). The user explicitly chose **fully
+    live, instant per-action updates** over a periodic-refresh alternative
+    when asked: `gallery.jsx`'s `buildCountDeltas` now splits every
+    `num_possibilities` delta into matching video/image deltas using
+    `this._videoFaceIdSet` (the same set the two-stage video-modal loading
+    above already builds). `possMediaFilter` moved from `ImageScreen` local
+    state up to `PicasaScreen` (needs to be shared with the sibling
+    `PersonSidebar`) and is no longer reset on person switch — it's a
+    cross-person setting now, so switching to review someone else's videos
+    while "Video only" is active keeps showing just their videos. Two real
+    bugs found and fixed building this: `this._videoFaceIdSet` was built once
+    in `Gallery`'s constructor on the now-false assumption that
+    `videoFaceIds` was always complete by mount time (true before the
+    pagination-streaming change above, false after — background pages can
+    carry video ids in post-mount); now rebuilt in `componentDidUpdate`
+    whenever the prop changes. Separately, `picasaScreen.jsx`'s
+    `updatePersonCounts`/`negateDeltas` both filtered applied delta fields
+    through a hardcoded whitelist that didn't include the two new fields —
+    correctly-computed deltas were silently dropped before ever reaching
+    `state.people`; both whitelists updated.
