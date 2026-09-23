@@ -16,6 +16,7 @@ import PersonSidebar from './personSidebar'
 import ImageScreen from './imageScreen'
 import ToolsScreen from './toolsScreen'
 import axiosInstance from './axios_setup'
+import { isAuthFailure } from './authRedirect';
 import { withRetry } from './apiRetry';
 import { assignFaceToPerson, bulkFaceOperation } from './faceActions';
 import {
@@ -45,15 +46,6 @@ const UPLOAD_CHUNK_CONCURRENCY = 4;
 // retrying (could be genuine transit corruption, not a deterministic
 // client bug), same as any other transient failure.
 const UPLOAD_CHUNK_MAX_ATTEMPTS = 5;
-
-// True for a 401/403 from axios - i.e. the Django session actually
-// expired/was invalid, not a network blip. Used by the three initial
-// fetches below to recognize "this isn't a server-reachability problem,
-// it's an auth problem" - see their catch blocks for why that
-// distinction matters.
-function isAuthFailure(error){
-  return !!(error && error.response && (error.response.status === 401 || error.response.status === 403))
-}
 
 // How many undo/redo entries to keep. Bookkeeping is light (each entry is
 // just a handful of ids/numbers) so 20 is generous rather than tight.
@@ -387,17 +379,15 @@ class PicasaScreen extends React.Component{
     .catch((error) => {
       console.log('Failed to fetch parameters', error)
       if (isAuthFailure(error)) {
-        // MainApp optimistically renders PicasaScreen off a stale-but-
-        // present csrftoken cookie (see mainApp.jsx's hasCsrfCookie
-        // comment) while its own isLoggedIn() check verifies for real in
-        // the background. If the Django session had actually expired
-        // (most likely after the tab sat idle a while), this fetch and
-        // that background check both hit the same 401 - MainApp's check
-        // will call bounceToLogin() and navigate away momentarily.
-        // Showing our own "couldn't reach the server" error here would
-        // just flash a misleading message for a beat before that
-        // redirect happens - leave the spinner running and let MainApp's
-        // redirect take over instead.
+        // axios_setup.jsx's interceptor already called bounceToLogin() for
+        // this exact error before it ever reached this catch block - the
+        // redirect is already in flight. Showing our own "couldn't reach
+        // the server" error here would just flash a misleading message for
+        // a beat before that navigation completes, so leave the spinner
+        // running instead. (Older versions of this comment assumed only
+        // MainApp's one-time mount check would catch this - that stopped
+        // being reliably true once auth failures could happen later in the
+        // session's life; see CLAUDE.md's "background-tab bug" writeup.)
         return
       }
       this.setState({loading: false, loadError: "Couldn't reach the server. Please check your connection and try again."})
@@ -893,7 +883,7 @@ class PicasaScreen extends React.Component{
         if (!delta) return person
 
         const updated = { ...person }
-        for (const field of ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_unverified']){
+        for (const field of ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_video', 'num_review_flagged_image', 'num_review_flagged_unverified']){
           if (delta[field]){
             updated[field] = Math.max(0, (updated[field] || 0) + delta[field])
           }

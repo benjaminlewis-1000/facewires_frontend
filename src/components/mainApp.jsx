@@ -8,6 +8,7 @@ import store from 'store';
 import axiosInstance from './axios_setup';
 import { Helmet } from 'react-helmet';
 import { FRONTEND_URL, AUTHELIA_LOGIN_URL } from './config';
+import { bounceToLogin } from './authRedirect';
 
 class MainApp extends React.Component {
   constructor(props){
@@ -21,6 +22,7 @@ class MainApp extends React.Component {
 
     this.idleTimer = null;
     this.onIdle = this.handleOnIdle.bind(this);
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
   }
 
   componentDidMount() {
@@ -43,7 +45,7 @@ class MainApp extends React.Component {
         this.setState({ authenticated: true, loading: false });
         this.verifyAutheliaSession();
       } else {
-        this.bounceToLogin();
+        bounceToLogin();
       }
     }).catch(err => {
       console.error("SSO check failed:", err);
@@ -51,12 +53,36 @@ class MainApp extends React.Component {
         this.setState({ authenticated: false, loading: false });
       }
     });
+
+    // isLoggedIn() above only ever runs once, at mount - a session that
+    // dies later (tab backgrounded/laptop asleep long enough to outlast
+    // Django's sliding window, or Authelia's) used to go undetected until
+    // whatever the user happened to click next hit a silent failure deep
+    // in ImageScreen/PicasaScreen with no redirect and no visible error.
+    // Re-checking the moment the tab becomes visible again catches it right
+    // at the point the user actually returns, instead of on their next
+    // click. axios_setup.jsx's interceptor is the other half of this fix -
+    // it now redirects on any confirmed auth failure wherever it's
+    // discovered, not just here.
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
-  bounceToLogin() {
-    console.log("Not logged in - bouncing to Authelia SSO pipeline");
-    const returnUrl = `${FRONTEND_URL}/faces`;
-    window.location.href = `${AUTHELIA_LOGIN_URL}?next=${encodeURIComponent(returnUrl)}`;
+  componentWillUnmount() {
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  handleVisibilityChange() {
+    if (document.visibilityState !== 'visible') return;
+    // Nothing established yet to re-check if the initial mount check
+    // hasn't resolved (or failed) - that flow already owns this case.
+    if (!this.state.authenticated) return;
+
+    isLoggedIn().then(loggedIn => {
+      if (!loggedIn) bounceToLogin();
+    }).catch(() => {
+      // A network hiccup on this opportunistic check isn't a reason to log
+      // the user out - same reasoning as the mount-time check's own catch.
+    });
   }
 
   // Fires after we've already optimistically rendered the app off the
@@ -67,7 +93,7 @@ class MainApp extends React.Component {
     checkAutheliaSession().then(stillLoggedIn => {
       if (stillLoggedIn === false) {
         console.log("Authelia session is logged out - bouncing to SSO login");
-        this.bounceToLogin();
+        bounceToLogin();
       }
     });
   }

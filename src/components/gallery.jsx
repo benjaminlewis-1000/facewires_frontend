@@ -1098,7 +1098,7 @@ class Gallery extends React.Component{
         const { video, image } = splitVideoImage(faceIds)
         addDelta(ignore_person_id, {
           num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image,
-          num_review_flagged: n,
+          num_review_flagged: n, num_review_flagged_video: video, num_review_flagged_image: image,
         })
         break
       }
@@ -1116,7 +1116,8 @@ class Gallery extends React.Component{
     // decrement regardless of which action fired - this was previously
     // only reflected on the next 10-minute people-list poll.
     if (this.props.reviewFlaggedOnly && proposedCount){
-      addDelta(ignore_person_id, { num_review_flagged: -proposedCount })
+      const { video, image } = splitVideoImage(proposedFaceIds)
+      addDelta(ignore_person_id, { num_review_flagged: -proposedCount, num_review_flagged_video: -video, num_review_flagged_image: -image })
       // confirm_proposed is the one action here that actually declares
       // the face to .ignore (associate_person, backend) rather than
       // rejecting/redirecting it elsewhere - it lands as validated=False

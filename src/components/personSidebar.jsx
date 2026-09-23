@@ -5,6 +5,17 @@ import 'react-contexify/ReactContexify.css';
 
 const SIDEBAR_PERSON_MENU_ID = 'menu-person-sidebar';
 
+// Applies the "Confirm from" media filter (imageScreen.jsx) to a
+// video/image-split count pair, falling back to the unfiltered base count
+// when a split field is missing (shouldn't happen post-2026-09-18, but
+// cheap insurance) or the filter is 'all'/unset. Shared by passesFilter
+// (deciding who shows in the sidebar at all) and the row renderers
+// (deciding what number to display), so both always agree.
+function filteredCount(base, video, image, mediaFilter){
+  if (!mediaFilter || mediaFilter === 'all') return base
+  return mediaFilter === 'video' ? (video ?? base) : (image ?? base)
+}
+
 // Functional wrapper to leverage react-contexify's hook cleanly inside
 // the class component below (same pattern as lazyImg.jsx). Shares one
 // Menu across every sidebar entry - which person the "Rename" item acts
@@ -97,7 +108,20 @@ class PersonSidebar extends React.Component {
       // total-unverified-count label render() shows in its place - see
       // totalUnverified().
       if (only_unverified && (value.person_name === "_NO_FACE_ASSIGNED_" || value.person_name === 'Unassigned')) return false
-      if (only_unlabeled && value.num_possibilities === 0) return false
+      if (only_unlabeled){
+        // Filter-aware version of the old flat "num_possibilities === 0"
+        // check - per the user's own request (2026-09-22), a person with
+        // candidates overall but none matching the active "Confirm from"
+        // filter should hide too, not show a "(0)" row. .ignore gets the
+        // same carve-out as the num_unverified_faces check below: its main
+        // count can hit 0 under the filter while "Flagged for review"
+        // still has something to show, and that row lives under this same
+        // .ignore entry (see render()'s flatMap) - hiding .ignore here
+        // would take the subordinate row down with it.
+        const mainCount = filteredCount(value.num_possibilities, value.num_possibilities_video, value.num_possibilities_image, this.props.possMediaFilter)
+        const flaggedCount = filteredCount(value.num_review_flagged, value.num_review_flagged_video, value.num_review_flagged_image, this.props.possMediaFilter)
+        if (mainCount === 0 && !(value.person_name === '.ignore' && flaggedCount > 0)) return false
+      }
       // .ignore's own num_unverified_faces already excludes flagged faces
       // (backend partition - see PersonListView) - without this carve-out,
       // .ignore would vanish from the sidebar entirely (subordinate row
@@ -127,7 +151,8 @@ class PersonSidebar extends React.Component {
   componentDidUpdate(prevProps) {
     if (this.props.unlabeled === prevProps.unlabeled &&
         this.props.only_unverified === prevProps.only_unverified &&
-        this.props.people === prevProps.people){
+        this.props.people === prevProps.people &&
+        this.props.possMediaFilter === prevProps.possMediaFilter){
       return
     }
 
@@ -229,7 +254,17 @@ class PersonSidebar extends React.Component {
   // id/index rather than getting its own sidebar entry in `people`.
   makeReviewFlaggedRow(ignoreValue, ignoreIndex) {
     const selected = this.props.reviewFlaggedOnly
-    const count = ignoreValue.num_review_flagged || 0
+    // Same media-filter split the main rows already apply (2026-09-22,
+    // per the user's own request) - this row is its own separate
+    // candidate pool from .ignore's main count, so it needs the same
+    // treatment applied separately rather than inheriting .ignore's own
+    // displayed number.
+    const count = filteredCount(
+      ignoreValue.num_review_flagged || 0,
+      ignoreValue.num_review_flagged_video,
+      ignoreValue.num_review_flagged_image,
+      this.props.possMediaFilter
+    )
     var className = (selected ? 'click-state' : 'base-state') + ' sidebarSubordinate'
     return (
       <button
@@ -302,7 +337,15 @@ class PersonSidebar extends React.Component {
       // underlying mobile_review_hidden flag, but against already-declared,
       // unverified faces, so it lives under only_unverified instead.
       if (value.person_name === '.ignore' && only_unlabeled){
-        rows.push(this.makeReviewFlaggedRow(value, index))
+        // Same declutter reasoning as passesFilter's own zero-hide check
+        // above (2026-09-22) - don't show the row at all once nothing
+        // matches the active "Confirm from" filter.
+        const flaggedCount = filteredCount(
+          value.num_review_flagged || 0, value.num_review_flagged_video, value.num_review_flagged_image, this.props.possMediaFilter
+        )
+        if (flaggedCount > 0){
+          rows.push(this.makeReviewFlaggedRow(value, index))
+        }
       }
       if (value.person_name === '.ignore' && only_unverified){
         rows.push(this.makeReviewFlaggedUnverifiedRow(value, index))
