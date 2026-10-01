@@ -246,13 +246,20 @@ class Gallery extends React.Component{
       // The currently-open modal image's capture date, pre-formatted
       // ("December 20, 2012") - null while it's still loading or if the
       // fetch failed, in which case the date label just doesn't render
-      // (see render). Fetched separately from the image itself - see
-      // fetchModalDate.
+      // (see render). Fetched separately from the image itself, bundled
+      // with the filename below (same request/response) - see
+      // fetchModalMeta.
       modalDateText: null,
-      // True only once fetchModalDate has exhausted its retries - lets
-      // render show "Date unavailable" instead of indistinguishably
-      // rendering nothing for both "still loading" and "actually failed".
-      modalDateFailed: false,
+      // The full on-disk file path (KeyedImageView's same `filename`
+      // field it actually opens to decode the image) - shown bottom-
+      // right of the modal, mirroring the date label's bottom-left spot.
+      modalFilenameText: null,
+      // True only once fetchModalMeta has exhausted its retries - lets
+      // render show "Date unavailable"/"Filename unavailable" instead of
+      // indistinguishably rendering nothing for both "still loading" and
+      // "actually failed". Shared by both labels since they come from
+      // the one combined fetch.
+      modalMetaFailed: false,
       // Verify screen "Group by cluster" mode only (this.props.
       // groupByCluster) - which Face.verification_cluster_group is
       // currently splayed open in its own section above the main grid
@@ -274,7 +281,7 @@ class Gallery extends React.Component{
       clusterSelected: [],
     }
 
-    // Bumped on every fetchModalDate call so a slower-to-resolve earlier
+    // Bumped on every fetchModalMeta call so a slower-to-resolve earlier
     // request can't clobber a faster later one if the user pages through
     // several modal images quickly (arrow keys, C/X/Q/R) before the
     // first request lands.
@@ -561,7 +568,7 @@ class Gallery extends React.Component{
     // select it. Works on any tab (People faces, Folders photos) since
     // doubleClickHandler/buildModalUrl already know how to build the
     // right URL type for either. Reuses doubleClickHandler itself rather
-    // than duplicating its unselectAll()/fetchModalDate/toggleModal
+    // than duplicating its unselectAll()/fetchModalMeta/toggleModal
     // sequence - same end state as a real double-click. Guarded against
     // INPUT/TEXTAREA the same way every other hotkey here is.
     if (!this.state.modalOpen && event.key === 'Enter' && this.state.imgsSelected.length > 0){
@@ -1394,7 +1401,7 @@ class Gallery extends React.Component{
     const newIndex = this.itemsRef.findIndex(([, id]) => id === face_id)
     this.setState({ modalItemIndex: newIndex })
     this.loadModalImage(face_id)
-    this.fetchModalDate(face_id)
+    this.fetchModalMeta(face_id)
     this.prefetchModalWindow(newIndex)
     this.toggleModal()
   }
@@ -1413,7 +1420,7 @@ class Gallery extends React.Component{
   //
   // this._modalImageGeneration guards against a slower-to-resolve
   // earlier accurate-frame fetch clobbering a faster later one, same
-  // reasoning as fetchModalDate's own generation counter - the user can
+  // reasoning as fetchModalMeta's own generation counter - the user can
   // page through several faces (arrow keys) before an earlier accurate
   // fetch lands.
   loadModalImage(id){
@@ -1439,11 +1446,15 @@ class Gallery extends React.Component{
   // &date=true, same id/type resolution buildModalUrl already uses,
   // just returning JSON instead of image bytes) rather than baked into
   // any existing per-person/per-folder API response, since none of them
-  // carry a specific photo's date today. this._modalDateGeneration
-  // guards against a slower-to-resolve earlier request clobbering a
-  // faster later one if the user pages through several images quickly
-  // (arrow keys in the flagged-review modal) before the first request
-  // lands.
+  // carry a specific photo's date today. Also returns the full on-disk
+  // filename (2026-10-01, per the user's request - "we're getting the
+  // date already, the full file path would be good info to have") -
+  // bundled into this same request/response rather than a second fetch,
+  // since the backend already has the source object loaded either way.
+  // this._modalDateGeneration guards against a slower-to-resolve earlier
+  // request clobbering a faster later one if the user pages through
+  // several images quickly (arrow keys in the flagged-review modal)
+  // before the first request lands.
   //
   // Wrapped in withRetry (3 attempts, increasing delay) rather than
   // relying only on axiosInstance's own global axios-retry - this
@@ -1452,23 +1463,27 @@ class Gallery extends React.Component{
   // whole gallery's worth of thumbnail requests already in flight, so an
   // occasional slow response/timeout here is plausible even though the
   // endpoint itself is cheap once it actually runs. A definitive failure
-  // (all retries exhausted) shows "Date unavailable" instead of just
-  // rendering nothing (see render) - reported by the user as some photos
-  // silently showing no date - so a real failure is now visibly distinct
-  // from "hasn't loaded yet", and logs the id so a future occurrence is
-  // actually diagnosable from devtools instead of a bare error object.
-  fetchModalDate(id){
+  // (all retries exhausted) shows "Date unavailable"/"Filename
+  // unavailable" instead of just rendering nothing (see render) -
+  // reported by the user as some photos silently showing no date - so a
+  // real failure is now visibly distinct from "hasn't loaded yet", and
+  // logs the id so a future occurrence is actually diagnosable from
+  // devtools instead of a bare error object.
+  fetchModalMeta(id){
     const generation = ++this._modalDateGeneration
-    this.setState({ modalDateText: null, modalDateFailed: false })
+    this.setState({ modalDateText: null, modalFilenameText: null, modalMetaFailed: false })
     withRetry(() => axiosInstance.get(this.buildModalUrl(id) + '&date=true'))
       .then(response => {
         if (generation !== this._modalDateGeneration) return
-        this.setState({ modalDateText: formatModalDate(response.data.date_taken) })
+        this.setState({
+          modalDateText: formatModalDate(response.data.date_taken),
+          modalFilenameText: response.data.filename || null,
+        })
       })
       .catch(error => {
         if (generation !== this._modalDateGeneration) return
-        console.log(`Error fetching modal image date for id ${id}`, error)
-        this.setState({ modalDateText: null, modalDateFailed: true })
+        console.log(`Error fetching modal image date/filename for id ${id}`, error)
+        this.setState({ modalDateText: null, modalFilenameText: null, modalMetaFailed: true })
       })
   }
 
@@ -1560,7 +1575,7 @@ class Gallery extends React.Component{
     const [, id] = this.itemsRef[newIndex]
     this.setState({ modalItemIndex: newIndex })
     this.loadModalImage(id)
-    this.fetchModalDate(id)
+    this.fetchModalMeta(id)
     this.prefetchModalWindow(newIndex)
   }
 
@@ -1605,7 +1620,7 @@ class Gallery extends React.Component{
       if (this.state.hidden.indexOf(faceId) === -1){
         this.setState({ modalItemIndex: idx, modalSendToOtherPerson: false })
         this.loadModalImage(faceId)
-        this.fetchModalDate(faceId)
+        this.fetchModalMeta(faceId)
         this.prefetchModalWindow(idx)
         return true
       }
@@ -1873,14 +1888,24 @@ class Gallery extends React.Component{
               </div>
             )
           )}
-          {(this.state.modalDateText || this.state.modalDateFailed) && (
+          {(this.state.modalDateText || this.state.modalMetaFailed) && (
             // Every full-size modal, not scoped to any particular tab/
             // view like the boxes/hints above - just the photo's own
             // capture date, off to the side of the image itself.
-            // modalDateFailed (fetchModalDate's retries exhausted) shows
+            // modalMetaFailed (fetchModalMeta's retries exhausted) shows
             // an explicit "unavailable" rather than silently rendering
-            // nothing, same as a still-loading date - see fetchModalDate.
+            // nothing, same as a still-loading date - see fetchModalMeta.
             <div className='modalDateLabel'>{this.state.modalDateText || 'Date unavailable'}</div>
+          )}
+          {(this.state.modalFilenameText || this.state.modalMetaFailed) && (
+            // Mirrors the date label above (same fetch, same loading/
+            // failure semantics) - bottom-right instead of bottom-left,
+            // per the user's own request (2026-10-01). title attribute
+            // surfaces the untruncated path on hover, since a real file
+            // path easily overflows the pill's own max-width (see CSS).
+            <div className='modalFilenameLabel' title={this.state.modalFilenameText || ''}>
+              {this.state.modalFilenameText || 'Filename unavailable'}
+            </div>
           )}
         </Modal>
 

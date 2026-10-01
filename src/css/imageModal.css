@@ -248,6 +248,28 @@
   z-index: 101;
 }
 
+.modalFilenameLabel{
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #197d9c;
+  border-radius: 20px;
+  padding: 6px 18px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #197d9c;
+  z-index: 101;
+  /* A real full file path is often much longer than a date - clip it
+     with an ellipsis rather than letting it overlap the image or wrap
+     awkwardly; the title attribute (see gallery.jsx) surfaces the
+     untruncated path on hover. */
+  max-width: 45%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @keyframes fadeIn {
   0% {
     opacity:0;
