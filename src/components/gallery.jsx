@@ -1898,11 +1898,13 @@ class Gallery extends React.Component{
             <div className='modalDateLabel'>{this.state.modalDateText || 'Date unavailable'}</div>
           )}
           {(this.state.modalFilenameText || this.state.modalMetaFailed) && (
-            // Mirrors the date label above (same fetch, same loading/
-            // failure semantics) - bottom-right instead of bottom-left,
-            // per the user's own request (2026-10-01). title attribute
-            // surfaces the untruncated path on hover, since a real file
-            // path easily overflows the pill's own max-width (see CSS).
+            // Same fetch/loading/failure semantics as the date label
+            // above, stacked directly on top of it (CSS) rather than
+            // bottom-right - the original placement overlapped the
+            // centered hotkey hint below, per the user's follow-up
+            // (2026-10-01). title attribute surfaces the untruncated
+            // path on hover, since a real file path easily overflows
+            // the pill's own max-width (see CSS).
             <div className='modalFilenameLabel' title={this.state.modalFilenameText || ''}>
               {this.state.modalFilenameText || 'Filename unavailable'}
             </div>

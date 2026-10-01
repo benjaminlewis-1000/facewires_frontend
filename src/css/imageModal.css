@@ -250,8 +250,15 @@
 
 .modalFilenameLabel{
   position: absolute;
-  bottom: 14px;
-  right: 14px;
+  /* Stacked above the date label, same left edge - per the user's
+     follow-up (2026-10-01): the original bottom-right placement
+     overlapped the bottom-center hotkey hint. Just clearing the date
+     label's own height wasn't enough margin either - the hint (up to 6
+     items) can render tall enough to still reach this row, so this sits
+     clear of the hint's own full height (bottom:14px + ~60px tall, see
+     .modalHotkeyHint) instead of just the date pill's ~30px. */
+  bottom: 82px;
+  left: 14px;
   background-color: rgba(255, 255, 255, 0.9);
   border: 1px solid #197d9c;
   border-radius: 20px;
@@ -263,8 +270,10 @@
   /* A real full file path is often much longer than a date - clip it
      with an ellipsis rather than letting it overlap the image or wrap
      awkwardly; the title attribute (see gallery.jsx) surfaces the
-     untruncated path on hover. */
-  max-width: 45%;
+     untruncated path on hover. Capped relative to the modal rather than
+     a fixed px width so it still clears the centered hotkey hint on a
+     narrower modal. */
+  max-width: 40%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
