@@ -30,6 +30,29 @@ import {
 import { Message } from 'semantic-ui-react';
 import CircleLoader from "react-spinners/CircleLoader";
 
+// Diagnostic for the three initial-load fetches' catch blocks
+// (2026-10-02) - the user reported "Couldn't reach the server" flashing
+// briefly on a fresh login, then the app loading on its own moments
+// later with no action on their part. isAuthFailure(error) being false
+// here (confirmed by inspection: a clean 401/403 is already suppressed
+// before reaching this log) means the real failure has no readable HTTP
+// response at all - this pulls out exactly the fields that distinguish
+// *why*: error.code tells us if axios itself gave up (e.g. a timeout is
+// 'ECONNABORTED'), while a bare "Network Error" message with no code and
+// no response is the signature of a browser-level block (CORS preflight
+// rejection, or Cloudflare/edge failing before the request ever reaches
+// Django - neither of which would ever show up in Django's own logs, no
+// matter how far back checked). Once this fires again, whatever's logged
+// here is the next real lead.
+function logInitialFetchFailure(label, error){
+  console.log(
+    `[initial-load] ${label} failed - code=${error?.code ?? 'none'} ` +
+    `message=${error?.message ?? 'none'} hasResponse=${!!error?.response} ` +
+    `status=${error?.response?.status ?? 'n/a'}`,
+    error,
+  )
+}
+
 // Cap how many pagination requests are in flight at once. 5 is a
 // reasonable default — enough to get the concurrency win, low enough
 // to not hammer the backend even if the dataset grows a lot.
@@ -377,7 +400,7 @@ class PicasaScreen extends React.Component{
       })
     })
     .catch((error) => {
-      console.log('Failed to fetch parameters', error)
+      logInitialFetchFailure('parameters', error)
       if (isAuthFailure(error)) {
         // axios_setup.jsx's interceptor already called bounceToLogin() for
         // this exact error before it ever reached this catch block - the
@@ -553,7 +576,7 @@ class PicasaScreen extends React.Component{
           console.log(this.state)
         }
       ).catch((error) => {
-        console.log('Failed to fetch folders', error)
+        logInitialFetchFailure('folders', error)
         // See the params-fetch catch above for why an auth failure
         // specifically is left alone rather than shown as a server error.
         if (isAuthFailure(error)) return
@@ -647,7 +670,7 @@ class PicasaScreen extends React.Component{
         }
       }
     ).catch((error) => {
-      console.log('Failed to fetch people list', error)
+      logInitialFetchFailure('people list', error)
       // See the params-fetch catch above for why an auth failure
       // specifically is left alone rather than shown as a server error.
       if (isInitial && !isAuthFailure(error)){
