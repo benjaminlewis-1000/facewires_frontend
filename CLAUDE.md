@@ -939,3 +939,27 @@ its behavior, don't assume this file's history describes what's live.
     live (a pre-existing gap predating this feature, affecting the main
     `num_possibilities_video`/`image` fields too, not just the new flagged
     ones) - left as-is, matching existing precedent, not introduced here.
+- **Full-size modal now shows the file path, 2026-10-01/02** (`c6b418b`,
+  `e619bb4`, `d985405`): per the user's request, the modal's existing
+  capture-date fetch (`&date=true`) was extended to also return `filename`
+  (same response, same request - `fetchModalDate`/`modalDateFailed` in
+  `gallery.jsx` renamed to `fetchModalMeta`/`modalMetaFailed` to reflect
+  that it's no longer date-only) and a new `.modalFilenameLabel` renders it
+  with an ellipsis + hover title for long paths. Placement went through one
+  follow-up round: bottom-right first, then moved to stack above the date
+  label on the left after the user reported it overlapping the bottom-center
+  hotkey hint - clearing the hint's own full (up to 6-item) height, not just
+  the date pill's ~30px, since the first fix attempt still collided.
+  Separately (`d985405`, 2026-10-02): added `logInitialFetchFailure()` to
+  `picasaScreen.jsx`'s three initial-fetch catch blocks, purely additive
+  diagnostic logging (error code/message/whether a `response` exists/its
+  status) - prompted by a report of "Couldn't reach the server" flashing
+  briefly right after a fresh login then the app recovering on its own, with
+  none of axios-retry's usual ~7s backoff visible and a clean 401/403 already
+  ruled out by inspection. That shape (instant failure, no readable HTTP
+  response) points at something before the request ever reaches Django - a
+  CORS preflight rejection or an edge/Cloudflare failure - neither of which
+  would appear in Django's own logs (24h of which turned up nothing); the new
+  logging is there to catch it live next time rather than more guessing.
+  Not yet resolved - watch for `error.code`/`hasResponse` in the console the
+  next time this flashes.
