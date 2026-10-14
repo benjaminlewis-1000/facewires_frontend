@@ -1780,6 +1780,12 @@ class Gallery extends React.Component{
       reviewFlaggedUnverifiedOnly: this.props.reviewFlaggedUnverifiedOnly,
       updatePersonList: this.props.updatePersonList,
       updatePersonCounts: this.props.updatePersonCounts,
+      // So MutableSelect's "send to other person" can split its
+      // num_possibilities delta into num_possibilities_video/image too,
+      // same as buildCountDeltas' splitVideoImage below - otherwise a
+      // reassignment leaves those two fields stale until the next
+      // periodic people-list poll.
+      videoFaceIdSet: this._videoFaceIdSet,
       onRecordUndo: this.props.onRecordUndo,
       unselectAll: this.unselectAll,
       onHighlightUpdated: this.props.onHighlightUpdated,
@@ -1865,6 +1871,7 @@ class Gallery extends React.Component{
                   setHidden={this.setHidden}
                   updatePersonList={this.props.updatePersonList}
                   updatePersonCounts={this.props.updatePersonCounts}
+                  videoFaceIdSet={this._videoFaceIdSet}
                   onRecordUndo={this.props.onRecordUndo}
                   imgsSelected={this.state.imgsSelected}
                   clearImagesSelected={this.clearImagesSelected}
