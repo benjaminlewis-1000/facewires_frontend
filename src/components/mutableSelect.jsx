@@ -157,12 +157,28 @@ class MutableSelect extends React.PureComponent{
   //   return uniq_selected
   // }
 
+// Splits a set of face ids into {video, image} counts, same approach as
+// gallery.jsx's buildCountDeltas' own splitVideoImage - this.props.
+// videoFaceIdSet is the same Set Gallery already maintains
+// (this._videoFaceIdSet), threaded down through lazyImg.jsx/the modal's
+// own MutableSelect rather than rebuilt here from scratch.
+splitVideoImage(ids){
+  const videoFaceIdSet = this.props.videoFaceIdSet
+  let video = 0
+  if (videoFaceIdSet){
+    for (const id of ids) if (videoFaceIdSet.has(id)) video++
+  }
+  return { video, image: ids.length - video }
+}
+
 // Which person/count the selected faces are coming FROM, for local
 // bookkeeping. ignore_tab and the Unassigned tab both take priority over
 // the item's own defined/proposed type since they represent a distinct tab
 // context; otherwise the face is being reassigned away from the person
 // whose gallery it's currently shown in.
-sourceCountDelta(n){
+sourceCountDelta(ids){
+  const n = ids.length
+  const { video, image } = this.splitVideoImage(ids)
   if (this.props.ignore_tab){
     // Same defined/proposed split as gallery.jsx's buildCountDeltas -
     // ignore_tab mixes 'defined' (declared to .ignore, counted in
@@ -175,6 +191,8 @@ sourceCountDelta(n){
     const delta = { id: this.props.ignore_person_id }
     if (this.props.type === 'proposed'){
       delta.num_possibilities = -n
+      delta.num_possibilities_video = -video
+      delta.num_possibilities_image = -image
     }else{
       delta.num_faces = -n
     }
@@ -182,7 +200,11 @@ sourceCountDelta(n){
     // are always 'proposed' by construction - reassigning one away from
     // .ignore here removes it from that pool too, same as every other
     // action already handled in gallery.jsx's buildCountDeltas.
-    if (this.props.reviewFlaggedOnly) delta.num_review_flagged = -n
+    if (this.props.reviewFlaggedOnly){
+      delta.num_review_flagged = -n
+      delta.num_review_flagged_video = -video
+      delta.num_review_flagged_image = -image
+    }
     // Mirror image, for the "Flagged & unverified" audit row
     // (reviewFlaggedUnverifiedOnly) - its tiles are always 'defined' by
     // construction, so this always lands in the `else` branch above
@@ -191,10 +213,10 @@ sourceCountDelta(n){
     return delta
   }
   if (this.props.current_person_id === this.props.unassigned_person_id){
-    return { id: this.props.unassigned_person_id, num_possibilities: -n }
+    return { id: this.props.unassigned_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }
   }
   if (this.props.type === 'proposed'){
-    return { id: this.props.current_person_id, num_possibilities: -n }
+    return { id: this.props.current_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }
   }
   const delta = { id: this.props.current_person_id, num_faces: -n }
   // Same reasoning as gallery.jsx's close_assigned fix: the verify
@@ -227,7 +249,7 @@ assignPerson(inputName, api_key, personExists){
   // Where these faces are coming FROM - reused both for the source-side
   // count delta below and, for undo/redo purposes, as the person id to
   // send them back to if this action gets undone.
-  const priorPersonId = this.sourceCountDelta(n).id
+  const priorPersonId = this.sourceCountDelta(uniq_selected).id
 
   this.setState({visible:false})
   this.setState({value: inputName})
@@ -240,7 +262,7 @@ assignPerson(inputName, api_key, personExists){
         if (response.data.success){
           const new_id = response.data.new_id
           this.props.updatePersonList(inputName, new_id, n)
-          this.props.updatePersonCounts && this.props.updatePersonCounts([this.sourceCountDelta(n)])
+          this.props.updatePersonCounts && this.props.updatePersonCounts([this.sourceCountDelta(uniq_selected)])
 
           // face_id itself became the new person via face_to_new_person;
           // the rest of the bulk selection needs to be assigned to it
@@ -256,7 +278,7 @@ assignPerson(inputName, api_key, personExists){
             // directly (rather than via a delta) - this synthetic target
             // delta exists only so undo/redo has something symmetric to
             // negate/reapply against the new person's row.
-            forwardDeltas: [this.sourceCountDelta(n), { id: new_id, num_faces: n, num_unverified_faces: n }],
+            forwardDeltas: [this.sourceCountDelta(uniq_selected), { id: new_id, num_faces: n, num_unverified_faces: n }],
           })
         }
       }).catch(error => {
@@ -265,7 +287,7 @@ assignPerson(inputName, api_key, personExists){
       })
   }else{
     const forwardDeltas = [
-      this.sourceCountDelta(n),
+      this.sourceCountDelta(uniq_selected),
       { id: api_key, num_faces: n, num_unverified_faces: n }
     ]
     this.props.updatePersonCounts && this.props.updatePersonCounts(forwardDeltas)

@@ -934,8 +934,54 @@ its behavior, don't assume this file's history describes what's live.
     item under the current filter, the row disappears with no auto-advance
     (unlike a person's own row, this one has no equivalent reassignment
     hook) - rare enough not to be worth the added complexity unless it
-    actually comes up. Also, `mutableSelect.jsx`'s "send to other person"
-    action (`sourceCountDelta`) still doesn't split *any* video/image count
-    live (a pre-existing gap predating this feature, affecting the main
-    `num_possibilities_video`/`image` fields too, not just the new flagged
-    ones) - left as-is, matching existing precedent, not introduced here.
+    actually comes up.
+- **Full-size modal now shows the file path, 2026-10-01/02** (`c6b418b`,
+  `e619bb4`, `d985405`): per the user's request, the modal's existing
+  capture-date fetch (`&date=true`) was extended to also return `filename`
+  (same response, same request - `fetchModalDate`/`modalDateFailed` in
+  `gallery.jsx` renamed to `fetchModalMeta`/`modalMetaFailed` to reflect
+  that it's no longer date-only) and a new `.modalFilenameLabel` renders it
+  with an ellipsis + hover title for long paths. Placement went through one
+  follow-up round: bottom-right first, then moved to stack above the date
+  label on the left after the user reported it overlapping the bottom-center
+  hotkey hint - clearing the hint's own full (up to 6-item) height, not just
+  the date pill's ~30px, since the first fix attempt still collided.
+  Separately (`d985405`, 2026-10-02): added `logInitialFetchFailure()` to
+  `picasaScreen.jsx`'s three initial-fetch catch blocks, purely additive
+  diagnostic logging (error code/message/whether a `response` exists/its
+  status) - prompted by a report of "Couldn't reach the server" flashing
+  briefly right after a fresh login then the app recovering on its own, with
+  none of axios-retry's usual ~7s backoff visible and a clean 401/403 already
+  ruled out by inspection. That shape (instant failure, no readable HTTP
+  response) points at something before the request ever reaches Django - a
+  CORS preflight rejection or an edge/Cloudflare failure - neither of which
+  would appear in Django's own logs (24h of which turned up nothing); the new
+  logging is there to catch it live next time rather than more guessing.
+  Not yet resolved - watch for `error.code`/`hasResponse` in the console the
+  next time this flashes.
+- **Two sidebar media-filter count bugs, 2026-10-14**: (1) the pinned
+  Unassigned row (`personSidebar.jsx`'s `render()`, the `index === -100`
+  branch) called `makePerson()` without its `unverified`/`unlabeled`
+  arguments, so `showMediaSplit` was always false there regardless of the
+  active "Confirm from" filter - every other person row already respected
+  it, just not this one. Fixed by passing `only_unverified`/`only_unlabeled`
+  through like every other row does. (2) Exposed by fix (1) actually working:
+  `mutableSelect.jsx`'s "send to other person" (`sourceCountDelta`, the R
+  hotkey's reassign-by-name action) only ever adjusted the unfiltered
+  `num_possibilities`, never `num_possibilities_video`/`num_possibilities_image`
+  - under an active media filter, reassigning a face away from a person
+  (most visibly Unassigned, now that its row actually displays the split
+  count) silently left the sidebar number unchanged until the next periodic
+  people-list poll. This was a known, previously-accepted gap (see the
+  removed note under the 2026-09-22 entry above) - fixed now rather than
+  left alone, since it became directly user-visible once (1) landed. Fixed
+  by threading the same `_videoFaceIdSet` `gallery.jsx`'s own
+  `buildCountDeltas`/`splitVideoImage` already uses down through
+  `rowProps`/`lazyImg.jsx` and the modal's own `MutableSelect` mount as a
+  new `videoFaceIdSet` prop, and giving `mutableSelect.jsx` its own
+  `splitVideoImage()` (same shape) to back every `num_possibilities` delta
+  in `sourceCountDelta` with a matching `_video`/`_image` delta -
+  `sourceCountDelta` now takes the actual face-id array instead of just a
+  count, so it can check each id's membership. `num_faces` deltas
+  (declared-face moves) are untouched - there's no `num_faces_video`/`image`
+  field to split, same as `buildCountDeltas` never splits those either.

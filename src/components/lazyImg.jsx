@@ -120,6 +120,7 @@ class LazyImage extends React.PureComponent {
       setHidden={this.props.setHidden}
       updatePersonList={this.props.updatePersonList}
       updatePersonCounts={this.props.updatePersonCounts}
+      videoFaceIdSet={this.props.videoFaceIdSet}
       onRecordUndo={this.props.onRecordUndo}
       imgsSelected={this.props.imgsSelected}
       clearImagesSelected={this.props.clearImagesSelected}
