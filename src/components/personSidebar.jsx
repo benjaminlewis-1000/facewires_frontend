@@ -327,7 +327,7 @@ class PersonSidebar extends React.Component {
     var items = entries.flatMap(({ index, value }) => {
       if (index === -100){
         const noOne = { ...value, person_name: 'Unassigned' }
-        return [this.makePerson(noOne, -100, this.state.personSelected === -100 && !this.props.reviewFlaggedOnly && !this.props.reviewFlaggedUnverifiedOnly)]
+        return [this.makePerson(noOne, -100, this.state.personSelected === -100 && !this.props.reviewFlaggedOnly && !this.props.reviewFlaggedUnverifiedOnly, only_unverified, only_unlabeled)]
       }
       const rows = [this.makePerson(value, index, this.state.personSelected === index && !this.props.reviewFlaggedOnly && !this.props.reviewFlaggedUnverifiedOnly, only_unverified, only_unlabeled)]
       // "Flagged for review" only makes sense in unlabeled mode - its
