@@ -1646,6 +1646,7 @@ class PicasaScreen extends React.Component{
           serverStatsLoading={this.state.serverStatsLoading}
           serverStatsError={this.state.serverStatsError}
           onRetryServerStats={() => this.fetchServerStats(true)}
+          onRefreshServerStats={() => this.fetchServerStats(false)}
         />
       )
     }

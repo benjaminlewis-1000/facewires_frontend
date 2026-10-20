@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import '../css/serverStats.css';
 
 // Purely presentational - the actual fetch/10-minute background refresh
@@ -69,7 +69,14 @@ function CollectionCard({ c }) {
   )
 }
 
-function ServerStatsTool({ stats, loading, loadError, onRetry }) {
+function ServerStatsTool({ stats, loading, loadError, onRetry, onRefresh }) {
+  // Local-only - fetchServerStats(false) (the background-refresh path)
+  // swallows its own errors rather than setting serverStatsError (see
+  // picasaScreen.jsx), so there's nothing to show on failure beyond what's
+  // already logged to console; the last-known numbers just stay on
+  // screen, same as an unattended background refresh failing silently.
+  const [refreshing, setRefreshing] = useState(false)
+
   if (loading && !stats) return <p>Loading server stats&hellip;</p>
   if (loadError && !stats) {
     return (
@@ -78,6 +85,11 @@ function ServerStatsTool({ stats, loading, loadError, onRetry }) {
         <button onClick={onRetry}>Retry</button>
       </div>
     )
+  }
+
+  const handleRefreshClick = () => {
+    setRefreshing(true)
+    Promise.resolve(onRefresh()).finally(() => setRefreshing(false))
   }
 
   const s = stats
@@ -93,6 +105,16 @@ function ServerStatsTool({ stats, loading, loadError, onRetry }) {
   return (
     <div className='serverStatsTool'>
       <div className='serverStatsGlobal'>
+        <div className='serverStatsHeadline'>
+          <button
+            className={'serverStatsRefreshButton' + (refreshing ? ' isRefreshing' : '')}
+            onClick={handleRefreshClick}
+            disabled={refreshing}
+          >
+            <span className='serverStatsRefreshIcon'>&#8635;</span>
+            {refreshing ? 'Refreshing…' : 'Refresh now'}
+          </button>
+        </div>
         <div className='statTileRow'>
           <StatTile label='Images' value={s.num_imgs} />
           <StatTile label='Faces' value={s.num_faces} />

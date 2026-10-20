@@ -606,6 +606,19 @@ its behavior, don't assume this file's history describes what's live.
   `kind: 'verify_face'`), and add a matching case to `picasaScreen.jsx`'s
   `runUndoRedoCall` (reverse = the new un-verify call, forward = `verify_face`
   again).
+- Feature follow-up, blocked on backend: the Tools tab's "Server Stats" page
+  (`serverStatsTool.jsx`, 2026-10-20) shows per-collection image/face/people
+  counts but no per-collection video counts, because `_compute_image_face_stats`
+  (`django_picasa`/`django_picasa_dev`'s `api/serializers.py`) deliberately
+  leaves video stats out of `by_collection` - `VideoFile` has no
+  `PhotoCollection` relationship at all yet (images get theirs via
+  `ImageFile.collections`), so there's nothing to scope by per collection.
+  Once video-to-collection attribution exists (the user is actively working
+  on per-collection stats as of this writing): add `num_videos`/
+  `num_videos_processed`/`percent_video_processed` to each `by_collection`
+  entry server-side, then mirror `cameraGpsBackfillTool.jsx`-style bars onto
+  `serverStatsTool.jsx`'s `CollectionCard` the same way the global section's
+  two video bars already work.
 - Minor known gap: undoing an "assign to other person" that created a
   *brand-new* person (via `face_to_new_person`) doesn't delete that new person
   server-side - same underlying gap as the merge orphan-record issue above

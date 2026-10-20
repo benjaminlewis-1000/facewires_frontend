@@ -110,6 +110,7 @@ class ToolsScreen extends React.Component {
               loading={this.props.serverStatsLoading}
               loadError={this.props.serverStatsError}
               onRetry={this.props.onRetryServerStats}
+              onRefresh={this.props.onRefreshServerStats}
             />
           ) : this.state.selectedToolId === 'upload' ? (
             <UploadTool

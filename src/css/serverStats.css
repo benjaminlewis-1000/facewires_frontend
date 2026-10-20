@@ -14,14 +14,55 @@
 }
 
 .serverStatsHeadline{
-  min-height: 16px;
   text-align: right;
+  margin-bottom: 8px;
 }
 
-.serverStatsRefreshing{
-  font-size: 11px;
-  color: #888;
-  font-style: italic;
+.serverStatsRefreshButton{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+  background-color: #228fbf;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 16px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.serverStatsRefreshButton:hover:not(:disabled){
+  background-color: #1b7aa3;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.serverStatsRefreshButton:active:not(:disabled){
+  background-color: #166287;
+  box-shadow: none;
+}
+
+.serverStatsRefreshButton:disabled{
+  background-color: #9bc3d6;
+  box-shadow: none;
+  cursor: default;
+}
+
+.serverStatsRefreshIcon{
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.serverStatsRefreshButton.isRefreshing .serverStatsRefreshIcon{
+  animation: serverStatsSpin 0.8s linear infinite;
+}
+
+@keyframes serverStatsSpin{
+  from{ transform: rotate(0deg); }
+  to{ transform: rotate(360deg); }
 }
 
 .statTileRow{
