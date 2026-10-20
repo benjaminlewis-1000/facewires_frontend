@@ -373,6 +373,16 @@ class PicasaScreen extends React.Component{
       // query param on mount - see componentDidMount. {type: 'success'|
       // 'error', message} or null.
       googlePhotosBanner: null,
+
+      // Tools tab's "Server Stats" screen - fetched eagerly here (see
+      // componentDidMount) rather than lazily when ServerStatsTool itself
+      // mounts, per the user's own request: the numbers should already be
+      // warm by the time anyone actually clicks into that tab, not fetched
+      // fresh on arrival. Kept current via its own background interval
+      // (serverStatsRefreshInterval), same shape as peopleRefreshInterval.
+      serverStats: null,
+      serverStatsLoading: true,
+      serverStatsError: null,
     };
           
     // console.log(this.state.param_url)
@@ -460,12 +470,18 @@ class PicasaScreen extends React.Component{
     this.startPhotoSync = this.startPhotoSync.bind(this)
     this.dismissPhotoSync = this.dismissPhotoSync.bind(this)
 
+    this.fetchServerStats = this.fetchServerStats.bind(this)
+
   }
 
   // How often to reconcile locally-bookkept people counts against the
   // backend's actual numbers (e.g. faces sent back to Unassigned get
   // reassigned by someone else in the background over time).
   static PEOPLE_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+  // How often to refetch the Tools tab's Server Stats numbers in the
+  // background, same cadence as the people-list reconciliation above.
+  static SERVER_STATS_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
   // Threshold below which a file goes through the single-shot upload
   // endpoint instead of chunked - conservatively under the documented
@@ -589,12 +605,45 @@ class PicasaScreen extends React.Component{
       PicasaScreen.PEOPLE_REFRESH_INTERVAL_MS
     )
 
+    // Fetched here (not lazily from ServerStatsTool's own mount, unlike
+    // photoWatches above) so the numbers are already warm by the time
+    // anyone actually opens the Server Stats tool, per the user's own
+    // request - this is a reporting-only, no-side-effects fetch, so
+    // there's no harm starting it unconditionally on every page load.
+    this.fetchServerStats(true)
+    this.serverStatsRefreshInterval = setInterval(
+      () => this.fetchServerStats(false),
+      PicasaScreen.SERVER_STATS_REFRESH_INTERVAL_MS
+    )
+
     document.addEventListener("keydown", this._handleUndoRedoKeyDown)
   }
 
   componentWillUnmount(){
     clearInterval(this.peopleRefreshInterval)
+    clearInterval(this.serverStatsRefreshInterval)
     document.removeEventListener("keydown", this._handleUndoRedoKeyDown)
+  }
+
+  // Lifted out of ServerStatsTool itself (same reasoning as uploads/
+  // photoWatches above - this keeps running across tab switches, and
+  // being fetched from here means it starts warm on page load instead of
+  // only once someone opens the Tools tab) - isInitial controls whether a
+  // failure sets serverStatsError (first load only; a background refresh
+  // failing just leaves the last-known numbers on screen, same pattern as
+  // fetchPeopleList's isInitial handling above).
+  fetchServerStats(isInitial){
+    this.setState(isInitial ? { serverStatsLoading: true, serverStatsError: null } : {})
+    return withRetry(() => axiosInstance.get(store.get('api_url') + '/server_stats/'))
+      .then(response => {
+        this.setState({ serverStats: response.data, serverStatsLoading: false, serverStatsError: null })
+      })
+      .catch(error => {
+        console.error('Error fetching server stats', error)
+        if (isInitial){
+          this.setState({ serverStatsLoading: false, serverStatsError: 'Could not load server stats.' })
+        }
+      })
   }
 
   // Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) for undo/redo, mirroring gallery.jsx's
@@ -1593,6 +1642,11 @@ class PicasaScreen extends React.Component{
           onRemoveWatchedAlbum={this.removeWatchedAlbum}
           onStartPhotoSync={this.startPhotoSync}
           onDismissPhotoSync={this.dismissPhotoSync}
+          serverStats={this.state.serverStats}
+          serverStatsLoading={this.state.serverStatsLoading}
+          serverStatsError={this.state.serverStatsError}
+          onRetryServerStats={() => this.fetchServerStats(true)}
+          onRefreshServerStats={() => this.fetchServerStats(false)}
         />
       )
     }

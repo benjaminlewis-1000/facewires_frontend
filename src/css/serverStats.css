@@ -1,0 +1,181 @@
+.serverStatsTool{
+  max-width: 1200px;
+  /* Centers the whole tool within the screen field (the main area to the
+     right of the sidebar) whenever that field is wider than this max-width,
+     rather than always hugging the left edge. */
+  margin: 0 auto;
+}
+
+.serverStatsGlobal{
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.serverStatsHeadline{
+  text-align: right;
+  margin-bottom: 8px;
+}
+
+.serverStatsRefreshButton{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+  background-color: #228fbf;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 16px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.serverStatsRefreshButton:hover:not(:disabled){
+  background-color: #1b7aa3;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.serverStatsRefreshButton:active:not(:disabled){
+  background-color: #166287;
+  box-shadow: none;
+}
+
+.serverStatsRefreshButton:disabled{
+  background-color: #9bc3d6;
+  box-shadow: none;
+  cursor: default;
+}
+
+.serverStatsRefreshIcon{
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.serverStatsRefreshButton.isRefreshing .serverStatsRefreshIcon{
+  animation: serverStatsSpin 0.8s linear infinite;
+}
+
+@keyframes serverStatsSpin{
+  from{ transform: rotate(0deg); }
+  to{ transform: rotate(360deg); }
+}
+
+.statTileRow{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.statTile{
+  min-width: 100px;
+}
+
+.statTileValue{
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.statTileLabel{
+  font-size: 12px;
+  color: #888;
+}
+
+/* Thin bar, 4px rounded ends, anchored to the start - a single sequential
+   fill (not a multi-series chart), so one hue against a neutral track is
+   the whole encoding; no legend needed for a single series. */
+.statBarRow{
+  margin: 10px 0;
+}
+
+.statBarHeader{
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.statBarLabel{
+  font-weight: bold;
+}
+
+.statBarValue{
+  color: #666;
+}
+
+.statBarTrack{
+  height: 8px;
+  background-color: #e9e9e4;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.statBarFill{
+  height: 100%;
+  background-color: #228fbf;
+  border-radius: 4px;
+}
+
+.serverStatsFootnote{
+  margin-top: 14px;
+  font-size: 11px;
+  color: #888;
+}
+
+.serverStatsCollectionsHeader{
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+/* Flexbox rather than CSS grid - each card is explicitly 30% of this
+   container's own width (not the full browser window), which naturally
+   lands at 3 across with room for the gaps; wraps to fewer per row if the
+   container itself is ever narrower. */
+.serverStatsCollections{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.collectionCard{
+  flex: 0 0 30%;
+  box-sizing: border-box;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.collectionCardHeader{
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.collectionDefaultBadge{
+  font-size: 10px;
+  font-weight: normal;
+  color: #197d9c;
+  border: 1px solid #197d9c;
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: 6px;
+}
+
+.collectionCardCounts{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.serverStatsError{
+  color: #b00020;
+}
