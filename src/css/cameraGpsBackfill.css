@@ -1,0 +1,74 @@
+.cameraGpsNote,
+.cameraGpsWarning{
+  font-size: 12px;
+  max-width: 640px;
+  margin: 0 0 8px;
+}
+
+.cameraGpsWarning{
+  color: #b06a00;
+  margin-bottom: 16px;
+}
+
+.cameraGpsTableScroll{
+  max-height: calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - 13px);
+  overflow-y: auto;
+}
+
+.cameraGpsTable{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+
+.cameraGpsTable th:nth-child(1){ width: 45%; }
+.cameraGpsTable th:nth-child(2){ width: 15%; }
+.cameraGpsTable th:nth-child(3){ width: 15%; }
+.cameraGpsTable th:nth-child(4){ width: 25%; }
+
+.cameraGpsTable thead th{
+  position: sticky;
+  top: 0;
+  background-color: #fcfff7;
+  z-index: 2;
+}
+
+.cameraGpsTable th{
+  text-align: left;
+  border-bottom: 2px solid #DDDDDD;
+  padding: 6px 8px;
+}
+
+.cameraGpsTable td{
+  border-bottom: 1px solid #eee;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.cameraGpsModel{
+  word-break: break-word;
+}
+
+.cameraGpsMakeExamples{
+  display: block;
+  color: #888;
+  font-size: 11px;
+}
+
+.cameraGpsCount{
+  text-align: right;
+}
+
+.cameraGpsToggle{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.cameraGpsRowError{
+  color: #b00020;
+  font-size: 11px;
+  margin-top: 2px;
+}
