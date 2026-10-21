@@ -996,3 +996,39 @@ its behavior, don't assume this file's history describes what's live.
   count, so it can check each id's membership. `num_faces` deltas
   (declared-face moves) are untouched - there's no `num_faces_video`/`image`
   field to split, same as `buildCountDeltas` never splits those either.
+- **Application-error notification bell, 2026-10-21** (`applicationErrorBell.jsx`,
+  `css/applicationErrorBell.css`): a bell icon + red unread-count badge in the
+  always-visible menu bar (`tabular_menu.jsx`, next to the logout button),
+  surfacing the backend's `common.models.ApplicationError` log (`GET
+  /api/application_errors/` undismissed by default, `POST .../<id>/dismiss/`)
+  - a small, curated set of noteworthy problems a human should see, separate
+  from full server logging. Fetch/poll (every 2 minutes) is lifted up to
+  `picasaScreen.jsx`, same pattern as uploads/serverStats - stays live
+  regardless of which tab is active, already warm by the time anyone clicks
+  the bell. Dismissing is optimistic (removed from the list immediately,
+  refetched on failure to recover the true state).
+  - **Real bug found and fixed same day**: `ApplicationErrorViewSet` is a
+    plain DRF `ViewSet`, unlike the custom `APIView`-based endpoints
+    elsewhere in this app (people/server_stats/etc.) that hand-build their
+    own JSON - it inherits the project's global `DEFAULT_PAGINATION_CLASS`,
+    so the real response shape is `{count, next, previous, results}`, not a
+    bare array. The first version set `applicationErrors` to that whole
+    object; clicking the bell then called `.map()` on it in the dropdown's
+    non-empty branch, which isn't a function on a plain object - an
+    uncaught TypeError that crashed the entire React tree to a blank white
+    screen. Fixed by reading `response.data.results` instead.
+  - **Second bug, same session**: the dropdown was initially `position:
+    absolute` relative to the bell, which put it inside `#menuBar` - whose
+    own `overflow: hidden` + fixed height (`menubar.css`, needed for its own
+    layout) clipped anything extending past its box, same category of bug
+    `MutableSelect`'s dropdown and the per-tile context menu already hit
+    (see their own write-ups above). Fixed the same way: `position: fixed`,
+    portaled to `document.body`, with screen coordinates computed from the
+    bell button's own `getBoundingClientRect()` at open time rather than
+    tracked live (safe here since `#menuBar` itself is fixed/full-width, so
+    the button's position within it can't shift while open).
+  - Closes on an outside click too (`mousedown` listener, added only while
+    open and always removed on close/unmount per this app's own listener-
+    cleanup discipline) - checks both the button's and the portaled
+    dropdown's refs, since a click on the dropdown isn't a DOM descendant
+    of the bell's own wrapper once portaled.

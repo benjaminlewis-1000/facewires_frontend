@@ -391,6 +391,18 @@ class PicasaScreen extends React.Component{
       serverStats: null,
       serverStatsLoading: true,
       serverStatsError: null,
+
+      // Backend's application-error log (common.models.ApplicationError,
+      // added 2026-10-21) - curated, noteworthy problems a human should
+      // see, not full server logging. Lifted up here rather than living in
+      // whatever bell-icon component renders it, same reasoning as
+      // uploads/serverStats above: this needs to show a badge in the
+      // always-visible menu bar regardless of which tab is active, and
+      // should already be warm (not fetched fresh) by the time anyone
+      // opens the dropdown. Undismissed only (the default query) - a full
+      // history view isn't needed here, this is a "is there anything new"
+      // indicator, not an audit log.
+      applicationErrors: [],
     };
           
     // console.log(this.state.param_url)
@@ -480,6 +492,9 @@ class PicasaScreen extends React.Component{
 
     this.fetchServerStats = this.fetchServerStats.bind(this)
 
+    this.fetchApplicationErrors = this.fetchApplicationErrors.bind(this)
+    this.dismissApplicationError = this.dismissApplicationError.bind(this)
+
   }
 
   // How often to reconcile locally-bookkept people counts against the
@@ -490,6 +505,12 @@ class PicasaScreen extends React.Component{
   // How often to refetch the Tools tab's Server Stats numbers in the
   // background, same cadence as the people-list reconciliation above.
   static SERVER_STATS_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+  // How often to re-poll the application-error log for new entries.
+  // Shorter than the other two intervals above - this is meant to
+  // surface something noteworthy soon after it happens, not just
+  // reconcile slowly-drifting counts.
+  static APPLICATION_ERRORS_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 
   // Threshold below which a file goes through the single-shot upload
   // endpoint instead of chunked - conservatively under the documented
@@ -636,14 +657,55 @@ class PicasaScreen extends React.Component{
       PicasaScreen.SERVER_STATS_REFRESH_INTERVAL_MS
     )
 
+    this.fetchApplicationErrors()
+    this.applicationErrorsRefreshInterval = setInterval(
+      this.fetchApplicationErrors,
+      PicasaScreen.APPLICATION_ERRORS_REFRESH_INTERVAL_MS
+    )
+
     document.addEventListener("keydown", this._handleUndoRedoKeyDown)
   }
 
   componentWillUnmount(){
     clearInterval(this.peopleRefreshInterval)
     clearInterval(this.serverStatsRefreshInterval)
+    clearInterval(this.applicationErrorsRefreshInterval)
     clearTimeout(this.authBounceBannerTimeout)
     document.removeEventListener("keydown", this._handleUndoRedoKeyDown)
+  }
+
+  // Silent background poll, same shape as fetchServerStats's background-
+  // refresh path - a failure here just leaves the last-known list on
+  // screen (logged to console), not worth a user-visible error banner for
+  // what's itself just an error-notification feature.
+  fetchApplicationErrors(){
+    return axiosInstance.get(store.get('api_url') + '/application_errors/')
+      .then(response => {
+        // ApplicationErrorViewSet is a plain DRF ViewSet, unlike the
+        // custom APIView-based endpoints elsewhere in this app (people/
+        // server_stats/etc.) that hand-build their own JSON - it inherits
+        // the project's global DEFAULT_PAGINATION_CLASS, so the real
+        // response is {count, next, previous, results}, not a bare array.
+        this.setState({ applicationErrors: response.data.results || [] })
+      })
+      .catch(error => {
+        console.error('Error fetching application errors', error)
+      })
+  }
+
+  // Optimistic - removes it from the badge/list immediately rather than
+  // waiting on the response, then re-fetches on failure to recover the
+  // true state (same reasoning as the camera-GPS-backfill toggle's own
+  // revert-on-error, just via a full refetch instead of restoring the one
+  // row, since this list is small and fetched often anyway).
+  dismissApplicationError(id){
+    const previous = this.state.applicationErrors
+    this.setState({ applicationErrors: previous.filter(e => e.id !== id) })
+    axiosInstance.post(store.get('api_url') + `/application_errors/${id}/dismiss/`)
+      .catch(error => {
+        console.error('Error dismissing application error', error)
+        this.fetchApplicationErrors()
+      })
   }
 
   // Lifted out of ServerStatsTool itself (same reasoning as uploads/
@@ -1779,6 +1841,8 @@ class PicasaScreen extends React.Component{
                 undoLabel={this.state.undoPointer >= 0 ? this.state.undoStack[this.state.undoPointer].label : ''}
                 redoLabel={this.state.undoPointer < this.state.undoStack.length - 1 ? this.state.undoStack[this.state.undoPointer + 1].label : ''}
                 uploadingCount={this.state.uploads.filter(j => j.status === 'hashing' || j.status === 'uploading').length}
+                applicationErrors={this.state.applicationErrors}
+                onDismissApplicationError={this.dismissApplicationError}
               />
               <div>
                 {this.renderSidebar()}
