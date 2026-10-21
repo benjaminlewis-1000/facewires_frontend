@@ -176,6 +176,12 @@
   margin-bottom: 8px;
 }
 
+.collectionCardVideoFailed{
+  margin-top: 10px;
+  font-size: 11px;
+  color: #888;
+}
+
 .serverStatsError{
   color: #b00020;
 }
