@@ -512,6 +512,11 @@ class PicasaScreen extends React.Component{
   // reconcile slowly-drifting counts.
   static APPLICATION_ERRORS_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 
+  // How long to wait after mount before firing the initial serverStats/
+  // applicationErrors fetches - see componentDidMount for why these are
+  // deferred instead of fired alongside the critical initial fetches.
+  static DEFERRED_FETCH_DELAY_MS = 3 * 1000;
+
   // Threshold below which a file goes through the single-shot upload
   // endpoint instead of chunked - conservatively under the documented
   // 25MB default chunk_size (which the backend can change; this only
@@ -651,13 +656,26 @@ class PicasaScreen extends React.Component{
     // anyone actually opens the Server Stats tool, per the user's own
     // request - this is a reporting-only, no-side-effects fetch, so
     // there's no harm starting it unconditionally on every page load.
-    this.fetchServerStats(true)
+    // The initial fetch itself is deliberately deferred a couple seconds
+    // (DEFERRED_FETCH_DELAY_MS below) rather than fired here alongside
+    // fetchPeopleList/the folder fetch above - neither this nor the
+    // application-error poll just below is on the critical path to a
+    // usable page, and firing all four requests in the same tick made
+    // them compete with the actually-critical ones for bandwidth and
+    // backend worker time during the busiest moment of page load (user
+    // report, 2026-10-21). The periodic background refresh intervals
+    // themselves are harmless to schedule immediately - only the
+    // immediate isInitial fetch needed moving.
+    this.deferredFetchesTimeout = setTimeout(() => {
+      this.fetchServerStats(true)
+      this.fetchApplicationErrors()
+    }, PicasaScreen.DEFERRED_FETCH_DELAY_MS)
+
     this.serverStatsRefreshInterval = setInterval(
       () => this.fetchServerStats(false),
       PicasaScreen.SERVER_STATS_REFRESH_INTERVAL_MS
     )
 
-    this.fetchApplicationErrors()
     this.applicationErrorsRefreshInterval = setInterval(
       this.fetchApplicationErrors,
       PicasaScreen.APPLICATION_ERRORS_REFRESH_INTERVAL_MS
@@ -671,6 +689,7 @@ class PicasaScreen extends React.Component{
     clearInterval(this.serverStatsRefreshInterval)
     clearInterval(this.applicationErrorsRefreshInterval)
     clearTimeout(this.authBounceBannerTimeout)
+    clearTimeout(this.deferredFetchesTimeout)
     document.removeEventListener("keydown", this._handleUndoRedoKeyDown)
   }
 
