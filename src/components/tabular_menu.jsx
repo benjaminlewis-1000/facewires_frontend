@@ -1,5 +1,6 @@
 import React, { Component } from 'react'
 import { Menu } from 'semantic-ui-react'
+import ApplicationErrorBell from './applicationErrorBell'
 
 export default class MenuExampleTabular extends Component {
   
@@ -131,6 +132,13 @@ export default class MenuExampleTabular extends Component {
           >
             &#8631; Redo
           </button>
+        </div>
+
+        <div id='ApplicationErrorRemnant' className='contextMenu'>
+          <ApplicationErrorBell
+            errors={this.props.applicationErrors || []}
+            onDismiss={this.props.onDismissApplicationError}
+          />
         </div>
 
         <div id='LogoutRemnant' className='contextMenu'>

@@ -1,0 +1,113 @@
+.applicationErrorBell{
+  position: relative;
+  display: inline-block;
+}
+
+.applicationErrorBellButton{
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+}
+
+.applicationErrorBellIcon{
+  font-size: 18px;
+}
+
+/* Single dot/badge, not a full occlusion of the icon - kept small and
+   anchored to the icon's top-right corner, same "unread count" idiom as
+   most notification bells. */
+.applicationErrorBadge{
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: #b00020;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 1;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  padding: 2px 3px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+/* Portaled to document.body (applicationErrorBell.jsx) - #menuBar's own
+   overflow: hidden (menubar.css) would otherwise clip this, same problem
+   MutableSelect's dropdown and the per-tile context menu already solved
+   the same way. position: fixed + top/right set inline from the button's
+   own measured screen rect, not relative to any ancestor here. */
+.applicationErrorDropdown{
+  position: fixed;
+  z-index: 300;
+  width: 340px;
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-top: 3px solid #197d9c;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.applicationErrorEmpty{
+  padding: 16px;
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+}
+
+.applicationErrorRow{
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.applicationErrorRow:last-child{
+  border-bottom: none;
+}
+
+.applicationErrorRowHeader{
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.applicationErrorSource{
+  font-size: 11px;
+  font-weight: bold;
+  color: #197d9c;
+  word-break: break-word;
+}
+
+.applicationErrorDismiss{
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: #888;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.applicationErrorDismiss:hover{
+  color: #b00020;
+}
+
+.applicationErrorMessage{
+  font-size: 12px;
+  color: #333;
+  margin-top: 4px;
+  white-space: pre-wrap;
+}
+
+.applicationErrorTimestamp{
+  font-size: 10px;
+  color: #999;
+  margin-top: 6px;
+}
