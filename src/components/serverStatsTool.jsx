@@ -43,6 +43,11 @@ function StatTile({ label, value }) {
 function CollectionCard({ c }) {
   const faceProcessedPercent = c.num_imgs ? (c.num_face_processed / c.num_imgs) * 100 : 0
   const verifiedPercent = c.num_tagged ? (c.num_verified / c.num_tagged) * 100 : 0
+  const videoCountPercent = c.num_videos ? (c.num_videos_processed / c.num_videos) * 100 : 0
+  // Same reasoning as the global section's own duration bar - parse the
+  // backend's own percentage string rather than re-deriving from the two
+  // duration strings, which aren't meant for arithmetic.
+  const videoDurationPercent = parseFloat(c.percent_video_length_processed) || 0
 
   return (
     <div className='collectionCard'>
@@ -54,6 +59,7 @@ function CollectionCard({ c }) {
         <span>{formatNum(c.num_imgs)} images</span>
         <span>{formatNum(c.num_people)} people</span>
         <span>{formatNum(c.num_faces)} faces</span>
+        <span>{formatNum(c.num_videos)} videos</span>
       </div>
       <StatBar
         label='Face processing'
@@ -65,6 +71,25 @@ function CollectionCard({ c }) {
         percent={verifiedPercent}
         detailText={`${formatNum(c.num_verified)} / ${formatNum(c.num_tagged)} (${c.verified_progress})`}
       />
+      {c.num_videos > 0 && (
+        <>
+          <StatBar
+            label='Video count processed'
+            percent={videoCountPercent}
+            detailText={`${formatNum(c.num_videos_processed)} / ${formatNum(c.num_videos)} (${c.percent_video_processed})`}
+          />
+          <StatBar
+            label='Video duration processed'
+            percent={videoDurationPercent}
+            detailText={`${c.unprocessed_video_length} remaining of ${c.total_video_length} (${c.percent_video_length_processed})`}
+          />
+        </>
+      )}
+      {c.num_videos_failed > 0 && (
+        <div className='collectionCardVideoFailed'>
+          {formatNum(c.num_videos_failed)} video(s) failed face extraction.
+        </div>
+      )}
     </div>
   )
 }
