@@ -550,6 +550,13 @@ class PicasaScreen extends React.Component{
     const bounceDiagnostic = takeLastBounceDiagnostic()
     if (bounceDiagnostic) {
       this.setState({ authBounceBanner: bounceDiagnostic })
+      // Auto-dismiss rather than waiting on a manual close - this is just a
+      // "here's what happened" notice, not something that needs to be acted
+      // on, so it shouldn't linger. onDismiss's own manual close (below)
+      // still works if they want it gone sooner.
+      this.authBounceBannerTimeout = setTimeout(() => {
+        this.setState({ authBounceBanner: null })
+      }, 2000)
     }
 
     function compareDirectories(a, b) {
@@ -635,6 +642,7 @@ class PicasaScreen extends React.Component{
   componentWillUnmount(){
     clearInterval(this.peopleRefreshInterval)
     clearInterval(this.serverStatsRefreshInterval)
+    clearTimeout(this.authBounceBannerTimeout)
     document.removeEventListener("keydown", this._handleUndoRedoKeyDown)
   }
 
