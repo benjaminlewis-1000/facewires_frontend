@@ -1,5 +1,4 @@
 /* eslint-disable arrow-body-style */
-import IdleTimer from 'react-idle-timer';
 import isLoggedIn from './isLoggedIn';
 import { checkAutheliaSession } from './autheliaCheck';
 import PicasaScreen from './picasaScreen';
@@ -8,7 +7,18 @@ import store from 'store';
 import axiosInstance from './axios_setup';
 import { Helmet } from 'react-helmet';
 import { FRONTEND_URL, AUTHELIA_LOGIN_URL } from './config';
-import { bounceToLogin } from './authRedirect';
+import { bounceToLogin, captureBounceDiagnosticForLogout } from './authRedirect';
+
+// How often to silently ping the backend to keep the session alive while the
+// tab is open, regardless of mouse/keyboard activity - replaces the old
+// react-idle-timer-driven forced logout (see CLAUDE.md's "idle timeout"
+// entry). Well under both Django's 30-minute sliding SESSION_COOKIE_AGE and
+// Authelia's 60-minute inactivity window, so a request from this heartbeat
+// alone (SESSION_SAVE_EVERY_REQUEST=True on the Django side, and this
+// request passing back through Authelia's forward-auth either way) is
+// enough to keep both sliding windows from ever actually elapsing just from
+// the tab sitting open and unattended.
+const SESSION_HEARTBEAT_INTERVAL_MS = 10 * 60 * 1000;
 
 class MainApp extends React.Component {
   constructor(props){
@@ -17,12 +27,12 @@ class MainApp extends React.Component {
     // Track state to show a loading screen while we wait for the backend response
     this.state = {
       loading: true,
-      authenticated: false
+      authenticated: false,
     };
 
-    this.idleTimer = null;
-    this.onIdle = this.handleOnIdle.bind(this);
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+    this.sendHeartbeat = this.sendHeartbeat.bind(this);
+    this.heartbeatInterval = null;
   }
 
   componentDidMount() {
@@ -45,7 +55,7 @@ class MainApp extends React.Component {
         this.setState({ authenticated: true, loading: false });
         this.verifyAutheliaSession();
       } else {
-        bounceToLogin();
+        bounceToLogin('mount-isLoggedIn-false');
       }
     }).catch(err => {
       console.error("SSO check failed:", err);
@@ -65,10 +75,23 @@ class MainApp extends React.Component {
     // it now redirects on any confirmed auth failure wherever it's
     // discovered, not just here.
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
+
+    this.heartbeatInterval = setInterval(this.sendHeartbeat, SESSION_HEARTBEAT_INTERVAL_MS);
   }
 
   componentWillUnmount() {
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    clearInterval(this.heartbeatInterval);
+  }
+
+  // Silent - no loading state, no UI change on success. Only a confirmed
+  // "actually logged out" (not a network hiccup) bounces to login, same as
+  // every other isLoggedIn() call site in this file.
+  sendHeartbeat() {
+    if (!this.state.authenticated) return;
+    isLoggedIn().then(loggedIn => {
+      if (!loggedIn) bounceToLogin('heartbeat-check-false');
+    }).catch(() => {});
   }
 
   handleVisibilityChange() {
@@ -78,7 +101,7 @@ class MainApp extends React.Component {
     if (!this.state.authenticated) return;
 
     isLoggedIn().then(loggedIn => {
-      if (!loggedIn) bounceToLogin();
+      if (!loggedIn) bounceToLogin('visibility-recheck-false');
     }).catch(() => {
       // A network hiccup on this opportunistic check isn't a reason to log
       // the user out - same reasoning as the mount-time check's own catch.
@@ -93,15 +116,9 @@ class MainApp extends React.Component {
     checkAutheliaSession().then(stillLoggedIn => {
       if (stillLoggedIn === false) {
         console.log("Authelia session is logged out - bouncing to SSO login");
-        bounceToLogin();
+        bounceToLogin('authelia-session-check-false');
       }
     });
-  }
-
-  handleOnIdle(e) {
-    const { history } = this.props;
-    handleLogout(history)();
-    console.log('user is idle');
   }
 
   render() {
@@ -124,14 +141,6 @@ class MainApp extends React.Component {
     // 3. Render your actual application once authenticated is confirmed true
     return (
         <div id="screenWrapper">
-          <IdleTimer
-            ref={ref => { this.idleTimer = ref }}
-            element={document}
-            onIdle={this.onIdle}
-            debounce={250}
-            /* Set a timeout for an hour */
-            timeout={1000 * 60 * 60 } /> 
-
           <Helmet>
             <title>FaceWires</title>
           </Helmet>
@@ -143,8 +152,9 @@ class MainApp extends React.Component {
   }
 }
 
-const handleLogout = history => () => {
+const handleLogout = (history, reason) => () => {
   console.log("Logging out globally via Authelia portal");
+  captureBounceDiagnosticForLogout(reason || 'manual-logout', null);
   store.remove('loggedIn');
 
   // /clean_logout/ kills both the Django session and the Authelia

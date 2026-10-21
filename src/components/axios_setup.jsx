@@ -89,7 +89,7 @@ axiosInstance.interceptors.response.use(
         // HTML_RETRY_DELAYS_MS.length attempts.
         config._htmlRetryCount = (config._htmlRetryCount || 0) + 1;
         if (config._htmlRetryCount > HTML_RETRY_DELAYS_MS.length) {
-            bounceToLogin();
+            bounceToLogin('html-retry-exhausted', `${config.method} ${config.url}`);
             const authError = new Error('Received HTML instead of JSON after retries - session expired (Authelia SSO redirect).');
             authError.response = { ...response, status: 401 };
             throw authError;
@@ -101,7 +101,11 @@ axiosInstance.interceptors.response.use(
         // A real 401/403 straight from the server (not the synthesized-
         // from-HTML case above, which calls bounceToLogin() itself before
         // ever reaching here) - same redirect, same reasoning.
-        if (isAuthFailure(error)) bounceToLogin();
+        if (isAuthFailure(error)) {
+            const config = error.config || {};
+            const detailText = error.response && error.response.data && error.response.data.detail;
+            bounceToLogin(`http-${error.response.status}`, detailText || `${config.method} ${config.url}`);
+        }
         return Promise.reject(error);
     },
 );

@@ -16,7 +16,7 @@ import PersonSidebar from './personSidebar'
 import ImageScreen from './imageScreen'
 import ToolsScreen from './toolsScreen'
 import axiosInstance from './axios_setup'
-import { isAuthFailure } from './authRedirect';
+import { isAuthFailure, takeLastBounceDiagnostic } from './authRedirect';
 import { withRetry } from './apiRetry';
 import { assignFaceToPerson, bulkFaceOperation } from './faceActions';
 import {
@@ -373,6 +373,14 @@ class PicasaScreen extends React.Component{
       // query param on mount - see componentDidMount. {type: 'success'|
       // 'error', message} or null.
       googlePhotosBanner: null,
+      // Set from authRedirect.js's takeLastBounceDiagnostic() on mount - see
+      // componentDidMount. Surfaces what actually triggered the PREVIOUS
+      // login redirect (which reason, which cookies were readable at the
+      // time) without needing devtools open to have caught it live - the
+      // redirect itself navigates away too fast for a console.log alone to
+      // be useful. {reason, detail, readableCookieNames, path, timestamp} or
+      // null.
+      authBounceBanner: null,
 
       // Tools tab's "Server Stats" screen - fetched eagerly here (see
       // componentDidMount) rather than lazily when ServerStatsTool itself
@@ -537,6 +545,11 @@ class PicasaScreen extends React.Component{
           : { type: 'error', message: `Couldn't connect Google Photos: ${error}` },
       })
       window.history.replaceState(null, '', window.location.pathname)
+    }
+
+    const bounceDiagnostic = takeLastBounceDiagnostic()
+    if (bounceDiagnostic) {
+      this.setState({ authBounceBanner: bounceDiagnostic })
     }
 
     function compareDirectories(a, b) {
@@ -1770,6 +1783,21 @@ class PicasaScreen extends React.Component{
                   onDismiss={() => this.setState({ googlePhotosBanner: null })}
                   content={this.state.googlePhotosBanner.message}
                   style={{ position: 'fixed', top: 90, right: 20, zIndex: 200, maxWidth: 320 }}
+                />
+              )}
+
+              {this.state.authBounceBanner && (
+                <Message
+                  warning
+                  onDismiss={() => this.setState({ authBounceBanner: null })}
+                  header='You were logged out just before this'
+                  content={
+                    `Reason: ${this.state.authBounceBanner.reason}` +
+                    (this.state.authBounceBanner.detail ? ` (${this.state.authBounceBanner.detail})` : '') +
+                    ` | Readable cookies at the time: ${this.state.authBounceBanner.readableCookieNames.join(', ') || 'none'}` +
+                    ` | ${this.state.authBounceBanner.timestamp}`
+                  }
+                  style={{ position: 'fixed', top: 140, right: 20, zIndex: 200, maxWidth: 420 }}
                 />
               )}
 
