@@ -4,6 +4,7 @@ import UploadTool from './uploadTool';
 import GooglePhotosTool from './googlePhotosTool';
 import CameraGpsBackfillTool from './cameraGpsBackfillTool';
 import ServerStatsTool from './serverStatsTool';
+import VideoFaceExtractionTool from './videoFaceExtractionTool';
 
 // The first real tools this tab has had - see CLAUDE.md. Everything
 // below them is still the original mocked scaffolding (names/content all
@@ -18,6 +19,7 @@ const REAL_TOOLS = [
   { id: 'geocode-review', name: 'Fix Geocoding' },
   { id: 'camera-gps-backfill', name: 'Camera GPS Backfill' },
   { id: 'server-stats', name: 'Server Stats' },
+  { id: 'video-face-extraction', name: 'Video Face Extraction' },
 ];
 
 const MOCK_TOOLS = [
@@ -104,6 +106,8 @@ class ToolsScreen extends React.Component {
             <GeocodeReviewTool />
           ) : this.state.selectedToolId === 'camera-gps-backfill' ? (
             <CameraGpsBackfillTool />
+          ) : this.state.selectedToolId === 'video-face-extraction' ? (
+            <VideoFaceExtractionTool />
           ) : this.state.selectedToolId === 'server-stats' ? (
             <ServerStatsTool
               stats={this.props.serverStats}
