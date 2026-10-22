@@ -1032,3 +1032,35 @@ its behavior, don't assume this file's history describes what's live.
     cleanup discipline) - checks both the button's and the portaled
     dropdown's refs, since a click on the dropdown isn't a DOM descendant
     of the bell's own wrapper once portaled.
+- **Tools tab: "Video Face Extraction", 2026-10-22** (`videoFaceExtractionTool.jsx`,
+  `css/videoFaceExtraction.css`) - lists videos with `VideoFile.face_extraction_failed
+  =True` (`GET /api/video_face_extraction/`, a plain `ViewSet` that hand-builds
+  `{count, results}` itself rather than going through DRF's default pagination -
+  confirmed from the backend source directly, not assumed, after the application-
+  error bell's pagination-shape mistake just above) with a "Retry all" button and a
+  per-row "Retry" (`POST .../` with `{}` or `{video_ids: [id]}`). Kept as local
+  component state (not lifted to `picasaScreen.jsx`) - unlike Server Stats/uploads, a
+  retry here is an infrequent, deliberate action with no reason to keep running warm
+  across tab switches.
+  - **No progress/status endpoint exists, and the naive "row vanished = succeeded"
+    read of that is actually wrong** - confirmed by reading `face_manager/tasks.py`'s
+    `process_video_faces` directly: when retried by id, it resets
+    `face_extraction_failed=False` for every targeted video as soon as the task
+    *starts*, before processing any of them individually. So a video disappearing
+    from the list only means the task picked it up (still mid-processing, or
+    genuinely done) - those two look identical here, and the tool doesn't pretend
+    otherwise (no "N succeeded" claim anywhere). The one thing this *can* confirm:
+    a video that disappears and later reappears has definitely failed again. A
+    background poll (every 20s, stopping after 10 minutes or once nothing's left to
+    watch, cleared on unmount) walks each retried id through exactly that
+    disappear-then-reappear transition and flags a confirmed re-failure with a
+    distinct "Failed again after retry" badge, re-enabling its Retry button - a
+    still-queued (never-yet-disappeared) row just stays marked "Queued."
+  - **TODO, reported 2026-10-22**: user tried this against the real backend and
+    the retried videos all got reprocessed (left the failed list, one way or
+    another) before they had a chance to see the outcome in the UI - so in
+    practice the 20s poll window isn't actually catching the moment-of-interest
+    for a fast-turnaround backend. Needs a closer look at what actually happened
+    (e.g. a shorter poll interval, or surfacing partial poll state sooner/more
+    visibly) before this can be considered working end-to-end - not yet
+    investigated.

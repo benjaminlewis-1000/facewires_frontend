@@ -1,0 +1,108 @@
+.videoFaceExtractionHeadline{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.videoFaceExtractionCountLabel{
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.videoFaceExtractionRetryAll{
+  margin-left: 8px;
+}
+
+.videoFaceExtractionTableScroll{
+  max-height: calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - 13px);
+  overflow-y: auto;
+}
+
+.videoFaceExtractionTable{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+
+.videoFaceExtractionTable th:nth-child(1){ width: 35%; }
+.videoFaceExtractionTable th:nth-child(2){ width: 10%; }
+.videoFaceExtractionTable th:nth-child(3){ width: 35%; }
+.videoFaceExtractionTable th:nth-child(4){ width: 20%; }
+
+.videoFaceExtractionTable thead th{
+  position: sticky;
+  top: 0;
+  background-color: #fcfff7;
+  z-index: 2;
+}
+
+.videoFaceExtractionTable th{
+  text-align: left;
+  border-bottom: 2px solid #DDDDDD;
+  padding: 6px 8px;
+}
+
+.videoFaceExtractionTable td{
+  border-bottom: 1px solid #eee;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.videoFaceExtractionFilename{
+  word-break: break-word;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.videoFaceExtractionCount{
+  text-align: right;
+}
+
+.videoFaceExtractionError{
+  word-break: break-word;
+}
+
+.videoFaceExtractionUnknown{
+  color: #888;
+  font-style: italic;
+}
+
+.videoFaceExtractionTimeout{
+  display: block;
+  color: #b06a00;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.videoFaceExtractionRowError{
+  color: #b00020;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* Faded, same idiom as geocodeReview.css's .geocodeRowValidated - a
+   queued row still reads as "handled for now" without disappearing, since
+   there's no progress endpoint to confirm the real outcome yet. */
+.videoFaceExtractionRowQueued{
+  color: #888;
+}
+
+.videoFaceExtractionRowFailedAgain{
+  background-color: #fdf0f0;
+}
+
+.videoFaceExtractionFailedAgainBadge{
+  display: block;
+  color: #b00020;
+  font-weight: bold;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.videoFaceExtractionPollingNote{
+  font-size: 11px;
+  color: #888;
+  margin: 0 0 10px;
+}
