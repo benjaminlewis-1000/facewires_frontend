@@ -76,7 +76,7 @@ function readSizeVars(){
 function ClusterTile({ url, count, onClick }){
   return (
     <div className='imgDiv clusterTile' onClick={onClick}>
-      <img className='img_thumb' src={url} alt='' />
+      <img className='img_thumb' src={url} alt='' crossOrigin='use-credentials' />
       <span className='clusterBadge'>{`×${count}`}</span>
     </div>
   )
@@ -1832,6 +1832,7 @@ class Gallery extends React.Component{
             src={this.state.modalURL}
             alt="Full size"
             className='modalImage'
+            crossOrigin='use-credentials'
           />
           {this.props.tab === 'Folders' && (
             <button

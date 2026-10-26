@@ -486,7 +486,7 @@ class ImageScreen extends React.Component{
       var id_num = selectedPerson.id
       var id_url = store.get('api_url') + '/keyed_image/face_highlight/?access_key='
         + this.state.access_key + '&id=' + id_num + '&v=' + this.state.highlightVersion
-      highlight_img = <img src={id_url} className="highlight_img"  alt="highlight" />
+      highlight_img = <img src={id_url} className="highlight_img" alt="highlight" crossOrigin='use-credentials' />
     }
 
     // Backend already returns imagery_ids newest-first for the Folders
