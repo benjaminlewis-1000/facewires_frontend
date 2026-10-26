@@ -1064,3 +1064,41 @@ its behavior, don't assume this file's history describes what's live.
     (e.g. a shorter poll interval, or surfacing partial poll state sooner/more
     visibly) before this can be considered working end-to-end - not yet
     investigated.
+- **Tools tab: "Classification Settings", 2026-10-26** (`classificationSettingsTool.jsx`,
+  `css/classificationSettings.css`) - two independent settings sections on one page,
+  since they're scoped at different levels with no shared row identity:
+  per-*person* windowed-classification toggle + window-days
+  (`GET/POST /api/windowed_classification_config/[set_windowed/]`, pre-existing
+  backend) and per-*collection* face-detection floors (`GET /api/photo_collection_config/`,
+  `POST .../set_floors/`, backend built same day). Both number inputs (window days,
+  and the two floor fields) commit on blur, not on every keystroke; a floor field
+  left blank sends `null` ("no restriction") rather than omitting the key, and
+  the two floor fields are always posted independently of each other so editing
+  one can never clobber the other with a stale value.
+- **Real backend bug found and fixed, 2026-10-26: image loads failing (429) on
+  prod.** `KeyedImageView`'s `SlideshowMediaThrottle` (`api/throttles.py`/
+  `api/views.py`, `django_picasa`) was written assuming "real session-authenticated
+  requests (e.g. the face-assigning frontend) never hit these" - but this app's
+  own gallery/modal/highlight images are all plain `<img src=...&access_key=...>`
+  tags, which never sent the Authelia session cookie cross-subdomain without an
+  explicit opt-in, so **every** image load here was hitting the backend as
+  unauthenticated and sharing the same low per-IP rate meant for the public
+  slideshow widget - throttling real logged-in usage under ordinary gallery
+  scrolling. Fixed on the frontend by adding `crossOrigin='use-credentials'` to
+  every `<img>`/`LazyLoadImage` that loads from `/keyed_image/...`
+  (`lazyImg.jsx`'s `LazyImageComponent`, `gallery.jsx`'s `ClusterTile` and the
+  full-size modal `<img>`, `imageScreen.jsx`'s `face_highlight` image - the two
+  `peoplefacts.com` placeholder images are deliberately left alone, since that's
+  a real third-party host with no reason to expect credentialed-CORS support),
+  so the browser now actually attaches the session cookie and the backend can
+  tell a real logged-in request apart from a genuinely public one.
+  `access_key` is still sent as a fallback query param, unchanged - an expired
+  session or a genuinely public caller still works, just correctly lands in the
+  (now separately, more tightly throttled) public bucket instead of 404ing.
+  Backend-side (`django_picasa`, deployed 2026-10-26): `slideshow_media` raised to
+  60/min, a new, separate `access_key_media` scope added at 30/min for this
+  exact fallback path, and authenticated requests bypass the throttle entirely.
+  Once confirmed (checking prod logs for `face_array` hits with no `access_key=`
+  present - i.e. real cookie-authenticated traffic) that this is actually working
+  end-to-end, the plan is to drop `access_key_media` to 2/min for real, since
+  by then almost nothing legitimate should still be hitting that fallback path.

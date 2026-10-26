@@ -283,6 +283,12 @@ const LazyImageComponent = React.memo(function LazyImageComponent({ hidden, igno
       src={url}
       key={index}
       effect='blur'
+      // Lets the browser attach the Authelia session cookie on this
+      // cross-subdomain request - without it, every image load is
+      // unauthenticated at the Django level regardless of login state,
+      // even though access_key (sent as a query param, unchanged) still
+      // works as a fallback. See CLAUDE.md's keyed-image-throttle entry.
+      crossOrigin='use-credentials'
       scrollPosition={scrollPosition}
       onClick={(e) => localClick(e)}
       onDoubleClick={(e) => localDoubleClick(e)}

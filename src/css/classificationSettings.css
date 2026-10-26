@@ -1,0 +1,112 @@
+.classificationSettingsNote{
+  font-size: 12px;
+  max-width: 640px;
+  color: #666;
+  margin: 0 0 8px;
+}
+
+.classificationSettingsSectionHeadline{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.classificationSettingsSecondSection{
+  margin-top: 28px;
+}
+
+.classificationSettingsTableScroll{
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.classificationSettingsTable{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+
+.classificationSettingsTable th{
+  text-align: left;
+  border-bottom: 2px solid #DDDDDD;
+  padding: 6px 8px;
+  position: sticky;
+  top: 0;
+  background-color: #fcfff7;
+  z-index: 2;
+}
+
+.classificationSettingsSortableHeader{
+  cursor: pointer;
+  user-select: none;
+}
+
+.classificationSettingsSortableHeader:hover{
+  color: #2d7a2d;
+}
+
+.classificationSettingsHelpIcon{
+  font-size: 10px;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+
+.classificationSettingsTable td{
+  border-bottom: 1px solid #eee;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.classificationSettingsName{
+  word-break: break-word;
+}
+
+.classificationSettingsDefaultBadge{
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  color: #2d7a2d;
+  border: 1px solid #2d7a2d;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.classificationSettingsRootDir{
+  display: block;
+  color: #888;
+  font-size: 11px;
+}
+
+.classificationSettingsCount{
+  text-align: right;
+}
+
+.classificationSettingsToggle{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.classificationSettingsNumberCell{
+  white-space: nowrap;
+}
+
+.classificationSettingsNumberInput{
+  width: 70px;
+}
+
+.classificationSettingsNumberInput:disabled{
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.classificationSettingsRowError{
+  color: #b00020;
+  font-size: 11px;
+  margin-top: 2px;
+}
