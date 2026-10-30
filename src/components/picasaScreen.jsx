@@ -700,12 +700,14 @@ class PicasaScreen extends React.Component{
   fetchApplicationErrors(){
     return axiosInstance.get(store.get('api_url') + '/application_errors/')
       .then(response => {
-        // ApplicationErrorViewSet is a plain DRF ViewSet, unlike the
-        // custom APIView-based endpoints elsewhere in this app (people/
-        // server_stats/etc.) that hand-build their own JSON - it inherits
-        // the project's global DEFAULT_PAGINATION_CLASS, so the real
-        // response is {count, next, previous, results}, not a bare array.
-        this.setState({ applicationErrors: response.data.results || [] })
+        // Fixed 2026-10-30: this was read as response.data.results (a
+        // plain DRF ViewSet inheriting the project's default pagination)
+        // when this endpoint was first built - the backend contract now
+        // confirms it's actually a bare list, not {count, next, ...,
+        // results}. Kept the results-fallback here defensively rather
+        // than assuming the contract is exactly right forever.
+        const data = response.data
+        this.setState({ applicationErrors: Array.isArray(data) ? data : (data.results || []) })
       })
       .catch(error => {
         console.error('Error fetching application errors', error)
@@ -717,10 +719,16 @@ class PicasaScreen extends React.Component{
   // true state (same reasoning as the camera-GPS-backfill toggle's own
   // revert-on-error, just via a full refetch instead of restoring the one
   // row, since this list is small and fetched often anyway).
-  dismissApplicationError(id){
+  // clearHeartbeat (2026-10-30): when true, also tells the backend to mark
+  // the row's related_heartbeat_task_name as no longer stuck - only
+  // meaningful (and only ever passed as true) for rows that actually have
+  // a related_heartbeat_task_name; the backend silently ignores it
+  // otherwise, so no client-side guard is needed here.
+  dismissApplicationError(id, clearHeartbeat){
     const previous = this.state.applicationErrors
     this.setState({ applicationErrors: previous.filter(e => e.id !== id) })
-    axiosInstance.post(store.get('api_url') + `/application_errors/${id}/dismiss/`)
+    const body = clearHeartbeat ? { clear_heartbeat: true } : undefined
+    axiosInstance.post(store.get('api_url') + `/application_errors/${id}/dismiss/`, body)
       .catch(error => {
         console.error('Error dismissing application error', error)
         this.fetchApplicationErrors()
