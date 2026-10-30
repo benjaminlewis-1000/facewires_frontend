@@ -106,6 +106,14 @@
   white-space: pre-wrap;
 }
 
+.applicationErrorClearHeartbeat{
+  display: block;
+  font-size: 11px;
+  color: #666;
+  margin-top: 6px;
+  cursor: pointer;
+}
+
 .applicationErrorTimestamp{
   font-size: 10px;
   color: #999;

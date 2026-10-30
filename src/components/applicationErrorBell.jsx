@@ -18,6 +18,12 @@ function formatTimestamp(iso) {
 function ApplicationErrorBell({ errors, onDismiss }) {
   const [open, setOpen] = useState(false)
   const [dropdownPos, setDropdownPos] = useState(null)
+  // Per-row "clear heartbeat too" checkbox, keyed by error id - only ever
+  // rendered for rows with a non-null related_heartbeat_task_name (see
+  // render below). Deliberately opt-in/unchecked by default: this is meant
+  // to be a deliberate "I checked, it's not actually stuck" action, not a
+  // reflex tied to the ordinary dismiss click.
+  const [clearHeartbeatChecked, setClearHeartbeatChecked] = useState({})
   const buttonRef = useRef(null)
   const dropdownRef = useRef(null)
   const count = errors.length
@@ -87,13 +93,23 @@ function ApplicationErrorBell({ errors, onDismiss }) {
                   <span className='applicationErrorSource'>{err.source}</span>
                   <button
                     className='applicationErrorDismiss'
-                    onClick={() => onDismiss(err.id)}
+                    onClick={() => onDismiss(err.id, !!clearHeartbeatChecked[err.id])}
                     title='Dismiss'
                   >
                     &times;
                   </button>
                 </div>
                 <div className='applicationErrorMessage'>{err.message}</div>
+                {err.related_heartbeat_task_name && (
+                  <label className='applicationErrorClearHeartbeat'>
+                    <input
+                      type='checkbox'
+                      checked={!!clearHeartbeatChecked[err.id]}
+                      onChange={(e) => setClearHeartbeatChecked(prev => ({ ...prev, [err.id]: e.target.checked }))}
+                    />
+                    {' '}I've confirmed this isn't actually stuck — clear it
+                  </label>
+                )}
                 <div className='applicationErrorTimestamp'>{formatTimestamp(err.created_at)}</div>
               </div>
             ))

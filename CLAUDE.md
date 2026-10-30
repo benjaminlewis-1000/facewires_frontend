@@ -1032,6 +1032,22 @@ its behavior, don't assume this file's history describes what's live.
     cleanup discipline) - checks both the button's and the portaled
     dropdown's refs, since a click on the dropdown isn't a DOM descendant
     of the bell's own wrapper once portaled.
+  - **"Clear heartbeat too" on dismiss, 2026-10-30**: `GET
+    /api/application_errors/` turned out to actually return a bare list, not
+    the `{count, next, previous, results}` shape assumed when this feature
+    was first built (see "Real bug found and fixed same day" above) -
+    `fetchApplicationErrors` now reads `response.data` directly, with a
+    defensive `results` fallback kept in case that ever changes back. Rows
+    whose `related_heartbeat_task_name` is non-null (a `TaskHeartbeat` the
+    error is about, e.g. "this scheduled job looks stuck") now show an extra
+    checkbox - "I've confirmed this isn't actually stuck — clear it" -
+    unchecked by default, deliberately opt-in rather than defaulted on.
+    Checking it before hitting the row's dismiss (×) sends
+    `{clear_heartbeat: true}` on the existing `POST .../dismiss/` call,
+    which also clears the underlying heartbeat's stuck state server-side;
+    an ordinary dismiss (checkbox left unchecked, or a row with no
+    `related_heartbeat_task_name` at all) sends no body, unchanged from
+    before.
 - **Tools tab: "Video Face Extraction", 2026-10-22** (`videoFaceExtractionTool.jsx`,
   `css/videoFaceExtraction.css`) - lists videos with `VideoFile.face_extraction_failed
   =True` (`GET /api/video_face_extraction/`, a plain `ViewSet` that hand-builds
