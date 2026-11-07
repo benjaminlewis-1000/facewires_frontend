@@ -1,0 +1,140 @@
+/* Single source of truth for this tool's own row math (rotationReviewTool.jsx
+   reads these via getComputedStyle, same discipline as gallery.jsx's
+   --tile-size/--row-button-width in image_tile.css) - keeps the JS grid
+   layout from drifting out of sync with .rotationReviewTile/.rowConfirmButton
+   below if their sizes ever change here. */
+.rotationReviewTool{
+  --rotation-review-tile-width: 220px;
+  --rotation-review-tile-height: 300px;
+  --rotation-review-row-button-width: 32px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.rotationReviewNote{
+  font-size: 12px;
+  max-width: 680px;
+  color: #666;
+  margin: 0 0 10px;
+}
+
+.rotationReviewHeadline{
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.rotationReviewGridWrapper{
+  flex: 1;
+  overflow-y: auto;
+  max-height: calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - 60px);
+}
+
+.rotationReviewGridRow{
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.rotationReviewTile{
+  width: var(--rotation-review-tile-width);
+  height: var(--rotation-review-tile-height);
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 11px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.rotationReviewTileDismissed{
+  background-color: #f7f7f7;
+  opacity: 0.7;
+}
+
+.rotationReviewTileBusy{
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.rotationReviewPreviewWrap{
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-color: #f4f4f4;
+  margin-bottom: 6px;
+}
+
+.rotationReviewPreviewImg{
+  max-width: 100%;
+  max-height: 100%;
+  transition: transform 0.15s ease;
+}
+
+.rotationReviewChipRow{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.rotationReviewRotateBtn{
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+
+.rotationReviewChip{
+  font-size: 11px;
+  min-width: 100px;
+  text-align: center;
+}
+
+.rotationReviewTileFooter{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rotationReviewMeta{
+  color: #888;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rotationReviewDismissToggle{
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+
+/* .rowConfirmButton itself comes from image_tile.css - matching that exact
+   look/sizing deliberately, since this is meant to read as the same
+   control as the gallery's Confirm row/Verify row. Height overridden to
+   this tool's own tile height instead of the gallery's --tile-size. */
+.rotationReviewRowButton{
+  height: var(--rotation-review-tile-height);
+  width: var(--rotation-review-row-button-width);
+}
+
+.rotationReviewRowError{
+  color: #b00020;
+  font-size: 11px;
+  margin: 2px 0;
+}
+
+.rotationReviewLoadingMore{
+  text-align: center;
+  color: #888;
+  font-size: 12px;
+  padding: 10px 0;
+}

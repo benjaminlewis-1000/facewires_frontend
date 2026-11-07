@@ -6,6 +6,7 @@ import CameraGpsBackfillTool from './cameraGpsBackfillTool';
 import ServerStatsTool from './serverStatsTool';
 import VideoFaceExtractionTool from './videoFaceExtractionTool';
 import ClassificationSettingsTool from './classificationSettingsTool';
+import RotationReviewTool from './rotationReviewTool';
 
 // The first real tools this tab has had - see CLAUDE.md. Everything
 // below them is still the original mocked scaffolding (names/content all
@@ -22,6 +23,7 @@ const REAL_TOOLS = [
   { id: 'server-stats', name: 'Server Stats' },
   { id: 'video-face-extraction', name: 'Video Face Extraction' },
   { id: 'classification-settings', name: 'Classification Settings' },
+  { id: 'rotation-review', name: 'Rotation Review' },
 ];
 
 const MOCK_TOOLS = [
@@ -112,6 +114,8 @@ class ToolsScreen extends React.Component {
             <VideoFaceExtractionTool />
           ) : this.state.selectedToolId === 'classification-settings' ? (
             <ClassificationSettingsTool />
+          ) : this.state.selectedToolId === 'rotation-review' ? (
+            <RotationReviewTool />
           ) : this.state.selectedToolId === 'server-stats' ? (
             <ServerStatsTool
               stats={this.props.serverStats}
