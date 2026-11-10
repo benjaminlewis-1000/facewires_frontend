@@ -1118,3 +1118,67 @@ its behavior, don't assume this file's history describes what's live.
   present - i.e. real cookie-authenticated traffic) that this is actually working
   end-to-end, the plan is to drop `access_key_media` to 2/min for real, since
   by then almost nothing legitimate should still be hitting that fallback path.
+- **Tools tab: "Rotation Review", 2026-11-06** (`rotationReviewTool.jsx`,
+  `css/rotationReview.css`) - reviews images a backend landmark-geometry audit
+  flagged as possibly rotated. Kept as local component state (not lifted to
+  `picasaScreen.jsx`) - same reasoning as Video Face Extraction: an infrequent,
+  deliberate review session with no reason to keep running warm across tab
+  switches. Deliberately mirrors `gallery.jsx`'s unlabeled-faces grid/row
+  pattern rather than inventing a new interaction, per the user's own request:
+  - **Layout**: a CSS grid of fixed-size tiles, `columnCount` measured live
+    from the container's actual width via a `ResizeObserver` (`handleResize`)
+    divided by a tile size read once from this tool's own CSS custom
+    properties (`--rotation-review-tile-width`/`--rotation-review-row-button-
+    width`, `readSizeVars`) - same "single source of truth read via
+    `getComputedStyle`" discipline as gallery.jsx's `--tile-size`/
+    `--row-button-width` in `image_tile.css`. Each row ends in a pinned
+    `.rowConfirmButton` (reusing that exact class/look from `image_tile.css`
+    on purpose, so it reads as the same control).
+  - **Infinite scroll**, not Previous/Next paging, per explicit user request:
+    `fetchMore` triggers on scroll-near-bottom (`handleScroll`, <400px from
+    the end) and appends a page rather than replacing the list - same
+    streamed-paging shape `ImageScreen` already uses for large face
+    galleries. The subtlety: the next fetch's `offset` is
+    `this.state.rows.length`, NOT a separately-tracked "total ever fetched"
+    counter. `rows` only ever shrinks via a successful confirm/dismiss, which
+    also removes that image from the backend's live `FLAGGED` list
+    immediately - so from this session's own point of view, the backend's
+    current list always has exactly `rows.length` already-seen images ahead
+    of whatever comes next, regardless of how many of those we've since
+    resolved. A naive running fetch-count would drift (skip images) the
+    moment any row action resolves something before the next page loads -
+    worked through by hand with a concrete example before writing it this
+    way, not assumed.
+  - **Per-tile state is staged locally, committed by a separate row action** -
+    the same "local-only toggle, committed by one separate action" shape as
+    `gallery.jsx`'s `clusterSelected`/`verifyExpandedCluster`, extended to
+    carry a value (direction) instead of just inclusion/exclusion. Every tile
+    defaults to pending-confirm at a direction (`cw`/`ccw`/`180`, never a raw
+    angle - the backend rejects anything else) snapped from
+    `proposed_rotation_degrees` to the nearest 90° (`snapToDirection`),
+    mirroring the same snap the backend itself applies when rendering
+    `preview_url` - the default chip shown is genuinely what the preview is
+    already showing. Small rotate-further buttons cycle the direction
+    (`handleCycleDirection`, cw -> 180 -> ccw -> cw) and update the chip
+    instantly; since rotations compose, the preview `<img>` also gets an
+    extra CSS `rotate()` equal to the difference between the selected and
+    default angles (`previewAdjustmentDegrees`) so the alternate result is
+    shown accurately with no second backend render and no image refetch. A
+    ✕ toggle marks a tile "not rotated" (dismiss) instead; clicking it again
+    undoes that back to pending-confirm.
+  - **"Confirm row" commits that row and everything above it**, not just that
+    row's own tiles - exact same semantics as gallery.jsx's `handleRowAction`
+    for Confirm row/Verify row. One `PATCH /api/rotation_review/bulk_action/`
+    per click, built from whatever each swept tile's local state currently
+    is (`{id, direction}` into `confirm`, or the id into `dismiss_ids`). Any
+    row the backend rejects (`rejected: [{id, reason}]`) stays visible with
+    its reason inline so it can be retried; everything else is removed from
+    the grid instantly on success - no refetch, no re-render of that tile's
+    preview image needed, since the row action already told us the outcome.
+  - **No undo** - matches the contract exactly (no undo endpoint exists); the
+    tool's own note above the grid says committing is final rather than
+    implying otherwise.
+  - Face-box data (position/thumbnail) for a just-confirmed image catches up
+    slightly after via a backend job, usually within seconds - deliberately
+    not polled for here, per the contract's own guidance that a brief
+    stale/misaligned box afterward is expected and self-correcting.
