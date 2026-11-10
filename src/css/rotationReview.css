@@ -39,7 +39,13 @@
 }
 
 .rotationReviewTile{
-  width: var(--rotation-review-tile-width);
+  /* No explicit width - stretches to fill its CSS grid column (now sized
+     as 1fr in rotationReviewTool.jsx's renderGridRow, not a fixed
+     --rotation-review-tile-width track), so the row fills the full
+     available width instead of leaving dead space before the row button
+     when the container is wider than columnCount * tileWidth. The CSS var
+     is still read in JS purely as a MINIMUM width to decide how many
+     columns fit. */
   height: var(--rotation-review-tile-height);
   border: 1px solid #ddd;
   border-radius: 6px;
@@ -60,7 +66,24 @@
   pointer-events: none;
 }
 
+/* A rotation IS currently selected - i.e. this tile deviates from the
+   default "presume original orientation is correct" presumption (reversed
+   2026-11-09 - see rotationReviewTool.jsx's module comment). Distinct from
+   .rotationReviewTileDismissed even though a dismissed tile ends up at the
+   same functional outcome on submit - this highlight exists to draw the
+   eye to the minority of tiles that need the reviewer's attention. */
+.rotationReviewTileFlagged{
+  border-color: #197d9c;
+  box-shadow: inset 0 0 0 1px #197d9c;
+}
+
+.rotationReviewChipFlagged{
+  color: #197d9c;
+  font-weight: bold;
+}
+
 .rotationReviewPreviewWrap{
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
@@ -115,6 +138,21 @@
   font-size: 12px;
   line-height: 1;
   padding: 2px 6px;
+}
+
+.rotationReviewTileActions{
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.rotationReviewConfirmSingle{
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: #197d9c;
+  border-color: #197d9c;
 }
 
 /* .rowConfirmButton itself comes from image_tile.css - matching that exact

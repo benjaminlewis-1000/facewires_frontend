@@ -14,13 +14,22 @@ import '../css/rotationReview.css';
 // approximation.
 //
 // UI mirrors gallery.jsx's unlabeled-faces "Confirm row" pattern rather than
-// a per-card submit: every tile defaults to "pending confirm" at its
-// snapped direction; a tile can be marked "not rotated" (dismiss) or have
-// its direction adjusted - both purely local, no network call - and the
-// pinned per-row button commits everything from the top of the current
-// list through that row in one PATCH, same "this row and everything above
-// it" semantics as Confirm row/Verify row there. There's no undo endpoint,
-// so committing is final.
+// a per-card submit: a tile can have its direction adjusted or be marked
+// "not rotated" - both purely local, no network call - and the pinned
+// per-row button commits everything from the top of the current list
+// through that row in one PATCH, same "this row and everything above it"
+// semantics as Confirm row/Verify row there. There's no undo endpoint, so
+// committing is final.
+//
+// Default presumption: ORIGINAL orientation is correct, not the backend's
+// proposed correction - reversed 2026-11-09 per the user's own call, after
+// the landmark-geometry signal's real false-positive rate (see
+// django_picasa's rotation_geometry.py UPRIGHT_TOLERANCE_* comments - 91.4%
+// of single-face flags were ordinary head tilts, not real rotations) made
+// "default to the proposed fix" the wrong prior. Every tile now starts
+// showing (and, on Confirm row, would commit) the image's true original
+// orientation; the reviewer only has to act - cycling the rotate arrows -
+// on the minority that a human eye can tell are genuinely rotated.
 const PAGE_SIZE = 25
 const DEFAULT_COLUMN_COUNT = 4
 
@@ -40,23 +49,75 @@ function snapToDirection(degrees) {
   return best.direction
 }
 
+// The backend's "cw"/"ccw" labels are a human-reviewer convention, not a
+// literal CSS rotation direction - confirmed directly against PIL's actual
+// transpose semantics (common/open_img_oriented.py's _pil_transpose_op):
+// confirming "cw" applies PIL ROTATE_90 (90 deg counter-clockwise in PIL's
+// own mathematical convention, i.e. visually a -90deg CSS rotation), and
+// confirming "ccw" applies ROTATE_270 (270 CCW, visually +90deg CSS). Easy
+// to get backwards since the label and the math sign actually run opposite
+// - verified by rendering both server-side to confirm which is which
+// before writing this, after a real-world case (image #170, a
+// landmark_single_face false positive) exposed the swap: the double-click
+// "see original orientation" preview was coming out 180deg off because
+// this function previously had cw/ccw's CSS-equivalent values swapped with
+// each other, and defaultAngle/currentDirection below compose directly
+// off this.
 function directionToAngle(direction) {
-  return direction === 'cw' ? 90 : direction === 'ccw' ? 270 : 180
+  return direction === 'cw' ? -90 : direction === 'ccw' ? 90 : direction === 'none' ? 0 : 180
 }
 
-// Rotations compose: the preview already shows the image rotated by
-// snapToDirection(proposed_rotation_degrees). If the reviewer picks a
-// different final direction, applying the DIFFERENCE between the two as an
-// extra CSS transform on top of that same preview gives an accurate live
-// look at the alternate result instantly - no second backend render, no
-// image refetch.
-function previewAdjustmentDegrees(row, direction) {
-  const defaultAngle = directionToAngle(snapToDirection(row.proposed_rotation_degrees))
-  return directionToAngle(direction) - defaultAngle
+// The CSS adjustment needed on top of the server-rendered preview (which
+// already shows snapToDirection(proposed_rotation_degrees)) to CANCEL that
+// rotation back out to the image's true original orientation.
+// -defaultAngle(row) is what a tile's visualDeg starts at on every fetch
+// (see fetchInitial/fetchMore) - the "presume original is correct" default.
+function defaultAngle(row) {
+  return directionToAngle(snapToDirection(row.proposed_rotation_degrees))
 }
 
+// Inverse of directionToAngle - snaps a raw (possibly-huge, possibly-
+// negative - see visualDeg below) absolute angle back to whichever of the
+// 4 selectable directions it's closest to, mod 360.
+function angleToDirection(angle) {
+  const normalized = ((angle % 360) + 360) % 360
+  const directions = ['cw', '180', 'ccw', 'none']
+  let best = null
+  let bestDiff = Infinity
+  directions.forEach(d => {
+    const a = ((directionToAngle(d) % 360) + 360) % 360
+    const diff = Math.min(Math.abs(normalized - a), 360 - Math.abs(normalized - a))
+    if (diff < bestDiff) { bestDiff = diff; best = d }
+  })
+  return best
+}
+
+// A tile's currently-selected direction, derived from its visualDeg rather
+// than stored separately - one source of truth instead of two fields that
+// could drift out of sync with each other.
+function currentDirection(row, visualDeg) {
+  return angleToDirection(defaultAngle(row) + visualDeg)
+}
+
+// Picks whichever value congruent to `target` (mod 360) is numerically
+// closest to `reference` - used so a CSS rotate() jump (e.g. the
+// double-click "view original" jump) takes the short way around instead of
+// spinning past 180 degrees the long way just because the raw target
+// angle happened to land on the far side.
+function nearestEquivalentAngle(target, reference) {
+  const delta = (((target - reference) % 360) + 540) % 360 - 180
+  return reference + delta
+}
+
+// Deliberately inverted from the backend's own "cw"/"ccw" contract words -
+// see directionToAngle's comment above: confirming the backend's "cw"
+// visually rotates the image counter-clockwise (and vice versa), which
+// isn't a reasonable thing to show a human reviewer. This is the one
+// place that distinction matters - the label text shown on screen - so
+// it's inverted here only; the string actually sent to the backend
+// (currentDirection's return value) is untouched.
 function directionLabel(direction) {
-  return direction === 'cw' ? 'Clockwise' : direction === 'ccw' ? 'Counter-clockwise' : '180°'
+  return direction === 'cw' ? 'Counter-clockwise' : direction === 'ccw' ? 'Clockwise' : direction === 'none' ? 'Original orientation' : '180°'
 }
 
 class RotationReviewTool extends React.Component {
@@ -85,7 +146,9 @@ class RotationReviewTool extends React.Component {
     this.fetchMore = this.fetchMore.bind(this)
     this.handleToggleDismissed = this.handleToggleDismissed.bind(this)
     this.handleCycleDirection = this.handleCycleDirection.bind(this)
+    this.handleViewProposed = this.handleViewProposed.bind(this)
     this.handleRowAction = this.handleRowAction.bind(this)
+    this.handleConfirmSingle = this.handleConfirmSingle.bind(this)
     this.handleResize = this.handleResize.bind(this)
     this.handleScroll = this.handleScroll.bind(this)
   }
@@ -124,7 +187,7 @@ class RotationReviewTool extends React.Component {
       .then(response => {
         const tileState = {}
         response.data.results.forEach(row => {
-          tileState[row.id] = { dismissed: false, direction: snapToDirection(row.proposed_rotation_degrees) }
+          tileState[row.id] = { dismissed: false, visualDeg: -defaultAngle(row) }
         })
         this.setState({
           rows: response.data.results,
@@ -161,7 +224,7 @@ class RotationReviewTool extends React.Component {
         this.setState(prevState => {
           const tileState = { ...prevState.tileState }
           response.data.results.forEach(row => {
-            tileState[row.id] = { dismissed: false, direction: snapToDirection(row.proposed_rotation_degrees) }
+            tileState[row.id] = { dismissed: false, visualDeg: -defaultAngle(row) }
           })
           return {
             rows: [...prevState.rows, ...response.data.results],
@@ -191,16 +254,55 @@ class RotationReviewTool extends React.Component {
     }))
   }
 
-  // Cycles cw -> 180 -> ccw -> cw (or the reverse) - purely local, no
-  // backend round-trip, per the API contract's own example flow.
+  // Steps cw -> 180 -> ccw -> none (original orientation) -> cw, or the
+  // reverse - purely local, no backend round-trip. "none" is a 4th,
+  // explicitly selectable orientation per the user's own request, distinct
+  // from the X/dismiss toggle even though confirming at "none" ends up
+  // functionally equivalent (see handleRowAction, which routes it into
+  // dismiss_ids since the backend has no "none" direction value).
+  //
+  // Implemented as a plain +-90 nudge to visualDeg (the tile's single
+  // source of truth for both its CSS preview rotation AND its derived
+  // direction - see currentDirection), not as a lookup into the 4-entry
+  // order array. A lookup-based version used to jump the CSS transform
+  // from e.g. -180deg straight to +90deg (a raw 270deg difference) once
+  // every 4th click, because 'cw'/'180'/'ccw'/'none' aren't evenly spaced
+  // by directionToAngle's own values in traversal order - the fix is to
+  // never represent the same rotation two different ways; every click
+  // just adds the same 90deg, however far visualDeg has already wandered
+  // from 0, so the step is always exactly 90deg and the sequence
+  // naturally wraps around through all 4 directions.
   handleCycleDirection(id, forward) {
-    const order = ['cw', '180', 'ccw']
     this.setState(prevState => {
       const current = prevState.tileState[id]
-      const idx = order.indexOf(current.direction)
-      const nextIdx = forward ? (idx + 1) % order.length : (idx - 1 + order.length) % order.length
+      const delta = forward ? -90 : 90
       return {
-        tileState: { ...prevState.tileState, [id]: { ...current, direction: order[nextIdx] } },
+        tileState: { ...prevState.tileState, [id]: { ...current, visualDeg: current.visualDeg + delta } },
+      }
+    })
+  }
+
+  // Double-click preview to jump straight to the backend's PROPOSED
+  // correction (the tile's default is now the original orientation - see
+  // the module comment up top - so this is the one quick way to check what
+  // the algorithm actually guessed). Sets visualDeg to 0, which cancels the
+  // default's original-orientation override and lets the server-rendered
+  // preview (already snapToDirection(proposed_rotation_degrees)) show
+  // through as-is, so currentDirection resolves to the proposed direction
+  // directly rather than a separate display-only overlay - hitting the
+  // rotate arrows right after a double-click correctly starts from the
+  // proposed direction as the base. nearestEquivalentAngle picks the
+  // representation of that target closest to the tile's current visualDeg,
+  // so the jump itself is also a short, sensible spin rather than an
+  // arbitrary one.
+  handleViewProposed(row) {
+    this.setState(prevState => {
+      const current = prevState.tileState[row.id]
+      return {
+        tileState: {
+          ...prevState.tileState,
+          [row.id]: { dismissed: false, visualDeg: nearestEquivalentAngle(0, current.visualDeg) },
+        },
       }
     })
   }
@@ -214,28 +316,29 @@ class RotationReviewTool extends React.Component {
     return rows
   }
 
-  // Mirrors gallery.jsx's handleRowAction exactly: acts on everything from
-  // the top of the (currently visible) list through the clicked row's last
-  // tile, inclusive - not just that row's own tiles.
-  handleRowAction(rowEndId) {
-    const { rows, tileState } = this.state
-    const uptoIndex = rows.findIndex(r => r.id === rowEndId)
-    if (uptoIndex === -1) return
-
-    const swept = rows.slice(0, uptoIndex + 1)
+  // Shared by handleRowAction (a whole swept row, "this row and everything
+  // above it") and handleConfirmSingle (just one tile) - same PATCH shape,
+  // same optimistic-removal/rejection handling either way, just a
+  // different set of rows going in.
+  submitRows(rowsToSubmit, { scrollTopOnSuccess } = {}) {
+    const { tileState } = this.state
     const confirm = []
     const dismiss_ids = []
-    swept.forEach(row => {
+    rowsToSubmit.forEach(row => {
       const t = tileState[row.id]
-      if (t.dismissed) dismiss_ids.push(row.id)
-      else confirm.push({ id: row.id, direction: t.direction })
+      const direction = currentDirection(row, t.visualDeg)
+      // "none" (original orientation) has no backend direction value -
+      // confirming it is functionally the same as dismissing, so it's
+      // routed the same way.
+      if (t.dismissed || direction === 'none') dismiss_ids.push(row.id)
+      else confirm.push({ id: row.id, direction })
     })
     if (confirm.length === 0 && dismiss_ids.length === 0) return
 
-    const sweptIds = new Set(swept.map(r => r.id))
+    const submittedIds = new Set(rowsToSubmit.map(r => r.id))
     this.setState(prevState => {
       const rowBusy = { ...prevState.rowBusy }
-      sweptIds.forEach(id => { rowBusy[id] = true })
+      submittedIds.forEach(id => { rowBusy[id] = true })
       return { rowBusy, submitError: null }
     })
 
@@ -248,38 +351,68 @@ class RotationReviewTool extends React.Component {
 
         this.setState(prevState => {
           const rowBusy = { ...prevState.rowBusy }
-          sweptIds.forEach(id => { if (!rejectedIds.has(id)) delete rowBusy[id]; else rowBusy[id] = false })
+          submittedIds.forEach(id => { if (!rejectedIds.has(id)) delete rowBusy[id]; else rowBusy[id] = false })
           return {
             // Resolved (non-rejected) tiles drop out of the grid instantly -
             // no refetch, no re-render of their preview image needed.
-            rows: prevState.rows.filter(row => !sweptIds.has(row.id) || rejectedIds.has(row.id)),
+            rows: prevState.rows.filter(row => !submittedIds.has(row.id) || rejectedIds.has(row.id)),
             count: Math.max(0, prevState.count - (confirmed + dismissed)),
             rowBusy,
             rowRejectReason,
           }
         })
 
-        if (this.gridWrapperRef.current) this.gridWrapperRef.current.scrollTop = 0
+        if (scrollTopOnSuccess && this.gridWrapperRef.current) this.gridWrapperRef.current.scrollTop = 0
       })
       .catch(error => {
-        console.error('Error submitting rotation review row action', error)
+        console.error('Error submitting rotation review action', error)
         this.setState(prevState => {
           const rowBusy = { ...prevState.rowBusy }
-          sweptIds.forEach(id => { rowBusy[id] = false })
-          return { rowBusy, submitError: "Couldn't submit that row - try again." }
+          submittedIds.forEach(id => { rowBusy[id] = false })
+          return { rowBusy, submitError: "Couldn't submit - try again." }
         })
       })
+  }
+
+  // Mirrors gallery.jsx's handleRowAction exactly: acts on everything from
+  // the top of the (currently visible) list through the clicked row's last
+  // tile, inclusive - not just that row's own tiles.
+  handleRowAction(rowEndId) {
+    const { rows } = this.state
+    const uptoIndex = rows.findIndex(r => r.id === rowEndId)
+    if (uptoIndex === -1) return
+    this.submitRows(rows.slice(0, uptoIndex + 1), { scrollTopOnSuccess: true })
+  }
+
+  // Per-tile fast path, alongside the X reject/dismiss toggle - commits
+  // just this one image's currently-staged direction (or dismissal) right
+  // now, without waiting on "Confirm row" to sweep everything above it
+  // too. Doesn't scroll the grid back to top (unlike a row action) - a
+  // single tile dropping out of what's likely the middle of the grid
+  // shouldn't yank the reviewer back to the beginning of their scroll.
+  handleConfirmSingle(row) {
+    this.submitRows([row])
   }
 
   renderTile(row) {
     const t = this.state.tileState[row.id]
     const busy = !!this.state.rowBusy[row.id]
     const rejectReason = this.state.rowRejectReason[row.id]
-    const adjustmentDeg = t.dismissed ? 0 : previewAdjustmentDegrees(row, t.direction)
+    const direction = currentDirection(row, t.visualDeg)
+    const adjustmentDeg = t.dismissed ? 0 : t.visualDeg
+    // Highlight when a ROTATION is currently selected (deviating from the
+    // default original-orientation presumption) - this is the minority
+    // "needs action" case worth drawing the eye to now, unlike before this
+    // reversal when 'none' was the deliberate, worth-calling-out choice.
+    const isCorrectionSelected = !t.dismissed && direction !== 'none'
 
     return (
-      <div className={'rotationReviewTile' + (t.dismissed ? ' rotationReviewTileDismissed' : '') + (busy ? ' rotationReviewTileBusy' : '')} key={row.id}>
-        <div className='rotationReviewPreviewWrap'>
+      <div className={'rotationReviewTile' + (t.dismissed ? ' rotationReviewTileDismissed' : '') + (busy ? ' rotationReviewTileBusy' : '') + (isCorrectionSelected ? ' rotationReviewTileFlagged' : '')} key={row.id}>
+        <div
+          className='rotationReviewPreviewWrap'
+          onDoubleClick={() => this.handleViewProposed(row)}
+          title='Double-click to see the proposed correction'
+        >
           <img
             className='rotationReviewPreviewImg'
             src={`${row.preview_url}&height=300`}
@@ -289,31 +422,49 @@ class RotationReviewTool extends React.Component {
         </div>
 
         <div className='rotationReviewChipRow'>
+          {/* handleCycleDirection's `forward` argument walks the order
+              array (cw -> 180 -> ccw -> none), which is NOT the same as
+              "visually clockwise" - confirmed against real images that
+              forward=true is what actually looks counter-clockwise on
+              screen, so the two buttons below intentionally pass the
+              opposite of what their icon/label would suggest. */}
           <button
             className='rotationReviewRotateBtn'
             disabled={t.dismissed || busy}
             title='Rotate further counter-clockwise'
-            onClick={() => this.handleCycleDirection(row.id, false)}
+            onClick={() => this.handleCycleDirection(row.id, true)}
           >&#8634;</button>
-          <span className='rotationReviewChip'>{t.dismissed ? 'Not rotated' : directionLabel(t.direction)}</span>
+          <span className={'rotationReviewChip' + (isCorrectionSelected ? ' rotationReviewChipFlagged' : '')}>
+            {t.dismissed ? 'Not rotated' : directionLabel(direction)}
+          </span>
           <button
             className='rotationReviewRotateBtn'
             disabled={t.dismissed || busy}
             title='Rotate further clockwise'
-            onClick={() => this.handleCycleDirection(row.id, true)}
+            onClick={() => this.handleCycleDirection(row.id, false)}
           >&#8635;</button>
         </div>
 
         <div className='rotationReviewTileFooter'>
           <span className='rotationReviewMeta' title={row.filename}>{row.face_count} face{row.face_count === 1 ? '' : 's'}</span>
-          <button
-            className='rotationReviewDismissToggle'
-            disabled={busy}
-            title={t.dismissed ? 'Undo - this is rotated after all' : "Not rotated - don't touch this image"}
-            onClick={() => this.handleToggleDismissed(row.id)}
-          >
-            {t.dismissed ? '↺' : '✕'}
-          </button>
+          <div className='rotationReviewTileActions'>
+            <button
+              className='rotationReviewConfirmSingle'
+              disabled={busy}
+              title='Confirm just this image now'
+              onClick={() => this.handleConfirmSingle(row)}
+            >
+              ✓
+            </button>
+            <button
+              className='rotationReviewDismissToggle'
+              disabled={busy}
+              title={t.dismissed ? 'Undo - this is rotated after all' : "Not rotated - don't touch this image"}
+              onClick={() => this.handleToggleDismissed(row.id)}
+            >
+              {t.dismissed ? '↺' : '✕'}
+            </button>
+          </div>
         </div>
 
         {rejectReason && <div className='rotationReviewRowError'>Rejected: {rejectReason}</div>}
@@ -324,7 +475,12 @@ class RotationReviewTool extends React.Component {
   renderGridRow(gridRow, rowIndex) {
     const columnCount = Math.max(1, this.state.columnCount)
     const lastInRow = gridRow[gridRow.length - 1]
-    const gridTemplateColumns = `repeat(${columnCount}, var(--rotation-review-tile-width)) var(--rotation-review-row-button-width)`
+    // 1fr, not the fixed --rotation-review-tile-width - tiles stretch to
+    // fill the row's actual available width instead of leaving dead space
+    // before the pinned row button when the container is wider than
+    // columnCount * tileWidth. columnCount itself is still chosen (in
+    // handleResize) so each column gets at least tileWidth of room.
+    const gridTemplateColumns = `repeat(${columnCount}, 1fr) var(--rotation-review-row-button-width)`
     const anyBusyInRow = gridRow.some(row => this.state.rowBusy[row.id])
 
     return (
@@ -359,11 +515,14 @@ class RotationReviewTool extends React.Component {
     return (
       <div className='rotationReviewTool'>
         <p className='rotationReviewNote'>
-          Images a backend audit flagged as possibly rotated, defaulted to the proposed
-          correction - adjust the direction with the arrows or mark &#x2715; if an image
-          isn't actually rotated, then hit "Confirm row" to commit that row and everything
-          above it, same as confirming a row of unlabeled faces. There's no undo once
-          committed.
+          Images a backend audit flagged as possibly rotated, defaulted to their
+          <strong> original orientation</strong> - this signal has a lot of false positives,
+          so "Confirm row" with no changes confirms "not rotated" for everything above it.
+          Only touch the arrows (which cycle through all four orientations, highlighted
+          when a rotation is selected) for the ones that actually look wrong to the eye,
+          then hit "Confirm row" to commit that row and everything above it, same as
+          confirming a row of unlabeled faces. Double-click a preview to see what the
+          backend actually proposed. There's no undo once committed.
         </p>
 
         <div className='rotationReviewHeadline'>
