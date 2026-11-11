@@ -83,6 +83,20 @@ class PersonSidebar extends React.Component {
     this.setState({ personSelected: index, personSelectedId: id })
   }
 
+  // Unassigned's "No proposal yet" subordinate row (2026-11-10) - see
+  // makeUnassignedNoProposalRow below.
+  handleUnassignedNoProposalClick(index, id) {
+    this.props.onSelectUnassignedNoProposal && this.props.onSelectUnassignedNoProposal()
+    this.setState({ personSelected: index, personSelectedId: id })
+  }
+
+  // .ignore's "Flagged, lost proposal" subordinate row (2026-11-10) - see
+  // makeReviewFlaggedNoProposalRow below.
+  handleReviewFlaggedNoProposalClick(index, id) {
+    this.props.onSelectReviewFlaggedNoProposal && this.props.onSelectReviewFlaggedNoProposal()
+    this.setState({ personSelected: index, personSelectedId: id })
+  }
+
   // Same filtering logic used by render(), but returned as data so
   // componentDidUpdate can check whether the current selection survived
   // a toggle change without having to duplicate the filter conditions.
@@ -301,6 +315,50 @@ class PersonSidebar extends React.Component {
       </button>
     )
   }
+  // Unassigned's "No proposal yet" subordinate row (2026-11-10, per the
+  // user's own request while running a fresh classification pass): faces
+  // that SHOULD have gotten a poss_ident1 proposal but didn't - distinct
+  // from the main Unassigned row, which deliberately excludes this exact
+  // population (see PersonListView's BLANK_FACE_NAME comment). Not
+  // media-filter-split (num_no_proposal is a flat count) - this is a
+  // monitoring/audit view, not part of the main "Confirm from" workflow.
+  // Always shown whenever non-zero, not gated by only_unlabeled - the
+  // main Unassigned row itself isn't either (see makePerson above).
+  makeUnassignedNoProposalRow(blankValue, blankIndex) {
+    const selected = this.props.unassignedNoProposalOnly
+    const count = blankValue.num_no_proposal || 0
+    var className = (selected ? 'click-state' : 'base-state') + ' sidebarSubordinate'
+    return (
+      <button
+        key={`${blankIndex}-no-proposal`}
+        className={className}
+        onClick={() => this.handleUnassignedNoProposalClick(blankIndex, blankValue.id)}
+      >
+        {`↳ No proposal yet   (${count})`}
+      </button>
+    )
+  }
+  // .ignore's "Flagged, lost proposal" subordinate row (2026-11-10): faces
+  // that WERE flagged for review (mobile_review_hidden=True) but currently
+  // have no poss_ident1 at all - as opposed to having been legitimately
+  // reassigned to a real person, which is correct behavior and isn't
+  // surfaced here (see api/views.py's `no_proposal` param). Same
+  // only_unlabeled gating as makeReviewFlaggedRow, since it's the same
+  // underlying poss_ident1-based view, just the complementary population.
+  makeReviewFlaggedNoProposalRow(ignoreValue, ignoreIndex) {
+    const selected = this.props.reviewFlaggedNoProposalOnly
+    const count = ignoreValue.num_review_flagged_no_proposal || 0
+    var className = (selected ? 'click-state' : 'base-state') + ' sidebarSubordinate'
+    return (
+      <button
+        key={`${ignoreIndex}-flagged-no-proposal`}
+        className={className}
+        onClick={() => this.handleReviewFlaggedNoProposalClick(ignoreIndex, ignoreValue.id)}
+      >
+        {`↳ Flagged, lost proposal   (${count})`}
+      </button>
+    )
+  }
   // Total unverified-faces count across every real person, for the
   // "Only Unverified Faces" screen's non-clickable header label (replaces
   // the Unassigned row there - see getFilteredEntries' passesFilter).
@@ -324,12 +382,18 @@ class PersonSidebar extends React.Component {
     // flatMap rather than map - .ignore's row needs to expand into two
     // rows (itself plus the subordinate "Flagged for review" row right
     // under it) without disturbing every other entry's shape.
+    const noSubviewActive = !this.props.reviewFlaggedOnly && !this.props.reviewFlaggedUnverifiedOnly &&
+      !this.props.unassignedNoProposalOnly && !this.props.reviewFlaggedNoProposalOnly
     var items = entries.flatMap(({ index, value }) => {
       if (index === -100){
         const noOne = { ...value, person_name: 'Unassigned' }
-        return [this.makePerson(noOne, -100, this.state.personSelected === -100 && !this.props.reviewFlaggedOnly && !this.props.reviewFlaggedUnverifiedOnly, only_unverified, only_unlabeled)]
+        const rows = [this.makePerson(noOne, -100, this.state.personSelected === -100 && noSubviewActive, only_unverified, only_unlabeled)]
+        if ((value.num_no_proposal || 0) > 0){
+          rows.push(this.makeUnassignedNoProposalRow(value, -100))
+        }
+        return rows
       }
-      const rows = [this.makePerson(value, index, this.state.personSelected === index && !this.props.reviewFlaggedOnly && !this.props.reviewFlaggedUnverifiedOnly, only_unverified, only_unlabeled)]
+      const rows = [this.makePerson(value, index, this.state.personSelected === index && noSubviewActive, only_unverified, only_unlabeled)]
       // "Flagged for review" only makes sense in unlabeled mode - its
       // faces are always still-undeclared (see picasaScreen.jsx's
       // reviewFlaggedOnly reset when unlabeled is turned off). "Flagged &
@@ -345,6 +409,9 @@ class PersonSidebar extends React.Component {
         )
         if (flaggedCount > 0){
           rows.push(this.makeReviewFlaggedRow(value, index))
+        }
+        if ((value.num_review_flagged_no_proposal || 0) > 0){
+          rows.push(this.makeReviewFlaggedNoProposalRow(value, index))
         }
       }
       if (value.person_name === '.ignore' && only_unverified){

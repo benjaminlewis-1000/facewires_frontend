@@ -125,7 +125,9 @@ class ImageScreen extends React.Component{
         this.props.only_unverified !== prevProps.only_unverified ||
         this.props.refreshVersion !== prevProps.refreshVersion ||
         this.props.reviewFlaggedOnly !== prevProps.reviewFlaggedOnly ||
-        this.props.reviewFlaggedUnverifiedOnly !== prevProps.reviewFlaggedUnverifiedOnly){
+        this.props.reviewFlaggedUnverifiedOnly !== prevProps.reviewFlaggedUnverifiedOnly ||
+        this.props.unassignedNoProposalOnly !== prevProps.unassignedNoProposalOnly ||
+        this.props.reviewFlaggedNoProposalOnly !== prevProps.reviewFlaggedNoProposalOnly){
       const generation = ++this._fetchGeneration
       const debugTag = `[ImageScreen ${this.props.api_id}]`
       this.setState({loading: true})
@@ -167,6 +169,11 @@ class ImageScreen extends React.Component{
           // only alongside only_unverified=true (PersonParamView's
           // face_declared/do_only_unverified branch).
           ...(this.props.reviewFlaggedUnverifiedOnly ? { flagged: true } : {}),
+          // Unassigned's "No proposal yet" subordinate row (2026-11-10) -
+          // see picasaScreen.jsx's unassignedNoProposalOnly. Harmless to
+          // always include; the backend only honors it for the Unassigned
+          // sentinel (PersonParamView's face_declared branch).
+          ...(this.props.unassignedNoProposalOnly ? { no_proposal: true } : {}),
         }, () => this._fetchGeneration, generation, 1,
           (pageData, isFirstPage) => {
             this.setState(prevState => ({
@@ -253,6 +260,13 @@ class ImageScreen extends React.Component{
     const imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_poss'
     this._fetchPaginatedIds(imagery_url, {
       ...(this.props.reviewFlaggedOnly ? { flagged: true } : {}),
+      // .ignore's "Flagged, lost proposal" subordinate row (2026-11-10) -
+      // see picasaScreen.jsx's reviewFlaggedNoProposalOnly. Needs `flagged`
+      // too (the backend's `no_proposal` override only applies alongside
+      // it - see PersonParamView's face_poss branch), harmless alongside
+      // reviewFlaggedOnly's own `flagged: true` above since the two are
+      // mutually exclusive in practice.
+      ...(this.props.reviewFlaggedNoProposalOnly ? { flagged: true, no_proposal: true } : {}),
       order: this.state.possSortAscending ? 'asc' : 'desc',
       media: mediaFilter,
     }, () => this._possFetchGeneration, possGeneration, 1,
