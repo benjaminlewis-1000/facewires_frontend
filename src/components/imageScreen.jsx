@@ -126,7 +126,6 @@ class ImageScreen extends React.Component{
         this.props.refreshVersion !== prevProps.refreshVersion ||
         this.props.reviewFlaggedOnly !== prevProps.reviewFlaggedOnly ||
         this.props.reviewFlaggedUnverifiedOnly !== prevProps.reviewFlaggedUnverifiedOnly ||
-        this.props.unassignedNoProposalOnly !== prevProps.unassignedNoProposalOnly ||
         this.props.reviewFlaggedNoProposalOnly !== prevProps.reviewFlaggedNoProposalOnly){
       const generation = ++this._fetchGeneration
       const debugTag = `[ImageScreen ${this.props.api_id}]`
@@ -169,11 +168,6 @@ class ImageScreen extends React.Component{
           // only alongside only_unverified=true (PersonParamView's
           // face_declared/do_only_unverified branch).
           ...(this.props.reviewFlaggedUnverifiedOnly ? { flagged: true } : {}),
-          // Unassigned's "No proposal yet" subordinate row (2026-11-10) -
-          // see picasaScreen.jsx's unassignedNoProposalOnly. Harmless to
-          // always include; the backend only honors it for the Unassigned
-          // sentinel (PersonParamView's face_declared branch).
-          ...(this.props.unassignedNoProposalOnly ? { no_proposal: true } : {}),
         }, () => this._fetchGeneration, generation, 1,
           (pageData, isFirstPage) => {
             this.setState(prevState => ({
@@ -533,7 +527,6 @@ class ImageScreen extends React.Component{
                     only_unverified={this.props.only_unverified}
                     reviewFlaggedOnly={this.props.reviewFlaggedOnly}
                     reviewFlaggedUnverifiedOnly={this.props.reviewFlaggedUnverifiedOnly}
-                    unassignedNoProposalOnly={this.props.unassignedNoProposalOnly}
                     reviewFlaggedNoProposalOnly={this.props.reviewFlaggedNoProposalOnly}
                     groupByCluster={this.props.only_unverified && this.state.groupByCluster}
                     clusterGroups={this.state.clusterGroups}

@@ -115,7 +115,6 @@ class LazyImage extends React.PureComponent {
       only_unverified={this.props.only_unverified}
       reviewFlaggedOnly={this.props.reviewFlaggedOnly}
       reviewFlaggedUnverifiedOnly={this.props.reviewFlaggedUnverifiedOnly}
-      unassignedNoProposalOnly={this.props.unassignedNoProposalOnly}
       reviewFlaggedNoProposalOnly={this.props.reviewFlaggedNoProposalOnly}
       setInvisible={this.set_invisible}
       onCancel={this.cancelOtherAssignment}

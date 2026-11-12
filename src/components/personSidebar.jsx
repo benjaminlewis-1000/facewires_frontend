@@ -83,13 +83,6 @@ class PersonSidebar extends React.Component {
     this.setState({ personSelected: index, personSelectedId: id })
   }
 
-  // Unassigned's "No proposal yet" subordinate row (2026-11-10) - see
-  // makeUnassignedNoProposalRow below.
-  handleUnassignedNoProposalClick(index, id) {
-    this.props.onSelectUnassignedNoProposal && this.props.onSelectUnassignedNoProposal()
-    this.setState({ personSelected: index, personSelectedId: id })
-  }
-
   // .ignore's "Flagged, lost proposal" subordinate row (2026-11-10) - see
   // makeReviewFlaggedNoProposalRow below.
   handleReviewFlaggedNoProposalClick(index, id) {
@@ -135,13 +128,14 @@ class PersonSidebar extends React.Component {
         const mainCount = filteredCount(value.num_possibilities, value.num_possibilities_video, value.num_possibilities_image, this.props.possMediaFilter)
         const flaggedCount = filteredCount(value.num_review_flagged, value.num_review_flagged_video, value.num_review_flagged_image, this.props.possMediaFilter)
         // Same carve-out reasoning as the .ignore/flaggedCount one above,
-        // extended to the two "no proposal" audit rows (2026-11-10) - each
-        // lives under this same entry (Unassigned/.ignore) in render()'s
-        // flatMap, so hiding the entry here would take its subordinate row
-        // down with it even though that row has something real to show.
-        const isUnassigned = value.person_name === "_NO_FACE_ASSIGNED_" || value.person_name === 'Unassigned'
-        const hasNoProposalRow = (isUnassigned && (value.num_no_proposal || 0) > 0) ||
-          (value.person_name === '.ignore' && (value.num_review_flagged_no_proposal || 0) > 0)
+        // extended to its "Flagged, lost proposal" audit row (2026-11-10) -
+        // it lives under this same .ignore entry (see render()'s flatMap),
+        // so hiding .ignore here would take the subordinate row down with
+        // it even though that row has something real to show. (Unassigned's
+        // own equivalent row was removed 2026-11-12 - its population is
+        // just part of the main count now, so no carve-out is needed there
+        // any more.)
+        const hasNoProposalRow = value.person_name === '.ignore' && (value.num_review_flagged_no_proposal || 0) > 0
         if (mainCount === 0 && !(value.person_name === '.ignore' && flaggedCount > 0) && !hasNoProposalRow) return false
       }
       // .ignore's own num_unverified_faces already excludes flagged faces
@@ -323,29 +317,6 @@ class PersonSidebar extends React.Component {
       </button>
     )
   }
-  // Unassigned's "No proposal yet" subordinate row (2026-11-10, per the
-  // user's own request while running a fresh classification pass): faces
-  // that SHOULD have gotten a poss_ident1 proposal but didn't - distinct
-  // from the main Unassigned row, which deliberately excludes this exact
-  // population (see PersonListView's BLANK_FACE_NAME comment). Not
-  // media-filter-split (num_no_proposal is a flat count) - this is a
-  // monitoring/audit view, not part of the main "Confirm from" workflow.
-  // Always shown whenever non-zero, not gated by only_unlabeled - the
-  // main Unassigned row itself isn't either (see makePerson above).
-  makeUnassignedNoProposalRow(blankValue, blankIndex) {
-    const selected = this.props.unassignedNoProposalOnly
-    const count = blankValue.num_no_proposal || 0
-    var className = (selected ? 'click-state' : 'base-state') + ' sidebarSubordinate'
-    return (
-      <button
-        key={`${blankIndex}-no-proposal`}
-        className={className}
-        onClick={() => this.handleUnassignedNoProposalClick(blankIndex, blankValue.id)}
-      >
-        {`↳ No proposal yet   (${count})`}
-      </button>
-    )
-  }
   // .ignore's "Flagged, lost proposal" subordinate row (2026-11-10): faces
   // that WERE flagged for review (mobile_review_hidden=True) but currently
   // have no poss_ident1 at all - as opposed to having been legitimately
@@ -391,15 +362,11 @@ class PersonSidebar extends React.Component {
     // rows (itself plus the subordinate "Flagged for review" row right
     // under it) without disturbing every other entry's shape.
     const noSubviewActive = !this.props.reviewFlaggedOnly && !this.props.reviewFlaggedUnverifiedOnly &&
-      !this.props.unassignedNoProposalOnly && !this.props.reviewFlaggedNoProposalOnly
+      !this.props.reviewFlaggedNoProposalOnly
     var items = entries.flatMap(({ index, value }) => {
       if (index === -100){
         const noOne = { ...value, person_name: 'Unassigned' }
-        const rows = [this.makePerson(noOne, -100, this.state.personSelected === -100 && noSubviewActive, only_unverified, only_unlabeled)]
-        if ((value.num_no_proposal || 0) > 0){
-          rows.push(this.makeUnassignedNoProposalRow(value, -100))
-        }
-        return rows
+        return [this.makePerson(noOne, -100, this.state.personSelected === -100 && noSubviewActive, only_unverified, only_unlabeled)]
       }
       const rows = [this.makePerson(value, index, this.state.personSelected === index && noSubviewActive, only_unverified, only_unlabeled)]
       // "Flagged for review" only makes sense in unlabeled mode - its

@@ -290,13 +290,6 @@ class PicasaScreen extends React.Component{
       // selectReviewFlagged/selectReviewFlaggedUnverified and setApiUrl
       // below.
       reviewFlaggedUnverifiedOnly: false,
-      // Unassigned's "No proposal yet" subordinate row (2026-11-10) - same
-      // shape as reviewFlaggedOnly above, but for the face_declared fetch's
-      // new no_proposal param (api/views.py) rather than face_poss's
-      // flagged param. NOT reset when unlabeled turns off - the main
-      // Unassigned row itself isn't gated by that toggle either (see
-      // personSidebar.jsx's makePerson), so neither is this one.
-      unassignedNoProposalOnly: false,
       // .ignore's "Flagged, lost proposal" subordinate row (2026-11-10) -
       // same shape as reviewFlaggedOnly, but for faces that lost their
       // .ignore proposal entirely (poss_ident1 IS NULL) rather than ones
@@ -945,17 +938,16 @@ class PicasaScreen extends React.Component{
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
       this.setState({selectedIndex: index})
-      this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false, unassignedNoProposalOnly: false, reviewFlaggedNoProposalOnly: false})
+      this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false, reviewFlaggedNoProposalOnly: false})
     }else if (childType === 'person'){
       this.setState({api_source: childUrl})
       this.setState({api_id: childId})
       this.setState({selectedIndex: index})
       // A normal sidebar click always means "leave the .ignore
       // subordinate filtered view" - selectReviewFlagged/
-      // selectReviewFlaggedUnverified/selectUnassignedNoProposal/
-      // selectReviewFlaggedNoProposal below are the only paths that turn
-      // any of these back on.
-      this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false, unassignedNoProposalOnly: false, reviewFlaggedNoProposalOnly: false})
+      // selectReviewFlaggedUnverified/selectReviewFlaggedNoProposal below
+      // are the only paths that turn any of these back on.
+      this.setState({reviewFlaggedOnly: false, reviewFlaggedUnverifiedOnly: false, reviewFlaggedNoProposalOnly: false})
       // possMediaFilter deliberately NOT reset here - it's now a
       // cross-person setting (every row in the sidebar reflects it, not
       // just whoever's selected), so switching to review a different
@@ -1004,28 +996,6 @@ class PicasaScreen extends React.Component{
     })
   }
 
-  // Sidebar's Unassigned subordinate row ("No proposal yet") - selects
-  // Unassigned itself (same as clicking its own row) plus flips
-  // unassignedNoProposalOnly on, which ImageScreen reads to add the extra
-  // poss_ident1__isnull=True filter to its face_declared fetch. See
-  // personSidebar.jsx's makeUnassignedNoProposalRow/
-  // handleUnassignedNoProposalClick.
-  selectUnassignedNoProposal = () => {
-    const blankId = this.state.unassigned_id
-    const blankPerson = this.state.people.find(p => p.id === blankId)
-    if (!blankPerson) return
-    const index = this.state.people.findIndex(p => p.id === blankId)
-    this.setState({
-      api_source: blankPerson.url,
-      api_id: blankId,
-      selectedIndex: index === -1 ? -100 : index,
-      reviewFlaggedOnly: false,
-      reviewFlaggedUnverifiedOnly: false,
-      unassignedNoProposalOnly: true,
-      reviewFlaggedNoProposalOnly: false,
-    })
-  }
-
   // Sidebar's ".ignore" subordinate row ("Flagged, lost proposal") -
   // mirrors selectReviewFlagged, but for faces that lost their .ignore
   // proposal entirely rather than ones still proposed. See
@@ -1042,7 +1012,6 @@ class PicasaScreen extends React.Component{
       selectedIndex: index,
       reviewFlaggedOnly: false,
       reviewFlaggedUnverifiedOnly: false,
-      unassignedNoProposalOnly: false,
       reviewFlaggedNoProposalOnly: true,
     })
   }
@@ -1080,8 +1049,6 @@ class PicasaScreen extends React.Component{
         }
         // "Flagged, lost proposal" is the same face_poss-based shape as
         // "Flagged for review" - same unlabeled-only gating, same reset.
-        // unassignedNoProposalOnly deliberately isn't reset here - it
-        // isn't gated by either toggle (see its own state comment).
         if (!unlabeledWillBeOn && prevState.reviewFlaggedNoProposalOnly){
           next.reviewFlaggedNoProposalOnly = false
         }
@@ -1129,7 +1096,7 @@ class PicasaScreen extends React.Component{
         if (!delta) return person
 
         const updated = { ...person }
-        for (const field of ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_video', 'num_review_flagged_image', 'num_review_flagged_unverified', 'num_no_proposal', 'num_review_flagged_no_proposal']){
+        for (const field of ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_video', 'num_review_flagged_image', 'num_review_flagged_unverified', 'num_review_flagged_no_proposal']){
           if (delta[field]){
             updated[field] = Math.max(0, (updated[field] || 0) + delta[field])
           }
@@ -1828,7 +1795,7 @@ class PicasaScreen extends React.Component{
     if ( this.state.tab === "People" ){
       return (
       <div>
-        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly} onSelectReviewFlaggedUnverified={this.selectReviewFlaggedUnverified} possMediaFilter={this.state.possMediaFilter} unassignedNoProposalOnly={this.state.unassignedNoProposalOnly} onSelectUnassignedNoProposal={this.selectUnassignedNoProposal} reviewFlaggedNoProposalOnly={this.state.reviewFlaggedNoProposalOnly} onSelectReviewFlaggedNoProposal={this.selectReviewFlaggedNoProposal} />
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly} onSelectReviewFlaggedUnverified={this.selectReviewFlaggedUnverified} possMediaFilter={this.state.possMediaFilter} reviewFlaggedNoProposalOnly={this.state.reviewFlaggedNoProposalOnly} onSelectReviewFlaggedNoProposal={this.selectReviewFlaggedNoProposal} />
         <ImageScreen
           tab={this.state.tab}
           api_source={this.state.api_source}
@@ -1849,7 +1816,6 @@ class PicasaScreen extends React.Component{
           selectedIndex={this.state.selectedIndex}
           reviewFlaggedOnly={this.state.reviewFlaggedOnly}
           reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly}
-          unassignedNoProposalOnly={this.state.unassignedNoProposalOnly}
           reviewFlaggedNoProposalOnly={this.state.reviewFlaggedNoProposalOnly}
         />
       </div>

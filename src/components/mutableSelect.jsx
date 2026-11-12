@@ -221,14 +221,7 @@ sourceCountDelta(ids){
     return delta
   }
   if (this.props.current_person_id === this.props.unassigned_person_id){
-    const delta = { id: this.props.unassigned_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }
-    // Mirror image, for Unassigned's "No proposal yet" audit row
-    // (unassignedNoProposalOnly, 2026-11-12) - its tiles are always
-    // 'defined' faces declared to Unassigned, by construction part of
-    // num_no_proposal. Same reasoning as reviewFlaggedNoProposalOnly
-    // just above.
-    if (this.props.unassignedNoProposalOnly) delta.num_no_proposal = -n
-    return delta
+    return { id: this.props.unassigned_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }
   }
   if (this.props.type === 'proposed'){
     return { id: this.props.current_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }
