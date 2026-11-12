@@ -210,10 +210,25 @@ sourceCountDelta(ids){
     // construction, so this always lands in the `else` branch above
     // (num_faces), same as the reviewFlaggedOnly/num_possibilities case.
     if (this.props.reviewFlaggedUnverifiedOnly) delta.num_review_flagged_unverified = -n
+    // Mirror image, for ".ignore"'s "Flagged, lost proposal" audit row
+    // (reviewFlaggedNoProposalOnly, 2026-11-12) - its tiles are always
+    // 'proposed'-typed by construction, so this always lands in the
+    // num_possibilities branch above, same as reviewFlaggedOnly's own
+    // row. "Send to other person" is the main way this population
+    // actually gets resolved, so without this the sidebar number only
+    // updated on the next people-list poll (reported by the user).
+    if (this.props.reviewFlaggedNoProposalOnly) delta.num_review_flagged_no_proposal = -n
     return delta
   }
   if (this.props.current_person_id === this.props.unassigned_person_id){
-    return { id: this.props.unassigned_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }
+    const delta = { id: this.props.unassigned_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }
+    // Mirror image, for Unassigned's "No proposal yet" audit row
+    // (unassignedNoProposalOnly, 2026-11-12) - its tiles are always
+    // 'defined' faces declared to Unassigned, by construction part of
+    // num_no_proposal. Same reasoning as reviewFlaggedNoProposalOnly
+    // just above.
+    if (this.props.unassignedNoProposalOnly) delta.num_no_proposal = -n
+    return delta
   }
   if (this.props.type === 'proposed'){
     return { id: this.props.current_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }

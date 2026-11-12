@@ -533,6 +533,8 @@ class ImageScreen extends React.Component{
                     only_unverified={this.props.only_unverified}
                     reviewFlaggedOnly={this.props.reviewFlaggedOnly}
                     reviewFlaggedUnverifiedOnly={this.props.reviewFlaggedUnverifiedOnly}
+                    unassignedNoProposalOnly={this.props.unassignedNoProposalOnly}
+                    reviewFlaggedNoProposalOnly={this.props.reviewFlaggedNoProposalOnly}
                     groupByCluster={this.props.only_unverified && this.state.groupByCluster}
                     clusterGroups={this.state.clusterGroups}
                     videoFaceIds={this.state.videoFaceIds}

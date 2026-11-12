@@ -134,7 +134,15 @@ class PersonSidebar extends React.Component {
         // would take the subordinate row down with it.
         const mainCount = filteredCount(value.num_possibilities, value.num_possibilities_video, value.num_possibilities_image, this.props.possMediaFilter)
         const flaggedCount = filteredCount(value.num_review_flagged, value.num_review_flagged_video, value.num_review_flagged_image, this.props.possMediaFilter)
-        if (mainCount === 0 && !(value.person_name === '.ignore' && flaggedCount > 0)) return false
+        // Same carve-out reasoning as the .ignore/flaggedCount one above,
+        // extended to the two "no proposal" audit rows (2026-11-10) - each
+        // lives under this same entry (Unassigned/.ignore) in render()'s
+        // flatMap, so hiding the entry here would take its subordinate row
+        // down with it even though that row has something real to show.
+        const isUnassigned = value.person_name === "_NO_FACE_ASSIGNED_" || value.person_name === 'Unassigned'
+        const hasNoProposalRow = (isUnassigned && (value.num_no_proposal || 0) > 0) ||
+          (value.person_name === '.ignore' && (value.num_review_flagged_no_proposal || 0) > 0)
+        if (mainCount === 0 && !(value.person_name === '.ignore' && flaggedCount > 0) && !hasNoProposalRow) return false
       }
       // .ignore's own num_unverified_faces already excludes flagged faces
       // (backend partition - see PersonListView) - without this carve-out,

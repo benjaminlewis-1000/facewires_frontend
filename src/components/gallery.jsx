@@ -1153,6 +1153,36 @@ class Gallery extends React.Component{
       addDelta(ignore_person_id, { num_review_flagged_unverified: -definedCount })
     }
 
+    // Mirror image, for Unassigned's "No proposal yet" audit row
+    // (unassignedNoProposalOnly, 2026-11-12) - every tile there is, by
+    // construction, a face declared to Unassigned with poss_ident1 IS
+    // NULL (and above its collection's quality floor - see
+    // PersonParamView's `no_proposal` param). Any action taken here
+    // moves the face's declared_name away from Unassigned one way or
+    // another, so it stops counting here regardless of which action
+    // fired - this was previously only reflected on the next 10-minute
+    // people-list poll (reported by the user: "the number's not going
+    // down when I assign them"). Deliberately uses `n`, not
+    // `definedCount` - buildItems() forces type='unassigned_tab' for
+    // every tile whenever current_person_id===unassigned_person_id
+    // (which this view always is), so definedCount is always 0 here;
+    // using it silently made this whole block dead code (confirmed:
+    // the action reached the backend fine on reload, only the local
+    // optimistic count never applied).
+    if (this.props.unassignedNoProposalOnly && n){
+      addDelta(unassigned_person_id, { num_no_proposal: -n })
+    }
+
+    // Mirror image, for .ignore's "Flagged, lost proposal" audit row
+    // (reviewFlaggedNoProposalOnly, 2026-11-12) - every tile there is,
+    // by construction, a 'proposed'-typed face (poss_ident1 IS NULL,
+    // mobile_review_hidden=True, declared_name still Unassigned/.ignore
+    // after the 2026-11-12 query fix). Any action taken here moves it
+    // out of that pool, same reasoning as the block above.
+    if (this.props.reviewFlaggedNoProposalOnly && proposedCount){
+      addDelta(ignore_person_id, { num_review_flagged_no_proposal: -proposedCount })
+    }
+
     return deltas
   }
 
@@ -1778,6 +1808,13 @@ class Gallery extends React.Component{
       only_unverified: this.props.only_unverified,
       reviewFlaggedOnly: this.props.reviewFlaggedOnly,
       reviewFlaggedUnverifiedOnly: this.props.reviewFlaggedUnverifiedOnly,
+      // Same reasoning as reviewFlaggedOnly/reviewFlaggedUnverifiedOnly
+      // just above - lets MutableSelect's "send to other person" (the
+      // main way these two audit rows actually get resolved) decrement
+      // num_no_proposal/num_review_flagged_no_proposal locally too,
+      // instead of only on the next people-list poll (2026-11-12).
+      unassignedNoProposalOnly: this.props.unassignedNoProposalOnly,
+      reviewFlaggedNoProposalOnly: this.props.reviewFlaggedNoProposalOnly,
       updatePersonList: this.props.updatePersonList,
       updatePersonCounts: this.props.updatePersonCounts,
       // So MutableSelect's "send to other person" can split its
@@ -1867,6 +1904,8 @@ class Gallery extends React.Component{
                   only_unverified={this.props.only_unverified}
                   reviewFlaggedOnly={this.props.reviewFlaggedOnly}
                   reviewFlaggedUnverifiedOnly={this.props.reviewFlaggedUnverifiedOnly}
+                  unassignedNoProposalOnly={this.props.unassignedNoProposalOnly}
+                  reviewFlaggedNoProposalOnly={this.props.reviewFlaggedNoProposalOnly}
                   setInvisible={this.finishModalSendToOtherPerson}
                   onCancel={this.cancelModalSendToOtherPerson}
                   setHidden={this.setHidden}
