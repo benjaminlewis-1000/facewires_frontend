@@ -223,6 +223,15 @@ sourceCountDelta(ids){
   if (this.props.current_person_id === this.props.unassigned_person_id){
     return { id: this.props.unassigned_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }
   }
+  // "Ignore review" tiles (2026-11-16) - these were never counted in
+  // current_person_id's num_possibilities (that's num_ignore_review
+  // instead - see gallery.jsx's buildCountDeltas for the full reasoning,
+  // which applies identically here). See extraSourceDeltas below for the
+  // matching .ignore-side "Flagged for review" decrement, returned
+  // separately since this function can only carry one person's delta.
+  if (this.props.type === 'ignore_review'){
+    return { id: this.props.current_person_id, num_ignore_review: -n, num_ignore_review_video: -video, num_ignore_review_image: -image }
+  }
   if (this.props.type === 'proposed'){
     return { id: this.props.current_person_id, num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image }
   }
@@ -236,6 +245,22 @@ sourceCountDelta(ids){
   // an already-verified face.
   if (this.props.only_unverified) delta.num_unverified_faces = -n
   return delta
+}
+
+// Extra deltas sourceCountDelta above can't carry (it only ever returns
+// one person's delta, and this needs a second, unrelated person's). An
+// "ignore review" tile (2026-11-16) is, by construction, the exact same
+// underlying flagged-.ignore-candidate row as .ignore's own "Flagged for
+// review" queue - just surfaced via a different poss_identN slot -
+// reassigning it away via "send to other person" resolves it out of
+// .ignore's flagged pool too, same reasoning as gallery.jsx's
+// buildCountDeltas' confirm_proposed handling for the same tile type.
+// Always [] for every other tile type/tab.
+extraSourceDeltas(ids){
+  if (this.props.type !== 'ignore_review') return []
+  const n = ids.length
+  const { video, image } = this.splitVideoImage(ids)
+  return [{ id: this.props.ignore_person_id, num_review_flagged: -n, num_review_flagged_video: -video, num_review_flagged_image: -image }]
 }
 
 // Assign a single face to targetId, independent of the primary
@@ -270,7 +295,7 @@ assignPerson(inputName, api_key, personExists){
         if (response.data.success){
           const new_id = response.data.new_id
           this.props.updatePersonList(inputName, new_id, n)
-          this.props.updatePersonCounts && this.props.updatePersonCounts([this.sourceCountDelta(uniq_selected)])
+          this.props.updatePersonCounts && this.props.updatePersonCounts([this.sourceCountDelta(uniq_selected), ...this.extraSourceDeltas(uniq_selected)])
 
           // face_id itself became the new person via face_to_new_person;
           // the rest of the bulk selection needs to be assigned to it
@@ -286,7 +311,7 @@ assignPerson(inputName, api_key, personExists){
             // directly (rather than via a delta) - this synthetic target
             // delta exists only so undo/redo has something symmetric to
             // negate/reapply against the new person's row.
-            forwardDeltas: [this.sourceCountDelta(uniq_selected), { id: new_id, num_faces: n, num_unverified_faces: n }],
+            forwardDeltas: [this.sourceCountDelta(uniq_selected), ...this.extraSourceDeltas(uniq_selected), { id: new_id, num_faces: n, num_unverified_faces: n }],
           })
         }
       }).catch(error => {
@@ -296,6 +321,7 @@ assignPerson(inputName, api_key, personExists){
   }else{
     const forwardDeltas = [
       this.sourceCountDelta(uniq_selected),
+      ...this.extraSourceDeltas(uniq_selected),
       { id: api_key, num_faces: n, num_unverified_faces: n }
     ]
     this.props.updatePersonCounts && this.props.updatePersonCounts(forwardDeltas)

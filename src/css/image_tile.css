@@ -350,3 +350,51 @@ div.ui.selection.dropdown, input.ui.selection.dropdown{
   background-color: gray;
   border-radius: 3px
 }
+
+/* "Ignore review" tiles (2026-11-16) - a flagged .ignore face's
+   classifier-ranked next-best guess (poss_ident2), surfaced below a
+   divider in this person's own gallery (gallery.jsx's computeVisibleRows/
+   lazyImg.jsx). Dashed border + a subtle same-hue hatched background
+   distinguish "the classifier thinks this might also be them" from an
+   ordinary confident match (solid border, plain background) without
+   looking alarming - same confirm/reject actions either way. */
+.imgDivIgnoreReview .img_thumb,
+.imgDivIgnoreReview .img_thumb_active{
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.05) 0px,
+    rgba(0, 0, 0, 0.05) 2px,
+    transparent 2px,
+    transparent 8px
+  );
+}
+
+/* Dashed border only for the unselected state - .img_thumb_active's own
+   solid black border (image_tile.css, above) must still win once a tile
+   is clicked, same as every other tile type. Declaring `border` here too
+   would be a more specific selector than plain .img_thumb_active and
+   silently override the selection highlight - found 2026-11-16 when
+   clicking an ignore-review tile showed no visible selection at all. */
+.imgDivIgnoreReview .img_thumb{
+  border: 2px dashed #8a8a8a;
+}
+
+/* Solid section break between the main proposed/defined grid and the
+   "ignore review" group below it (gallery.jsx's GalleryRow divider row,
+   rows.push([[-1, '__ignore_review_divider__', 'divider']])) - a plain
+   labeled bar, not a tile row, same width as the grid above it. */
+.galleryIgnoreReviewDivider{
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-top: 2px solid #8a8a8a;
+}
+
+.galleryIgnoreReviewDividerLabel{
+  font-size: 12px;
+  font-weight: bold;
+  color: #6b6b6b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

@@ -13,6 +13,14 @@ import 'react-contexify/ReactContexify.css';
 
 const PERSON_NAME_MENU_ID = 'menu-person-name';
 
+// Stable reference for the "Show ignore review" toggle's off state
+// (below) - gallery.jsx's componentDidUpdate rebuilds itemsRef whenever
+// the ignore_review_ids prop's reference changes, so a fresh `[]`
+// literal on every render would trigger that rebuild on every single
+// unrelated re-render while the toggle is off, not just when it's
+// actually flipped.
+const EMPTY_IGNORE_REVIEW_IDS = [];
+
 // Functional wrapper to leverage react-contexify's hook cleanly inside
 // the class component below (same pattern as lazyImg.jsx).
 function PersonNameContextWrapper({ children }) {
@@ -63,6 +71,24 @@ class ImageScreen extends React.Component{
       // at any moment. Toggling re-fetches from page 1 with the new
       // order instead (see toggleSortOrder/_startPossibleIdsFetch).
       possSortAscending: false,
+      // Backs the per-person "ignore review" gallery group (2026-11-16) -
+      // flagged .ignore faces whose classifier-ranked next-best guess
+      // (poss_ident2) is this person, reviewed in their own gallery
+      // instead of .ignore's anonymous queue. Fetched the same way as
+      // possible_ids (face_poss), just a different field/endpoint - see
+      // _startIgnoreReviewIdsFetch.
+      ignore_review_ids: [],
+      loading_ignore_review: true,
+      // "Show ignore review" toggle lives in PicasaScreen now
+      // (this.props.showIgnoreReview/onToggleShowIgnoreReview) - lifted
+      // up there so PersonSidebar (ImageScreen's sibling, not its
+      // parent/child) can also read it, to hide the ignore-review count
+      // from the sidebar's row labels and its zero-hide filter when the
+      // toggle is off. It also needs to actually survive a tab switch,
+      // which keeping it local to ImageScreen never did - a different
+      // conditional JSX branch in PicasaScreen.render() per tab means
+      // ImageScreen unmounts/remounts on tab change, same as any other
+      // tab-local state here.
       // Verify screen only - {faceId: groupId} for faces the nightly
       // face_manager.cluster_unverified_faces job grouped as visually
       // similar (PersonParamView's face_declared response, only
@@ -97,6 +123,10 @@ class ImageScreen extends React.Component{
     // also invalidating the still-relevant face_declared ("definite")
     // chain that _fetchGeneration guards (see _startPossibleIdsFetch).
     this._possFetchGeneration = 0
+    // Same idea, for the ignore-review fetch (_startIgnoreReviewIdsFetch) -
+    // its own counter so a media-filter change can restart just this
+    // chain in step with face_poss's, without touching face_declared's.
+    this._ignoreReviewFetchGeneration = 0
 
     this.toggle_unlikely = this.toggle_unlikely.bind(this)
     this.handleCheckbox = this.handleCheckbox.bind(this)
@@ -132,6 +162,7 @@ class ImageScreen extends React.Component{
       this.setState({loading: true})
       this.setState({loading_definite: true})
       this.setState({loading_poss: true})
+      this.setState({loading_ignore_review: true})
       // Clear out the previous person's ids immediately, rather than
       // leaving them in state until the new fetches resolve - without
       // this, if the "possible" fetch below finishes before "definite"
@@ -139,7 +170,7 @@ class ImageScreen extends React.Component{
       // stale imagery_ids happens to still be sitting in state from
       // the last person, producing a gallery that mixes both people's
       // images.
-      this.setState({imagery_ids: [], possible_ids: [], clusterGroups: {}, videoFaceIds: []})
+      this.setState({imagery_ids: [], possible_ids: [], ignore_review_ids: [], clusterGroups: {}, videoFaceIds: []})
 
       if (this.props.tab === 'People'){
         var req_type = 'face_declared'
@@ -181,9 +212,10 @@ class ImageScreen extends React.Component{
               this.setState({loading_definite: false})
               // Only the fetch that finishes last should flip the
               // overall loading flag - if we did it unconditionally here,
-              // Gallery could mount before the still-in-flight "possible"
-              // fetch (below) has had a chance to populate possible_ids.
-              if (!this.state.loading_poss){
+              // Gallery could mount before the still-in-flight "possible"/
+              // "ignore review" fetches (below) have had a chance to
+              // populate their own ids.
+              if (!this.state.loading_poss && !this.state.loading_ignore_review){
                 this.setState({loading: false})
               }
             }
@@ -209,19 +241,21 @@ class ImageScreen extends React.Component{
       // concept either way.
       if (this.props.tab === 'People' && !this.props.only_unverified){
         this._startPossibleIdsFetch(true)
+        this._startIgnoreReviewIdsFetch(true)
       }
       else{
-        // No "possible" concept outside the People tab (e.g. Folders),
-        // and the "verify unverified faces" gallery (only_unverified)
-        // deliberately excludes possible/unlabeled matches too - it
-        // should show only the person's already-assigned faces that
-        // still need verifying, not proposed matches tacked on the end.
-        // Nothing async to wait on here either way. Don't flip the
+        // No "possible"/"ignore review" concept outside the People tab
+        // (e.g. Folders), and the "verify unverified faces" gallery
+        // (only_unverified) deliberately excludes possible/unlabeled
+        // matches too - it should show only the person's already-assigned
+        // faces that still need verifying, not proposed matches tacked on
+        // the end. Nothing async to wait on here either way. Don't flip the
         // overall loading flag though; the "definite" fetch above
         // (still in flight for this tab) owns that via its own
-        // !this.state.loading_poss check once it resolves.
-        this.setState({possible_ids: []})
-        this.setState({loading_poss: false})
+        // !this.state.loading_poss/!this.state.loading_ignore_review check
+        // once it resolves.
+        this.setState({possible_ids: [], ignore_review_ids: []})
+        this.setState({loading_poss: false, loading_ignore_review: false})
       }
     }
 
@@ -272,9 +306,9 @@ class ImageScreen extends React.Component{
         if (isFirstPage && isInitialLoad){
           this.setState({loading_poss: false})
           // Same reasoning as the "definite" handler above - only flip
-          // loading once both fetches for this generation are actually
-          // done.
-          if (!this.state.loading_definite){
+          // loading once all three fetches for this generation are
+          // actually done.
+          if (!this.state.loading_definite && !this.state.loading_ignore_review){
             this.setState({loading: false})
           }
         }
@@ -283,6 +317,43 @@ class ImageScreen extends React.Component{
         console.error(debugTag, `GET (possible) FAILED${isFirstPage ? ' - loading state will stay stuck without this' : ' (background page - already-shown results are unaffected)'}`, e)
         if (isFirstPage && isInitialLoad){
           this.setState({loading_poss: false, loading: false})
+        }
+      }
+    )
+  }
+
+  // Mirrors _startPossibleIdsFetch above, for the per-person "ignore
+  // review" gallery group (2026-11-16) - flagged .ignore faces whose
+  // classifier-ranked next-best guess (poss_ident2) is this person (see
+  // django_picasa's PersonParamView's face_ignore_review branch). Shares
+  // the same "Confirm from" media filter as face_poss (per the user's own
+  // call), restarted from page 1 the same way on a filter change - see
+  // setMediaFilter. No sort-order toggle of its own; the backend always
+  // ranks by weight_2 descending (strongest guess first).
+  _startIgnoreReviewIdsFetch(isInitialLoad, mediaFilterOverride){
+    const generation = ++this._ignoreReviewFetchGeneration
+    const debugTag = `[ImageScreen ${this.props.api_id}]`
+    const mediaFilter = mediaFilterOverride !== undefined ? mediaFilterOverride : this.props.possMediaFilter
+    const imagery_url = store.get('api_url') + '/paginate_obj_ids/' + this.props.api_id + '/face_ignore_review'
+    this._fetchPaginatedIds(imagery_url, {
+      media: mediaFilter,
+    }, () => this._ignoreReviewFetchGeneration, generation, 1,
+      (pageData, isFirstPage) => {
+        this.setState(prevState => ({
+          ignore_review_ids: isFirstPage ? pageData.id_list : [...prevState.ignore_review_ids, ...pageData.id_list],
+        }))
+        this.mergeVideoFaceIds(pageData.video_face_ids)
+        if (isFirstPage && isInitialLoad){
+          this.setState({loading_ignore_review: false})
+          if (!this.state.loading_definite && !this.state.loading_poss){
+            this.setState({loading: false})
+          }
+        }
+      },
+      (e, isFirstPage) => {
+        console.error(debugTag, `GET (ignore review) FAILED${isFirstPage ? ' - loading state will stay stuck without this' : ' (background page - already-shown results are unaffected)'}`, e)
+        if (isFirstPage && isInitialLoad){
+          this.setState({loading_ignore_review: false, loading: false})
         }
       }
     )
@@ -313,6 +384,8 @@ class ImageScreen extends React.Component{
     this.props.onSetMediaFilter(mediaFilter)
     this.setState({ possible_ids: [] },
       () => this._startPossibleIdsFetch(false, mediaFilter))
+    this.setState({ ignore_review_ids: [] },
+      () => this._startIgnoreReviewIdsFetch(false, mediaFilter))
   }
 
   // Walks a paginate_obj_ids endpoint (django_picasa's PersonParamView)
@@ -468,7 +541,6 @@ class ImageScreen extends React.Component{
     this.setState(prevState => ({ groupByCluster: !prevState.groupByCluster }))
   }
 
-
   buildScreen() {
     // The header (highlight image + name + "further images unlikely"
     // checkbox) only depends on the selected person, not on whether the
@@ -515,6 +587,7 @@ class ImageScreen extends React.Component{
                     ref={this.props.galleryRef}
                     tab={this.props.tab}
                     poss_ids = {this.state.possible_ids}
+                    ignore_review_ids={this.props.showIgnoreReview ? this.state.ignore_review_ids : EMPTY_IGNORE_REVIEW_IDS}
                     img_ids={folderImgIds}
                     people={this.props.people}
                     unassigned_person_id={this.props.unassigned_person_id}
@@ -655,6 +728,22 @@ class ImageScreen extends React.Component{
               </input>
               &nbsp;
               Group by cluster
+            </label>
+          )}
+          {this.props.tab === 'People' && !this.props.only_unverified && this.state.ignore_review_ids.length > 0 && (
+            // Lets the user hide the "ignore review" section (flagged
+            // .ignore faces whose next-best guess is this person -
+            // gallery.jsx's divider) without losing the underlying fetch -
+            // see buildScreen's ignore_review_ids prop pass below. Only
+            // shown when there's actually something to toggle, same
+            // declutter reasoning as this file's other conditional rows.
+            <label className='groupByClusterToggle'>
+              <input type="checkbox"
+                  checked={this.props.showIgnoreReview}
+                  onChange={this.props.onToggleShowIgnoreReview}>
+              </input>
+              &nbsp;
+              Show ignore review ({this.state.ignore_review_ids.length})
             </label>
           )}
 

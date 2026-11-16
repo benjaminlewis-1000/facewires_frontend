@@ -344,6 +344,22 @@ class PicasaScreen extends React.Component{
       // split regardless of who's selected).
       possMediaFilter: 'all',
 
+      // "Show ignore review" toggle (2026-11-16) - whether the per-person
+      // "ignore review" gallery group (flagged .ignore faces' next-best
+      // guesses) is shown. Lifted up here, same reasoning as
+      // possMediaFilter just above: PersonSidebar needs to read it too
+      // (to hide the "| N" ignore-review count from a row's label, and to
+      // stop a zero-proposed person from being kept visible purely by an
+      // ignore-review count, when the toggle is off), and it previously
+      // lived only in ImageScreen's own state, which doesn't actually
+      // survive a tab switch (a different conditional JSX branch in
+      // render() below, so React unmounts/remounts ImageScreen rather
+      // than reusing the instance) despite a comment there claiming
+      // otherwise - a real session-level preference belongs up here,
+      // not in a component that comes and goes. Not reset anywhere, same
+      // as possMediaFilter being left alone across person switches.
+      showIgnoreReview: true,
+
       // In-flight/completed upload jobs (Tools tab's "Upload Photos" -
       // see uploadActions.js for the underlying API calls). Lives here
       // rather than in the Upload tool's own component state so an
@@ -484,6 +500,7 @@ class PicasaScreen extends React.Component{
     this.galleryRef = React.createRef()
 
     this.setPossMediaFilter = this.setPossMediaFilter.bind(this)
+    this.toggleShowIgnoreReview = this.toggleShowIgnoreReview.bind(this)
 
     this.startUpload = this.startUpload.bind(this)
     this.retryUpload = this.retryUpload.bind(this)
@@ -1096,7 +1113,7 @@ class PicasaScreen extends React.Component{
         if (!delta) return person
 
         const updated = { ...person }
-        for (const field of ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_video', 'num_review_flagged_image', 'num_review_flagged_unverified', 'num_review_flagged_no_proposal']){
+        for (const field of ['num_faces', 'num_possibilities', 'num_possibilities_video', 'num_possibilities_image', 'num_unverified_faces', 'num_review_flagged', 'num_review_flagged_video', 'num_review_flagged_image', 'num_review_flagged_unverified', 'num_review_flagged_no_proposal', 'num_ignore_review', 'num_ignore_review_video', 'num_ignore_review_image']){
           if (delta[field]){
             updated[field] = Math.max(0, (updated[field] || 0) + delta[field])
           }
@@ -1302,6 +1319,11 @@ class PicasaScreen extends React.Component{
   // from" option.
   setPossMediaFilter(mediaFilter){
     this.setState({ possMediaFilter: mediaFilter })
+  }
+
+  // Called by ImageScreen's "Show ignore review" checkbox.
+  toggleShowIgnoreReview(){
+    this.setState(prevState => ({ showIgnoreReview: !prevState.showIgnoreReview }))
   }
 
   // Fires the actual reversing (or, for redo, re-applying) API call(s) for
@@ -1795,7 +1817,7 @@ class PicasaScreen extends React.Component{
     if ( this.state.tab === "People" ){
       return (
       <div>
-        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly} onSelectReviewFlaggedUnverified={this.selectReviewFlaggedUnverified} possMediaFilter={this.state.possMediaFilter} reviewFlaggedNoProposalOnly={this.state.reviewFlaggedNoProposalOnly} onSelectReviewFlaggedNoProposal={this.selectReviewFlaggedNoProposal} />
+        <PersonSidebar people={this.state.people} setSource={this.setApiUrl} unlabeled={this.state.unlabeled_toggle} only_unverified={this.state.only_unverified_toggle} onRenamePerson={this.openRenameModal} onMergePerson={this.openMergeModal} reviewFlaggedOnly={this.state.reviewFlaggedOnly} onSelectReviewFlagged={this.selectReviewFlagged} reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly} onSelectReviewFlaggedUnverified={this.selectReviewFlaggedUnverified} possMediaFilter={this.state.possMediaFilter} reviewFlaggedNoProposalOnly={this.state.reviewFlaggedNoProposalOnly} onSelectReviewFlaggedNoProposal={this.selectReviewFlaggedNoProposal} showIgnoreReview={this.state.showIgnoreReview} />
         <ImageScreen
           tab={this.state.tab}
           api_source={this.state.api_source}
@@ -1817,6 +1839,8 @@ class PicasaScreen extends React.Component{
           reviewFlaggedOnly={this.state.reviewFlaggedOnly}
           reviewFlaggedUnverifiedOnly={this.state.reviewFlaggedUnverifiedOnly}
           reviewFlaggedNoProposalOnly={this.state.reviewFlaggedNoProposalOnly}
+          showIgnoreReview={this.state.showIgnoreReview}
+          onToggleShowIgnoreReview={this.toggleShowIgnoreReview}
         />
       </div>
       );

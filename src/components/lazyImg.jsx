@@ -129,8 +129,20 @@ class LazyImage extends React.PureComponent {
       onApiError={this.handleMutableSelectError}
     />;
       
+    // "Ignore review" tiles (2026-11-16) - a flagged .ignore face's
+    // classifier-ranked next-best guess (poss_ident2), surfaced below a
+    // divider in this person's own gallery. Visually distinguished from a
+    // confident match (dashed border + subtle hatched background, see
+    // image_tile.css) rather than looking identical to an ordinary
+    // proposed candidate, even though the confirm/reject actions below
+    // behave the same way. Keyed off props.type (not state.type), which
+    // tracks the original fetched type even mid-reassignment.
+    const tileClassName = (this.props.hidden || this.state.ignored)
+      ? 'hidden_img'
+      : 'imgDiv' + (this.props.type === 'ignore_review' ? ' imgDivIgnoreReview' : '')
+
     return (
-      <div className={(this.props.hidden || this.state.ignored) ? 'hidden_img' : 'imgDiv'}>
+      <div className={tileClassName}>
         <LazyImageContextWrapper
           menuId={menuId}
           disabled={this.props.isFolderTile}
@@ -203,6 +215,17 @@ class LazyImage extends React.PureComponent {
                         >
                         &#10003;
                         </button>,
+            // "Ignore review" tiles (2026-11-16) - confirming here declares
+            // the face to this.props.current_person_id exactly the same way
+            // a normal proposed-candidate confirm does (runBulkOperation
+            // always targets current_person_id - see gallery.jsx); the only
+            // difference is which poss_identN slot matched, which the
+            // backend/buildCountDeltas already handle generically.
+            'ignore_review': <button className={this.props.hidden ? 'hidden_img' : 'yes'}
+                        onClick={ (e) => {this.props.api_action('confirm_proposed', this.props.face_id) } }
+                        >
+                        &#10003;
+                        </button>,
             'unassigned_tab': mutable_select,
           }[this.state.type]
         }
@@ -237,6 +260,16 @@ class LazyImage extends React.PureComponent {
                     </button>
           ) : {
             'proposed': <button className={this.props.hidden ? 'hidden_img' : 'no'}
+                        onClick={ (e)=>{this.props.api_action('close_assigned', this.props.face_id) } }
+                        >
+                        x
+                        </button>,
+            // "Ignore review" tiles (2026-11-16) - declining just removes
+            // this person as a candidate for this face (reject_association,
+            // same as a normal decline); the face stays flagged on .ignore,
+            // promoting whatever was poss_ident3 up to poss_ident2 - see
+            // buildCountDeltas' ignore_review handling for the count side.
+            'ignore_review': <button className={this.props.hidden ? 'hidden_img' : 'no'}
                         onClick={ (e)=>{this.props.api_action('close_assigned', this.props.face_id) } }
                         >
                         x

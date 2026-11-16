@@ -82,10 +82,30 @@ function ClusterTile({ url, count, onClick }){
   )
 }
 
+// Row height for react-window's List (see Gallery.render) - a divider
+// row is short and fixed-height, every other row is a full tile row.
+const IGNORE_REVIEW_DIVIDER_ROW_HEIGHT = 36
+
+function isDividerRow(row){
+  return row.length === 1 && row[0][2] === 'divider'
+}
+
 function GalleryRow({ index, style, ariaAttributes, rows, columnCount, tileSize, rowButtonWidth,
   rowButtonMode, rowButtonLabel, handleRowAction, imgsSelected, apiUrl, accessKey, imageKeyedType,
   editingFaceId, onEditComplete, clusterSizeByFace, onExpandCluster, ...tileProps }){
   const row = rows[index] || []
+
+  // "Ignore review" section divider (2026-11-16) - a plain labeled bar,
+  // no tiles/row button of its own. See computeVisibleRows for how this
+  // sentinel row gets inserted.
+  if (isDividerRow(row)){
+    return (
+      <div className='galleryIgnoreReviewDivider' style={style} {...ariaAttributes}>
+        <span className='galleryIgnoreReviewDividerLabel'>Ignore review — possible match</span>
+      </div>
+    )
+  }
+
   const lastItem = row[row.length - 1]
 
   const gridTemplateColumns = rowButtonMode
@@ -314,8 +334,15 @@ class Gallery extends React.Component{
   // its own `!this.state.loading` render gate - so this mostly won't fire,
   // but is cheap and correct to keep as a defensive fallback).
   buildItems(){
-    const combined_list = this.props.img_ids.concat(this.props.poss_ids)
+    // ignore_review_ids (2026-11-16) - a third group, appended after the
+    // normal defined/proposed faces: flagged .ignore faces whose
+    // classifier-ranked next-best guess (poss_ident2) is this person. See
+    // computeVisibleRows for how these get a divider and their own rows
+    // instead of packing into the main grid.
+    const ignoreReviewIds = this.props.ignore_review_ids || []
+    const combined_list = this.props.img_ids.concat(this.props.poss_ids).concat(ignoreReviewIds)
     const imgs_len = this.props.img_ids.length
+    const possEnd = imgs_len + this.props.poss_ids.length
     const items = []
     const typeById = {}
 
@@ -323,9 +350,17 @@ class Gallery extends React.Component{
       const value = combined_list[j]
       let type
       if (this.props.current_person_id === this.props.unassigned_person_id){
+        // Unassigned itself should never actually have ignore_review
+        // entries (poss_ident2 is always a real candidate person, never
+        // the Unassigned sentinel) - this override already forces every
+        // tile to this one type regardless of group, kept as-is.
         type = 'unassigned_tab'
+      } else if (j < imgs_len) {
+        type = 'defined'
+      } else if (j < possEnd) {
+        type = 'proposed'
       } else {
-        type = j < imgs_len ? 'defined' : 'proposed'
+        type = 'ignore_review'
       }
       items.push([j, value, type])
       typeById[value] = type
@@ -774,6 +809,7 @@ class Gallery extends React.Component{
   componentDidUpdate(prevProps, prevState, snapshot){
     if (prevProps.img_ids !== this.props.img_ids ||
         prevProps.poss_ids !== this.props.poss_ids ||
+        prevProps.ignore_review_ids !== this.props.ignore_review_ids ||
         prevProps.current_person_id !== this.props.current_person_id){
       this.buildItems()
       this.setState(prevState => ({ itemsVersion: prevState.itemsVersion + 1 }))
@@ -839,7 +875,11 @@ class Gallery extends React.Component{
   singleClick(event, face_id, index){
     console.log(face_id)
 
-    var idxToIdMap = this.props.img_ids.concat(this.props.poss_ids)
+    // Must match buildItems' combined_list ordering exactly (img_ids +
+    // poss_ids + ignore_review_ids) - shift-click range-select indexes
+    // into this by the same `index` itemsRef assigns, so a tile in the
+    // ignore-review section would resolve to undefined here otherwise.
+    var idxToIdMap = this.props.img_ids.concat(this.props.poss_ids).concat(this.props.ignore_review_ids || [])
 
     var indexIfInList = this.state.imgsSelected.indexOf(face_id)
     // console.log(indexIfInList)
@@ -943,12 +983,23 @@ class Gallery extends React.Component{
 
     let definedCount = 0
     let proposedCount = 0
+    let ignoreReviewCount = 0
     faceIds.forEach(id => {
       if (this._typeById[id] === 'defined') definedCount++
       else if (this._typeById[id] === 'proposed') proposedCount++
+      else if (this._typeById[id] === 'ignore_review') ignoreReviewCount++
     })
     const n = faceIds.length
     const proposedFaceIds = faceIds.filter(id => this._typeById[id] === 'proposed')
+    // "Ignore review" tiles (2026-11-16) - a flagged .ignore face's
+    // classifier-ranked next-best guess (poss_ident2), surfaced in this
+    // person's own gallery below a divider. Structurally these ARE
+    // .ignore's poss_ident1 candidates (same underlying rows as .ignore's
+    // own "Flagged for review" queue - mobile_review_hidden=True,
+    // declared_name still Unassigned) - just keyed by a different slot,
+    // so wherever the existing logic below reasons about a 'proposed'
+    // .ignore candidate's counts, the same reasoning applies here too.
+    const ignoreReviewFaceIds = faceIds.filter(id => this._typeById[id] === 'ignore_review')
 
     // Splits a set of face ids into {video, image} counts, using the
     // same this._videoFaceIdSet the modal's fast/accurate two-stage load
@@ -975,27 +1026,50 @@ class Gallery extends React.Component{
 
     switch (action_type){
       case 'confirm_proposed': {
-        // Guaranteed all-proposed (see the comment just below), so the
-        // split of the whole faceIds list is exactly the split needed
-        // for both deltas here.
-        const { video, image } = splitVideoImage(faceIds)
-        addDelta(current_person_id, {
-          num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image,
-          num_faces: n, num_unverified_faces: n,
-        })
-        // Same reasoning as close_assigned/close_unassigned's Unassigned
-        // deltas elsewhere in this switch: confirm_proposed only ever
-        // fires on 'proposed' tiles (see lazyImg.jsx - the checkmark
-        // button only renders for that type), which still have
-        // declared_name === Unassigned right up until associate_person()
-        // moves them (api/views.py's bulk_thread). They were already
-        // sitting in Unassigned's num_possibilities before this action,
-        // so confirming them needs to debit Unassigned too - missing
-        // this meant confirming a proposed candidate correctly grew the
-        // target person's count but left Unassigned's sidebar number
-        // stale (reported for the .ignore person specifically, but this
-        // applied to confirming a candidate for any person).
-        addDelta(unassigned_person_id, { num_possibilities: -n, num_possibilities_video: -video, num_possibilities_image: -image })
+        // Split out ignore_review tiles - they were never counted in
+        // current_person_id's num_possibilities (that's num_ignore_review
+        // instead), so crediting num_possibilities for them here would be
+        // wrong even though the end result (declared, same current_person_id)
+        // looks identical to an ordinary confirm.
+        const normalIds = faceIds.filter(id => this._typeById[id] !== 'ignore_review')
+        if (normalIds.length){
+          const { video, image } = splitVideoImage(normalIds)
+          addDelta(current_person_id, {
+            num_possibilities: -normalIds.length, num_possibilities_video: -video, num_possibilities_image: -image,
+            num_faces: normalIds.length, num_unverified_faces: normalIds.length,
+          })
+          // Same reasoning as close_assigned/close_unassigned's Unassigned
+          // deltas elsewhere in this switch: a normal confirm only ever
+          // fires on 'proposed' tiles (see lazyImg.jsx - the checkmark
+          // button only renders for that type), which still have
+          // declared_name === Unassigned right up until associate_person()
+          // moves them (api/views.py's bulk_thread). They were already
+          // sitting in Unassigned's num_possibilities before this action,
+          // so confirming them needs to debit Unassigned too - missing
+          // this meant confirming a proposed candidate correctly grew the
+          // target person's count but left Unassigned's sidebar number
+          // stale (reported for the .ignore person specifically, but this
+          // applied to confirming a candidate for any person).
+          addDelta(unassigned_person_id, { num_possibilities: -normalIds.length, num_possibilities_video: -video, num_possibilities_image: -image })
+        }
+        if (ignoreReviewCount){
+          const { video, image } = splitVideoImage(ignoreReviewFaceIds)
+          addDelta(current_person_id, {
+            num_ignore_review: -ignoreReviewCount, num_ignore_review_video: -video, num_ignore_review_image: -image,
+            num_faces: ignoreReviewCount, num_unverified_faces: ignoreReviewCount,
+          })
+          // Same declared_name===Unassigned reasoning as above - still
+          // debit Unassigned's blanket count. And this face was a
+          // candidate in .ignore's own "Flagged for review" pool too
+          // (same underlying row, poss_ident1=.ignore, mobile_review_hidden
+          // =True) - now resolved elsewhere, so it leaves that pool.
+          // Unlike confirming a flagged candidate TO .ignore itself
+          // (reviewFlaggedOnly's own block below), this does NOT become
+          // part of .ignore's "Flagged & unverified" row - the face was
+          // just declared to a different person entirely.
+          addDelta(unassigned_person_id, { num_possibilities: -ignoreReviewCount, num_possibilities_video: -video, num_possibilities_image: -image })
+          addDelta(ignore_person_id, { num_review_flagged: -ignoreReviewCount, num_review_flagged_video: -video, num_review_flagged_image: -image })
+        }
         break
       }
       case 'close_assigned': {
@@ -1014,6 +1088,17 @@ class Gallery extends React.Component{
           const { video, image } = splitVideoImage(proposedFaceIds)
           addDelta(current_person_id, { num_possibilities: -proposedCount, num_possibilities_video: -video, num_possibilities_image: -image })
         }
+        if (ignoreReviewCount) {
+          // Declining a next-best guess doesn't remove the face from
+          // .ignore's flagged pool at all - the backend just stops
+          // suggesting THIS person (promoting poss_ident3 up to
+          // poss_ident2 etc.), so only this person's own num_ignore_review
+          // count changes. .ignore's num_review_flagged and Unassigned's
+          // num_possibilities are both untouched - the face was already
+          // counted there before this action and still is after it.
+          const { video, image } = splitVideoImage(ignoreReviewFaceIds)
+          addDelta(current_person_id, { num_ignore_review: -ignoreReviewCount, num_ignore_review_video: -video, num_ignore_review_image: -image })
+        }
         // Faces actually moved into Unassigned here (the 'defined'
         // sub-case - associate_person(blank_person.id) on the backend,
         // when the face was declared to current_person_id) really do land
@@ -1027,10 +1112,13 @@ class Gallery extends React.Component{
         // for any other (real) person - this delta was written for that
         // case, where the face becoming visible in Unassigned's queue
         // *is* new, so only skip it specifically when current_person_id is
-        // .ignore.
+        // .ignore. 'ignore_review' tiles have the exact same already-
+        // Unassigned property (same underlying .ignore-candidate rows,
+        // just a different poss_identN slot) - always excluded here too,
+        // regardless of current_person_id.
         const newlyUnassignedIds = current_person_id === ignore_person_id
           ? faceIds.filter(id => this._typeById[id] === 'defined')
-          : faceIds
+          : faceIds.filter(id => this._typeById[id] !== 'ignore_review')
         const newlyUnassignedCount = newlyUnassignedIds.length
         const { video: uVideo, image: uImage } = splitVideoImage(newlyUnassignedIds)
         addDelta(unassigned_person_id, { num_possibilities: newlyUnassignedCount, num_possibilities_video: uVideo, num_possibilities_image: uImage })
@@ -1066,6 +1154,25 @@ class Gallery extends React.Component{
             // debited the specific person's count but silently left
             // Unassigned's sidebar number stale.
             addDelta(unassigned_person_id, { num_possibilities: -proposedCount, num_possibilities_video: -video, num_possibilities_image: -image })
+          }
+          if (ignoreReviewCount) {
+            // "Send to ignore" on an "ignore review" tile declares the
+            // face to .ignore outright - it leaves this person's own
+            // num_ignore_review pool, .ignore's "Flagged for review" pool
+            // (no longer just a flagged candidate - now actually declared
+            // there, see num_faces credit below), AND - unlike
+            // confirm_proposed/close_assigned above - Unassigned's
+            // blanket count too: declaring the face to .ignore actually
+            // changes declared_name away from Unassigned, which neither
+            // of those two other actions do. Missed this the first time
+            // (reasoned "no Unassigned delta either way," which only
+            // holds for close_assigned/confirm_proposed's own
+            // already-counted cases) - caught 2026-11-16 when the
+            // sidebar's Unassigned count wasn't moving on Q.
+            const { video, image } = splitVideoImage(ignoreReviewFaceIds)
+            addDelta(current_person_id, { num_ignore_review: -ignoreReviewCount, num_ignore_review_video: -video, num_ignore_review_image: -image })
+            addDelta(ignore_person_id, { num_review_flagged: -ignoreReviewCount, num_review_flagged_video: -video, num_review_flagged_image: -image })
+            addDelta(unassigned_person_id, { num_possibilities: -ignoreReviewCount, num_possibilities_video: -video, num_possibilities_image: -image })
           }
         }
         addDelta(ignore_person_id, { num_faces: n })
@@ -1337,9 +1444,26 @@ class Gallery extends React.Component{
 
     const hiddenSet = new Set(hidden)
     const visible = items.filter(([, id]) => !hiddenSet.has(id))
+
+    // "Ignore review" tiles (2026-11-16) get their own rows, started
+    // fresh rather than packed into a half-filled row alongside the main
+    // defined/proposed group, with a solid divider row between the two -
+    // a clean section break rather than a divider slicing through a row
+    // of mixed types. itemsRef is already ordered main-group-then-
+    // ignore_review (see buildItems), so a single split point is enough.
+    const dividerIndex = visible.findIndex(([, , type]) => type === 'ignore_review')
+    const mainVisible = dividerIndex === -1 ? visible : visible.slice(0, dividerIndex)
+    const ignoreReviewVisible = dividerIndex === -1 ? [] : visible.slice(dividerIndex)
+
     const rows = []
-    for (let i = 0; i < visible.length; i += columns){
-      rows.push(visible.slice(i, i + columns))
+    for (let i = 0; i < mainVisible.length; i += columns){
+      rows.push(mainVisible.slice(i, i + columns))
+    }
+    if (ignoreReviewVisible.length > 0){
+      rows.push([[-1, '__ignore_review_divider__', 'divider']])
+      for (let i = 0; i < ignoreReviewVisible.length; i += columns){
+        rows.push(ignoreReviewVisible.slice(i, i + columns))
+      }
     }
     this._visibleCache = { items, hidden, columns, visible, rows }
     return { visible, rows }
@@ -1349,19 +1473,35 @@ class Gallery extends React.Component{
   // or 'verify' (unverified-faces gallery - bulk verify_face). Both are
   // wired to the real API via runBulkOperation.
   handleRowAction(mode, rowEndFaceId){
-    const { visible } = this.computeVisibleRows()
+    const { visible, rows } = this.computeVisibleRows()
     const uptoIndex = visible.findIndex(([, id]) => id === rowEndFaceId)
     if (uptoIndex === -1) return
 
-    // 'confirm' targets the row's still-proposed (checkmark/x) faces -
-    // 'defined' ones aren't proposals, nothing to confirm. 'verify'
-    // targets its 'defined' faces - only_unverified already scopes the
-    // fetched 'defined' faces server-side to unverified ones, so
-    // type === 'defined' here already means "needs verifying".
-    const relevantType = mode === 'confirm' ? 'proposed' : 'defined'
+    // The "ignore review" section (below its divider) is a separate pool
+    // of candidates for this person, not a continuation of the main
+    // proposed queue - a row button clicked down there must only sweep
+    // ignore_review tiles from the start of that section, not also pull
+    // in the unrelated main-queue 'proposed' tiles above the divider
+    // (per the user's own call, 2026-11-16). A row clicked in the main
+    // section behaves exactly as before (sectionStart stays 0).
+    const clickedType = this._typeById[rowEndFaceId]
+    const sectionStart = clickedType === 'ignore_review'
+      ? visible.findIndex(([, , type]) => type === 'ignore_review')
+      : 0
+
+    // 'confirm' targets the row's still-proposed (checkmark/x) faces,
+    // including 'ignore_review' ones - confirming either declares the
+    // face to this person the same way (see runBulkOperation), just
+    // sourced from a different poss_identN slot. 'defined' ones aren't
+    // proposals, nothing to confirm. 'verify' targets its 'defined'
+    // faces - only_unverified already scopes the fetched 'defined' faces
+    // server-side to unverified ones, so type === 'defined' here already
+    // means "needs verifying" (ignore_review tiles never appear on that
+    // screen - see ImageScreen's fetch gating).
+    const relevantTypes = mode === 'confirm' ? ['proposed', 'ignore_review'] : ['defined']
     const faceIds = visible
-      .slice(0, uptoIndex + 1)
-      .filter(([, , type]) => type === relevantType)
+      .slice(sectionStart, uptoIndex + 1)
+      .filter(([, , type]) => relevantTypes.includes(type))
       .map(([, id]) => id)
 
     if (faceIds.length === 0) return
@@ -1370,15 +1510,29 @@ class Gallery extends React.Component{
     this.runBulkOperation(action_type, faceIds)
 
     // Confirming/verifying "up to and including this row" hides everything
-    // from the top of the gallery through the clicked row - the images
-    // that used to be *below* it are now the new top of the list, but the
-    // scroll container's scrollTop doesn't change on its own, so without
-    // this the user would keep looking at whatever now happens to be at
-    // that same pixel offset (a jarring, unrelated set of faces) instead
-    // of picking up where they left off. Scroll back to row 0 so the
-    // newly-topmost (formerly-next) images are immediately visible.
+    // from the top of the SAME section through the clicked row - the
+    // images that used to be below it are now the new top of that
+    // section, but the scroll container's scrollTop doesn't change on
+    // its own, so without this the user would keep looking at whatever
+    // now happens to be at that same pixel offset (a jarring, unrelated
+    // set of faces) instead of picking up where they left off.
+    //
+    // A row clicked in the main section scrolls back to absolute row 0,
+    // same as before - everything from the very top through that row
+    // just got hidden. A row clicked in the ignore-review section only
+    // had THAT section's rows affected (per sectionStart's scoping
+    // above) - the main section above the divider is completely
+    // untouched, so jumping all the way to row 0 would scroll back up
+    // through all of it, which is more disorienting than helpful (per
+    // the user's own call, 2026-11-16). Scroll to the divider's row
+    // instead - the divider's own position never moves (nothing above
+    // it changed), and it's the new top of the shrunk ignore-review
+    // section once the confirmed rows are removed.
     if (this.listRef.current){
-      this.listRef.current.scrollToRow({ index: 0, align: 'start', behavior: 'auto' })
+      const scrollRowIndex = clickedType === 'ignore_review'
+        ? Math.max(rows.findIndex(isDividerRow), 0)
+        : 0
+      this.listRef.current.scrollToRow({ index: scrollRowIndex, align: 'start', behavior: 'auto' })
     }
   }
 
@@ -1982,7 +2136,9 @@ class Gallery extends React.Component{
             : 'calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - 13px)' }}
           rowComponent={GalleryRow}
           rowCount={rows.length}
-          rowHeight={this.tileSize}
+          // The "ignore review" divider row (see computeVisibleRows) is
+          // short/fixed-height - every other row is a full tile row.
+          rowHeight={(idx) => isDividerRow(rows[idx] || []) ? IGNORE_REVIEW_DIVIDER_ROW_HEIGHT : this.tileSize}
           rowProps={rowProps}
           onResize={this.handleListResize}
           overscanCount={3}

@@ -136,7 +136,20 @@ class PersonSidebar extends React.Component {
         // just part of the main count now, so no carve-out is needed there
         // any more.)
         const hasNoProposalRow = value.person_name === '.ignore' && (value.num_review_flagged_no_proposal || 0) > 0
-        if (mainCount === 0 && !(value.person_name === '.ignore' && flaggedCount > 0) && !hasNoProposalRow) return false
+        // "Ignore review" guesses (2026-11-16) - a person with no normal
+        // proposed candidates should still show up if a flagged .ignore
+        // face's next-best guess (poss_ident2) points at them. Applies to
+        // every person, unlike the .ignore-only carve-outs above. Forced
+        // to 0 while the "Show ignore review" toggle (picasaScreen.jsx)
+        // is off, per the user's explicit request - a person kept visible
+        // only by a count that's currently hidden from view everywhere
+        // else in the sidebar/gallery would be a confusing "(0)" row with
+        // no visible reason to be there.
+        const ignoreReviewCount = this.props.showIgnoreReview
+          ? filteredCount(value.num_ignore_review || 0, value.num_ignore_review_video, value.num_ignore_review_image, this.props.possMediaFilter)
+          : 0
+        if (mainCount === 0 && ignoreReviewCount === 0 &&
+            !(value.person_name === '.ignore' && flaggedCount > 0) && !hasNoProposalRow) return false
       }
       // .ignore's own num_unverified_faces already excludes flagged faces
       // (backend partition - see PersonListView) - without this carve-out,
@@ -239,12 +252,29 @@ class PersonSidebar extends React.Component {
       // list even before you've clicked into any one of them.
       const showMediaSplit = unlabeled && this.props.possMediaFilter && this.props.possMediaFilter !== 'all'
       let possibilityCount = value.num_possibilities
+      // Forced to 0 while "Show ignore review" is off (see passesFilter's
+      // own matching check above) - keeps the row's label plain instead
+      // of showing a "| N" count for a group that's currently hidden.
+      let ignoreReviewCount = this.props.showIgnoreReview ? (value.num_ignore_review || 0) : 0
       if (showMediaSplit){
         possibilityCount = this.props.possMediaFilter === 'video'
           ? (value.num_possibilities_video ?? value.num_possibilities)
           : (value.num_possibilities_image ?? value.num_possibilities)
+        if (this.props.showIgnoreReview){
+          ignoreReviewCount = this.props.possMediaFilter === 'video'
+            ? (value.num_ignore_review_video ?? ignoreReviewCount)
+            : (value.num_ignore_review_image ?? ignoreReviewCount)
+        }
       }
-      text = `${value.person_name}   (${possibilityCount})`
+      // "Ignore review" guesses (2026-11-16): a flagged .ignore face whose
+      // classifier-ranked next-best guess is this person, surfaced directly
+      // in their own gallery rather than .ignore's anonymous queue - see
+      // gallery.jsx's divider between the two groups. Only shown as a split
+      // when there's actually something to split, so most rows keep the
+      // plain single-number look they've always had.
+      text = ignoreReviewCount > 0
+        ? `${value.person_name}   (${possibilityCount} | ${ignoreReviewCount})`
+        : `${value.person_name}   (${possibilityCount})`
     }else if (unverified){
       text = `${value.person_name}   (${value.num_unverified_faces})`
     }else{
