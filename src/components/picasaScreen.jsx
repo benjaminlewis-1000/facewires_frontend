@@ -358,7 +358,10 @@ class PicasaScreen extends React.Component{
       // otherwise - a real session-level preference belongs up here,
       // not in a component that comes and goes. Not reset anywhere, same
       // as possMediaFilter being left alone across person switches.
-      showIgnoreReview: true,
+      // Defaults off per the user's own request (2026-11-17) - these
+      // guesses are useful to dig into but shouldn't be in front of
+      // every reviewer by default.
+      showIgnoreReview: false,
 
       // In-flight/completed upload jobs (Tools tab's "Upload Photos" -
       // see uploadActions.js for the underlying API calls). Lives here
