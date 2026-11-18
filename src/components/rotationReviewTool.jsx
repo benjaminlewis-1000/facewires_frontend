@@ -30,8 +30,19 @@ import '../css/rotationReview.css';
 // showing (and, on Confirm row, would commit) the image's true original
 // orientation; the reviewer only has to act - cycling the rotate arrows -
 // on the minority that a human eye can tell are genuinely rotated.
+// Floor on page size - also what the very first fetch uses, since
+// columnCount isn't known yet at that point (the grid, and therefore its
+// real measured width, doesn't exist until after that first fetch
+// resolves - see maybeObserveGrid's own comment).
 const PAGE_SIZE = 25
 const DEFAULT_COLUMN_COUNT = 4
+// How many full rows worth of tiles to keep buffered - pageSize() below
+// scales the actual fetch size to this many rows at the current
+// columnCount, so a wide screen with more columns per row doesn't end up
+// fetching the same flat 25-item page every time (just 2-3 rows' worth at
+// a high column count) and re-hitting the backend far more often than a
+// narrow screen would.
+const ROWS_TO_BUFFER = 6
 
 // proposed_rotation_degrees is a raw measured angle, not yet snapped - this
 // mirrors the snap-to-nearest-90 the backend itself applies when it renders
@@ -155,13 +166,42 @@ class RotationReviewTool extends React.Component {
 
   componentDidMount() {
     this.fetchInitial()
-    this.readSizeVars()
     this.resizeObserver = new ResizeObserver(this.handleResize)
-    if (this.gridWrapperRef.current) this.resizeObserver.observe(this.gridWrapperRef.current)
+    this.maybeObserveGrid()
+  }
+
+  componentDidUpdate() {
+    this.maybeObserveGrid()
   }
 
   componentWillUnmount() {
     if (this.resizeObserver) this.resizeObserver.disconnect()
+  }
+
+  // render() only puts the real grid wrapper <div> on the page once
+  // `loading` first clears (before that it shows the "Loading flagged
+  // images..." paragraph instead) - so gridWrapperRef.current is still
+  // null at the componentDidMount above, and attaching the observer there
+  // alone silently never attaches it at all. Re-checked on every update
+  // (cheap - a ref check and a boolean) until it succeeds once; that one
+  // observe() call is enough from then on, since ResizeObserver keeps
+  // watching the same element across re-renders as long as it isn't
+  // unmounted. This is the actual fix for columnCount being stuck at
+  // DEFAULT_COLUMN_COUNT regardless of real screen width (2026-11-18).
+  maybeObserveGrid() {
+    if (this._observingGrid || !this.gridWrapperRef.current) return
+    this._observingGrid = true
+    this.readSizeVars()
+    this.resizeObserver.observe(this.gridWrapperRef.current)
+  }
+
+  // Scales the fetch/buffer size to the CURRENT columnCount - see
+  // ROWS_TO_BUFFER's own comment. Floored at PAGE_SIZE rather than, say,
+  // columnCount*ROWS_TO_BUFFER alone, since columnCount is still the
+  // DEFAULT_COLUMN_COUNT guess the very first time this is called (before
+  // the grid has ever been measured - see maybeObserveGrid).
+  pageSize() {
+    return Math.max(PAGE_SIZE, this.state.columnCount * ROWS_TO_BUFFER)
   }
 
   // Single source of truth for tile sizing lives in rotationReview.css,
@@ -177,13 +217,31 @@ class RotationReviewTool extends React.Component {
   handleResize(entries) {
     if (!this.tileWidth) this.readSizeVars()
     const width = entries[0].contentRect.width
+    // A width of 0 is never a real "fit 1 column" signal - it only ever
+    // means the observed element is momentarily unmeasured (e.g. the
+    // observer briefly watching a detached node right as the grid wrapper
+    // remounts - see maybeObserveGrid's own comment). Ignoring it instead
+    // of computing columns=1 from it is what keeps a real resize later
+    // from being needed to recover.
+    if (width <= 0) return
     const columns = Math.max(1, Math.floor((width - this.rowButtonWidth) / this.tileWidth))
-    if (columns !== this.state.columnCount) this.setState({ columnCount: columns })
+    if (columns === this.state.columnCount) return
+    this.setState({ columnCount: columns }, () => {
+      // The very first measurement (mount, or rotating/resizing a wide
+      // monitor) can reveal a much bigger pageSize() than the batch
+      // already loaded (fetchInitial had to guess DEFAULT_COLUMN_COUNT
+      // before any real width was known) - top up immediately rather than
+      // leaving the reviewer with only 1-2 rows until they confirm enough
+      // to trigger fetchMore some other way.
+      if (!this.state.loadingMore && this.state.rows.length < this.pageSize() && this.state.rows.length < this.state.count) {
+        this.fetchMore()
+      }
+    })
   }
 
   fetchInitial() {
     this.setState({ loading: true, loadError: null })
-    withRetry(() => axiosInstance.get(store.get('api_url') + `/rotation_review/?limit=${PAGE_SIZE}&offset=0`))
+    withRetry(() => axiosInstance.get(store.get('api_url') + `/rotation_review/?limit=${this.pageSize()}&offset=0`))
       .then(response => {
         const tileState = {}
         response.data.results.forEach(row => {
@@ -219,7 +277,7 @@ class RotationReviewTool extends React.Component {
     if (this.state.loadingMore || this.state.rows.length >= this.state.count) return
     this.setState({ loadingMore: true, loadMoreError: null })
     const offset = this.state.rows.length
-    axiosInstance.get(store.get('api_url') + `/rotation_review/?limit=${PAGE_SIZE}&offset=${offset}`)
+    axiosInstance.get(store.get('api_url') + `/rotation_review/?limit=${this.pageSize()}&offset=${offset}`)
       .then(response => {
         this.setState(prevState => {
           const tileState = { ...prevState.tileState }
@@ -359,6 +417,19 @@ class RotationReviewTool extends React.Component {
             count: Math.max(0, prevState.count - (confirmed + dismissed)),
             rowBusy,
             rowRejectReason,
+          }
+        }, () => {
+          // Resolving rows (confirm/dismiss) shrinks `rows` without ever
+          // touching scroll position - previously only handleScroll's
+          // near-bottom check topped the list back up, so dismissing/
+          // confirming repeatedly without scrolling (e.g. clicking Confirm
+          // row over and over on a short list) could drain `rows` to zero
+          // while `count` (the real backend backlog) was still nonzero.
+          // Top back up to a full page here too, same fetchMore call
+          // handleScroll already uses - so there's always something loaded
+          // to review as long as the queue itself isn't actually empty.
+          if (!this.state.loadingMore && this.state.rows.length < this.pageSize() && this.state.rows.length < this.state.count) {
+            this.fetchMore()
           }
         })
 
@@ -531,12 +602,25 @@ class RotationReviewTool extends React.Component {
 
         {this.state.submitError && <p className='rotationReviewRowError'>{this.state.submitError}</p>}
 
-        {rows.length === 0 ? (
+        {count === 0 ? (
           <p>Nothing left to review.</p>
         ) : (
+          // Kept mounted continuously whenever count > 0, even while
+          // rows.length is briefly 0 (the auto-top-up fetch from
+          // submitRows/handleResize is in flight) - this is the SAME DOM
+          // node the ResizeObserver is watching (see maybeObserveGrid),
+          // and unmounting/remounting it on every 0-rows dip used to leave
+          // the observer stuck watching a detached node that eventually
+          // reports a false width of 0, collapsing columnCount to 1
+          // forever (2026-11-18). Showing "Loading more..." INSIDE the
+          // still-mounted wrapper instead of swapping the wrapper itself
+          // out keeps the one real observed element stable for the life
+          // of the whole review session.
           <div className='rotationReviewGridWrapper' ref={this.gridWrapperRef} onScroll={this.handleScroll}>
-            {gridRows.map((gridRow, i) => this.renderGridRow(gridRow, i))}
-            {this.state.loadingMore && <p className='rotationReviewLoadingMore'>Loading more&hellip;</p>}
+            {rows.length === 0
+              ? <p className='rotationReviewLoadingMore'>Loading more&hellip;</p>
+              : gridRows.map((gridRow, i) => this.renderGridRow(gridRow, i))}
+            {this.state.loadingMore && rows.length > 0 && <p className='rotationReviewLoadingMore'>Loading more&hellip;</p>}
             {this.state.loadMoreError && <p className='rotationReviewRowError'>{this.state.loadMoreError}</p>}
           </div>
         )}
