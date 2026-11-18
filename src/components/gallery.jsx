@@ -1587,6 +1587,25 @@ class Gallery extends React.Component{
   // reasoning as fetchModalMeta's own generation counter - the user can
   // page through several faces (arrow keys) before an earlier accurate
   // fetch lands.
+  // Shared by loadModalImage's video fast->accurate swap and
+  // prefetchModalWindow's own _prefetchModalImage below - both are a
+  // background `new Image()` load whose only point is to warm the browser
+  // cache (or, here, detect onload) for a URL the real modal <img> will
+  // display moments later. Must share that <img>'s exact credentials mode
+  // (crossOrigin='use-credentials', see render) or the two land in
+  // different browser cache partitions and the background load's response
+  // is never actually reusable - found 2026-11-18 missing from both call
+  // sites, silently turning prefetching into a no-op (every "forward into
+  // new territory" page paid the full backend decode/resize cost anyway)
+  // and making this swap re-fetch the accurate frame a second time.
+  _loadCredentialedImage(src, onload){
+    const img = new Image()
+    img.crossOrigin = 'use-credentials'
+    if (onload) img.onload = onload
+    img.src = src
+    return img
+  }
+
   loadModalImage(id){
     const baseUrl = this.buildModalUrl(id)
     if (!this._videoFaceIdSet.has(id)){
@@ -1595,12 +1614,10 @@ class Gallery extends React.Component{
     }
     const generation = ++this._modalImageGeneration
     this.setState({ modalURL: baseUrl + '&fast=true' })
-    const accurateImg = new Image()
-    accurateImg.onload = () => {
+    this._loadCredentialedImage(baseUrl, () => {
       if (generation !== this._modalImageGeneration) return
       this.setState({ modalURL: baseUrl })
-    }
-    accurateImg.src = baseUrl
+    })
   }
 
   // The photo's capture date, shown under the modal image (see render) -
@@ -1701,19 +1718,28 @@ class Gallery extends React.Component{
   // Video faces (this._videoFaceIdSet) only get the accurate (non-&fast)
   // URL pre-fetched - the fast-frame-then-swap behavior in loadModalImage
   // is unaffected, this just warms the frame it eventually swaps to.
+  // Scans itemsRef from centerIndex in one direction (step +1 for ahead,
+  // -1 for behind), prefetching up to `limit` not-yet-cached, non-hidden
+  // faces - shared by prefetchModalWindow's ahead/behind passes below,
+  // which were previously two near-identical copies of this same loop
+  // (and the behind one, found 2026-11-18, was missing entirely despite
+  // being documented as existing).
+  _prefetchDirection(centerIndex, step, limit){
+    let found = 0
+    for (let idx = centerIndex + step; idx >= 0 && idx < this.itemsRef.length && found < limit; idx += step){
+      const [, faceId] = this.itemsRef[idx]
+      if (this.state.hidden.indexOf(faceId) !== -1) continue
+      found++
+      if (this._modalPrefetchCache.has(faceId)) continue
+      this._modalPrefetchCache.set(faceId, this._loadCredentialedImage(this.buildModalUrl(faceId)))
+    }
+  }
+
   prefetchModalWindow(centerIndex){
     if (centerIndex < 0) return
 
-    let aheadFound = 0
-    for (let idx = centerIndex + 1; idx < this.itemsRef.length && aheadFound < MODAL_PREFETCH_AHEAD; idx++){
-      const [, faceId] = this.itemsRef[idx]
-      if (this.state.hidden.indexOf(faceId) !== -1) continue
-      aheadFound++
-      if (this._modalPrefetchCache.has(faceId)) continue
-      const img = new Image()
-      img.src = this.buildModalUrl(faceId)
-      this._modalPrefetchCache.set(faceId, img)
-    }
+    this._prefetchDirection(centerIndex, 1, MODAL_PREFETCH_AHEAD)
+    this._prefetchDirection(centerIndex, -1, MODAL_PREFETCH_BEHIND)
 
     // Bounds cache growth as the user keeps paging forward, without ever
     // discarding something still ahead of them just because they stepped
