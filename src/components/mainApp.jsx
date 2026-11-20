@@ -167,7 +167,7 @@ const handleLogout = (history, reason) => () => {
     .finally(() => {
       // Without ?next=, Django falls back to LOGIN_REDIRECT_URL (the API
       // domain root) instead of sending the user back to the frontend.
-      const returnUrl = `${FRONTEND_URL}/faces`;
+      const returnUrl = `${FRONTEND_URL}/`;
       window.location.href = `${AUTHELIA_LOGIN_URL}?next=${encodeURIComponent(returnUrl)}`;
     });
 };

@@ -7,7 +7,6 @@ import '../css/login.css'
 import '../css/imageModal.css'
 import store from 'store';
 import { Helmet } from 'react-helmet';
-import { Redirect } from 'react-router-dom';
 
 import MenuExampleTabular from './tabular_menu'
 import { mapWithConcurrency } from './concurrencyPool';
@@ -581,8 +580,8 @@ class PicasaScreen extends React.Component{
     // Google Photos "Connect" flow (see CLAUDE.md) leaves the SPA entirely
     // for a real browser redirect chain out to Google and back - the
     // backend's OAuth callback lands back here as a full page load with
-    // ?google_photos_connected=1 or ?google_photos_error=... on /faces
-    // (same idea as the app's existing Authelia SSO redirect). Read it
+    // ?google_photos_connected=1 or ?google_photos_error=... on / (same
+    // idea as the app's existing Authelia SSO redirect). Read it
     // once here rather than in GooglePhotosTool itself, since the user
     // may well land back on a different tab than Tools - this banner
     // needs to be visible regardless of which tab is active. Cleaned up
@@ -946,7 +945,6 @@ class PicasaScreen extends React.Component{
     console.log("Logout")
     store.set('loggedIn', false);
     window.location = "/login"
-    return <Redirect to="/login" />;
   }
 
   tabSelectCallback = (childData) => {

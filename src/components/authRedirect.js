@@ -63,7 +63,7 @@ export function bounceToLogin(reason, detail){
   redirecting = true;
   console.log("Not logged in - bouncing to Authelia SSO pipeline");
   captureBounceDiagnostic(reason || 'unknown', detail);
-  const returnUrl = `${FRONTEND_URL}/faces`;
+  const returnUrl = `${FRONTEND_URL}/`;
   window.location.href = `${AUTHELIA_LOGIN_URL}?next=${encodeURIComponent(returnUrl)}`;
 }
 

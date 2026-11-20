@@ -10,9 +10,9 @@ import MainApp from "./components/mainApp";
 import { FRONTEND_URL, AUTHELIA_LOGIN_URL } from './config';
 
 const RedirectToSSO = () => {
-  const returnUrl = `${FRONTEND_URL}/faces`;
+  const returnUrl = `${FRONTEND_URL}/`;
   window.location.href = `${AUTHELIA_LOGIN_URL}?next=${encodeURIComponent(returnUrl)}`;
-  
+
   return <div style={{ padding: '20px', textAlign: 'center' }}>Redirecting to secure login...</div>;
 };
 
@@ -22,12 +22,9 @@ const App = () => {
       <div className="app-routes">
         <main>
           <Switch>
-            <Route exact path="/faces" component={MainApp} />
-            <Route exact path="/">
-              <Redirect to="/faces" />
-            </Route>
+            <Route exact path="/" component={MainApp} />
             <Route exact path="/login">
-              <Redirect to="/faces" />
+              <Redirect to="/" />
             </Route>
             <Route component={RedirectToSSO} />
           </Switch>
