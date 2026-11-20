@@ -29,6 +29,22 @@
   flex: 1;
   overflow-y: auto;
   max-height: calc(100vh - var(--screen-header-height) - var(--menu-bar-height) - 60px);
+  /* `scrollbar-gutter: stable` (tried first, 2026-11-20) only reserves
+     room for a classic, space-consuming scrollbar - it does nothing for
+     an overlay-style scrollbar (common on macOS/trackpad setups, some
+     mobile browsers), which draws ON TOP of the content box's own right
+     edge regardless of how much width that box has, rather than carving
+     its own space out of it. A fixed padding-right instead creates a
+     real empty strip no content ever renders into - handleResize's
+     ResizeObserver reads contentRect.width, which already excludes
+     padding by spec, so columnCount is computed against the narrower
+     usable width and the grid (including the pinned Confirm row button
+     in its last column) never extends into that strip for ANY scrollbar
+     style to sit on top of. 18px covers the widest classic scrollbars
+     seen in practice (Windows/Linux default themes run ~15-17px) with a
+     little margin, and costs nothing visually on a platform whose
+     scrollbar is either overlay or narrower than that. */
+  padding-right: 18px;
 }
 
 .rotationReviewGridRow{
