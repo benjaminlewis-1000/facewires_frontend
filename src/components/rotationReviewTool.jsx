@@ -5,9 +5,10 @@ import { withRetry } from './apiRetry';
 import '../css/rotationReview.css';
 
 // Backend: api/rotation_review/ (django_picasa) - images a landmark-geometry
-// audit flagged as possibly rotated. GET lists the FLAGGED backlog (stable
-// id-ordered paging, not an infinite feed - this is a finite queue a
-// reviewer works through to completion). Each row's preview_url is a
+// audit flagged as possibly rotated. GET lists the FLAGGED backlog, in a
+// per-session-stable shuffled order (see this.shuffleSeed below) rather than
+// id order - still a finite queue a reviewer works through to completion,
+// not an infinite feed, just not presented in id order. Each row's preview_url is a
 // complete, ready-to-use <img src> (its own access_key baked in, never
 // browser-cached - rendered live every request since the backend audit can
 // re-score a still-pending image) showing the real corrected result, not an
@@ -153,6 +154,13 @@ class RotationReviewTool extends React.Component {
       submitError: null,
     }
     this.gridWrapperRef = React.createRef()
+    // One shuffle seed per mount, sent on every fetch (initial and more) so
+    // the backend's per-id shuffle key stays fixed for the whole session -
+    // see rotation_review_views.py's RotationReviewListView docstring for
+    // why that's required for offset-based paging to stay correct as rows
+    // leave the FLAGGED queryset mid-session. A fresh seed next time this
+    // tool mounts gives a newly-shuffled order, which is the point.
+    this.shuffleSeed = Math.random().toString(36).slice(2)
     this.fetchInitial = this.fetchInitial.bind(this)
     this.fetchMore = this.fetchMore.bind(this)
     this.handleToggleDismissed = this.handleToggleDismissed.bind(this)
@@ -241,7 +249,7 @@ class RotationReviewTool extends React.Component {
 
   fetchInitial() {
     this.setState({ loading: true, loadError: null })
-    withRetry(() => axiosInstance.get(store.get('api_url') + `/rotation_review/?limit=${this.pageSize()}&offset=0`))
+    withRetry(() => axiosInstance.get(store.get('api_url') + `/rotation_review/?limit=${this.pageSize()}&offset=0&seed=${this.shuffleSeed}`))
       .then(response => {
         const tileState = {}
         response.data.results.forEach(row => {
@@ -277,7 +285,7 @@ class RotationReviewTool extends React.Component {
     if (this.state.loadingMore || this.state.rows.length >= this.state.count) return
     this.setState({ loadingMore: true, loadMoreError: null })
     const offset = this.state.rows.length
-    axiosInstance.get(store.get('api_url') + `/rotation_review/?limit=${this.pageSize()}&offset=${offset}`)
+    axiosInstance.get(store.get('api_url') + `/rotation_review/?limit=${this.pageSize()}&offset=${offset}&seed=${this.shuffleSeed}`)
       .then(response => {
         this.setState(prevState => {
           const tileState = { ...prevState.tileState }
