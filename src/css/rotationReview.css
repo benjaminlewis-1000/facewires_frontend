@@ -77,6 +77,15 @@
   box-shadow: inset 0 0 0 1px #197d9c;
 }
 
+/* Purely a "the Left/Right/A/D hotkeys are about to act on THIS tile"
+   indicator (see handleKeyDown) - separate outline color from
+   .rotationReviewTileFlagged so the two meanings (needs attention vs.
+   currently targeted by the keyboard) never get visually confused, since
+   a flagged tile can also be the hovered one at the same time. */
+.rotationReviewTileHovered{
+  box-shadow: inset 0 0 0 2px #e08a00;
+}
+
 .rotationReviewChipFlagged{
   color: #197d9c;
   font-weight: bold;
@@ -108,9 +117,11 @@
 }
 
 .rotationReviewRotateBtn{
-  font-size: 13px;
+  font-size: 20px;
   line-height: 1;
-  padding: 2px 6px;
+  padding: 6px 12px;
+  min-width: 36px;
+  min-height: 36px;
 }
 
 .rotationReviewChip{

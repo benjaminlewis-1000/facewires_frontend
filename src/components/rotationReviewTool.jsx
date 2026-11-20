@@ -152,6 +152,13 @@ class RotationReviewTool extends React.Component {
       columnCount: DEFAULT_COLUMN_COUNT,
       rowBusy: {},
       submitError: null,
+      // The tile the mouse is currently over - lets Left/Right (or A/D)
+      // rotate it without needing to land a click on the small arrow
+      // buttons themselves (2026-11-20, per explicit user request: the
+      // buttons are hard to hit precisely). Cleared on mouse-leave so a
+      // keypress with the cursor over empty space between tiles is a
+      // no-op rather than acting on whatever was last hovered.
+      hoveredTileId: null,
     }
     this.gridWrapperRef = React.createRef()
     // One shuffle seed per mount, sent on every fetch (initial and more) so
@@ -170,12 +177,14 @@ class RotationReviewTool extends React.Component {
     this.handleConfirmSingle = this.handleConfirmSingle.bind(this)
     this.handleResize = this.handleResize.bind(this)
     this.handleScroll = this.handleScroll.bind(this)
+    this.handleKeyDown = this.handleKeyDown.bind(this)
   }
 
   componentDidMount() {
     this.fetchInitial()
     this.resizeObserver = new ResizeObserver(this.handleResize)
     this.maybeObserveGrid()
+    document.addEventListener('keydown', this.handleKeyDown)
   }
 
   componentDidUpdate() {
@@ -184,6 +193,30 @@ class RotationReviewTool extends React.Component {
 
   componentWillUnmount() {
     if (this.resizeObserver) this.resizeObserver.disconnect()
+    document.removeEventListener('keydown', this.handleKeyDown)
+  }
+
+  // Left/A rotates the hovered tile the same way its own left arrow button
+  // would (handleCycleDirection(id, true)); Right/D the same as its right
+  // button (forward=false) - see handleCycleDirection's own comment for why
+  // "forward" isn't simply "visually clockwise". Mirrors each button's own
+  // disabled condition (dismissed or already mid-submit) rather than
+  // introducing a second guard that could drift out of sync with it.
+  handleKeyDown(event) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return
+    const id = this.state.hoveredTileId
+    if (id == null) return
+    const t = this.state.tileState[id]
+    if (!t || t.dismissed || this.state.rowBusy[id]) return
+
+    const key = event.key.toLowerCase()
+    if (key === 'arrowleft' || key === 'a') {
+      event.preventDefault()
+      this.handleCycleDirection(id, true)
+    } else if (key === 'arrowright' || key === 'd') {
+      event.preventDefault()
+      this.handleCycleDirection(id, false)
+    }
   }
 
   // render() only puts the real grid wrapper <div> on the page once
@@ -484,9 +517,15 @@ class RotationReviewTool extends React.Component {
     // "needs action" case worth drawing the eye to now, unlike before this
     // reversal when 'none' was the deliberate, worth-calling-out choice.
     const isCorrectionSelected = !t.dismissed && direction !== 'none'
+    const isHovered = this.state.hoveredTileId === row.id
 
     return (
-      <div className={'rotationReviewTile' + (t.dismissed ? ' rotationReviewTileDismissed' : '') + (busy ? ' rotationReviewTileBusy' : '') + (isCorrectionSelected ? ' rotationReviewTileFlagged' : '')} key={row.id}>
+      <div
+        className={'rotationReviewTile' + (t.dismissed ? ' rotationReviewTileDismissed' : '') + (busy ? ' rotationReviewTileBusy' : '') + (isCorrectionSelected ? ' rotationReviewTileFlagged' : '') + (isHovered ? ' rotationReviewTileHovered' : '')}
+        key={row.id}
+        onMouseEnter={() => this.setState({ hoveredTileId: row.id })}
+        onMouseLeave={() => this.setState(prev => prev.hoveredTileId === row.id ? { hoveredTileId: null } : null)}
+      >
         <div
           className='rotationReviewPreviewWrap'
           onDoubleClick={() => this.handleViewProposed(row)}
@@ -510,7 +549,7 @@ class RotationReviewTool extends React.Component {
           <button
             className='rotationReviewRotateBtn'
             disabled={t.dismissed || busy}
-            title='Rotate further counter-clockwise'
+            title='Rotate further counter-clockwise (Left/A while hovering this tile)'
             onClick={() => this.handleCycleDirection(row.id, true)}
           >&#8634;</button>
           <span className={'rotationReviewChip' + (isCorrectionSelected ? ' rotationReviewChipFlagged' : '')}>
@@ -519,7 +558,7 @@ class RotationReviewTool extends React.Component {
           <button
             className='rotationReviewRotateBtn'
             disabled={t.dismissed || busy}
-            title='Rotate further clockwise'
+            title='Rotate further clockwise (Right/D while hovering this tile)'
             onClick={() => this.handleCycleDirection(row.id, false)}
           >&#8635;</button>
         </div>
